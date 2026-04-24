@@ -1,0 +1,18 @@
+export const settingsIcons = {
+  pro: '⚡',
+  snooze: '⏰',
+  sound: '🎵',
+  vibration: '📳',
+  volume: '🔊',
+  theme: '🌙',
+  notifications: '🔔',
+  upcoming: '📅',
+  privacy: '📄',
+  feedback: '💬',
+  info: 'ℹ️',
+  chevron: '›',
+  alarms: '🏠',
+  history: '📅',
+  templates: '📦',
+  settings: '⚙️',
+} as const;
