@@ -6,6 +6,7 @@
   "build": {
     "development": {
       "developmentClient": true,
+<<<<<<< HEAD
       "distribution": "internal",
       "channel": "development"
     },
@@ -16,6 +17,15 @@
     "production": {
       "autoIncrement": true,
       "channel": "production"
+=======
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true
+>>>>>>> 924e18c0248aa8070984ad4f5fac46da55063be0
     }
   },
   "submit": {
