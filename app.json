@@ -55,6 +55,12 @@
         "projectId": "6aeb5bd1-d871-49bd-a14a-b6c6a8f0b6c9"
       }
     },
-    "owner": "blackcatkai"
+    "owner": "blackcatkai",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6aeb5bd1-d871-49bd-a14a-b6c6a8f0b6c9"
+    }
   }
 }
