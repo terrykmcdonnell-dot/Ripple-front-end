@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,8,24,0.85)',
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(124,106,240,0.2)',
+    borderColor: 'rgba(6,182,212,0.2)',
     padding: 14,
     marginBottom: 14,
   },
@@ -62,8 +62,8 @@ const styles = StyleSheet.create({
     color: alarmTheme.accentBright,
   },
   count: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
     fontFamily: 'monospace',
   },
   row: {
@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   next: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
     fontFamily: 'monospace',
   },
   time: {

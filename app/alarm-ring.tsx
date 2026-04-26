@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 32,
     paddingBottom: 40,
-    backgroundColor: 'rgba(124,106,240,0.08)',
+    backgroundColor: 'rgba(6,182,212,0.08)',
   },
   alarmLabel: {
     color: alarmTheme.muted,

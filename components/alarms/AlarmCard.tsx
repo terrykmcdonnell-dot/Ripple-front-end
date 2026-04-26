@@ -16,30 +16,22 @@ type AlarmCardProps = {
   onPress?: () => void;
 };
 
-const toneStyles: Record<AlarmTone, { stripe: string; iconBg: string; tagBg: string; tagColor: string }> = {
+const toneStyles: Record<AlarmTone, { stripe: string; iconBg: string }> = {
   purple: {
     stripe: alarmTheme.accent,
     iconBg: alarmTheme.accentDim,
-    tagBg: alarmTheme.accentDim,
-    tagColor: alarmTheme.accentBright,
   },
   green: {
     stripe: alarmTheme.green,
     iconBg: alarmTheme.greenDim,
-    tagBg: alarmTheme.greenDim,
-    tagColor: alarmTheme.green,
   },
   amber: {
     stripe: alarmTheme.amber,
     iconBg: alarmTheme.amberDim,
-    tagBg: alarmTheme.amberDim,
-    tagColor: alarmTheme.amber,
   },
   off: {
     stripe: alarmTheme.border,
     iconBg: alarmTheme.surface2,
-    tagBg: 'rgba(255,255,255,0.05)',
-    tagColor: alarmTheme.muted,
   },
 };
 
@@ -69,7 +61,7 @@ export function AlarmCard({
           <Text style={styles.ampm}>{ampm}</Text>
         </View>
         <Text style={styles.label}>{label}</Text>
-        <Text style={[styles.tag, { backgroundColor: toneStyle.tagBg, color: toneStyle.tagColor }]}>
+        <Text style={styles.tag}>
           {tagText}
         </Text>
       </View>
@@ -130,17 +122,21 @@ const styles = StyleSheet.create({
     color: alarmTheme.muted,
   },
   label: {
-    fontSize: 11,
+    fontSize: 12,
     color: alarmTheme.muted,
     marginBottom: 4,
   },
   tag: {
     alignSelf: 'flex-start',
-    fontSize: 9,
+    fontSize: 12,
+    color: '#d6def7',
     fontFamily: 'monospace',
     borderRadius: 8,
-    paddingVertical: 2,
-    paddingHorizontal: 7,
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: '#404040',
+    paddingVertical: 4,
+    paddingHorizontal: 9,
     overflow: 'hidden',
   },
 });

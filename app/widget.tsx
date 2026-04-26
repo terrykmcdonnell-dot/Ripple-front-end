@@ -10,7 +10,7 @@ import { WidgetSmallCard } from '@/components/widget/WidgetSmallCard';
 const mediumAlarms = [
   { emoji: widgetIcons.medication, name: 'Take Medication', next: 'Tomorrow · Every 3 days', time: '7:00' },
   { emoji: widgetIcons.plants, name: 'Water the Plants', next: 'Today · Every 2 days', time: '8:30', timeColor: alarmTheme.green },
-  { emoji: widgetIcons.meal, name: 'Meal Prep Day', next: 'In 3 days · Every 4 days', time: '7:00', timeColor: 'rgba(255,255,255,0.4)' },
+  { emoji: widgetIcons.meal, name: 'Meal Prep Day', next: 'In 3 days · Every 4 days', time: '7:00', timeColor: 'rgba(255,255,255,0.7)' },
 ];
 
 export default function WidgetScreen() {
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   sectionLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 12,
     fontFamily: 'monospace',
     letterSpacing: 1.1,
     textTransform: 'uppercase',
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   v2Badge: {
     backgroundColor: 'rgba(251,191,36,0.12)',
     color: '#fbbf24',
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'monospace',
     paddingHorizontal: 7,
     paddingVertical: 2,

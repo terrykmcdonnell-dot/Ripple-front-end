@@ -28,7 +28,7 @@ export default function SettingScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['rgba(124,106,240,0.2)', 'rgba(124,106,240,0.06)']}
+          colors={['rgba(6,182,212,0.2)', 'rgba(6,182,212,0.06)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.proBanner}>
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   proBanner: {
     borderWidth: 1,
-    borderColor: 'rgba(124,106,240,0.3)',
+    borderColor: 'rgba(6,182,212,0.3)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,

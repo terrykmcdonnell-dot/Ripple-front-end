@@ -51,7 +51,7 @@ export default function PaywallScreen() {
         <PricingToggle selected={plan} onSelect={setPlan} />
 
         <LinearGradient
-          colors={['#7c6af0', '#6f5de8']}
+          colors={['#06b6d4', '#0891b2']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.ctaBtn}>
@@ -96,8 +96,8 @@ const styles = StyleSheet.create({
     width: 300,
     height: 200,
     borderRadius: 150,
-    backgroundColor: 'rgba(124,106,240,0.18)',
-    shadowColor: '#7c6af0',
+    backgroundColor: 'rgba(6,182,212,0.18)',
+    shadowColor: '#06b6d4',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 50,
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     backgroundColor: alarmTheme.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7c6af0',
+    shadowColor: '#06b6d4',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.45,
     shadowRadius: 20,
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 10,
-    shadowColor: '#7c6af0',
+    shadowColor: '#06b6d4',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,

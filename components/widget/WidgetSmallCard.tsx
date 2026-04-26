@@ -68,12 +68,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,8,24,0.85)',
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(124,106,240,0.2)',
+    borderColor: 'rgba(6,182,212,0.2)',
     padding: 14,
   },
   header: {
     color: alarmTheme.accentBright,
-    fontSize: 9,
+    fontSize: 10,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     marginBottom: 8,
@@ -84,8 +84,8 @@ const styles = StyleSheet.create({
     textTransform: 'none',
   },
   nextLabel: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 10,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
     marginBottom: 3,
   },
   alarmName: {
@@ -104,8 +104,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   interval: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 9,
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: 10,
     fontFamily: 'monospace',
   },
   toggleRow: {
@@ -115,8 +115,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   onLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
     fontFamily: 'monospace',
   },
   toggle: {
@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   countLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.72)',
   },
   countTime: {
     fontSize: 16,

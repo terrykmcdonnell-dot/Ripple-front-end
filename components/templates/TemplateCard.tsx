@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   },
   defaultBtn: {
     backgroundColor: alarmTheme.accentDim,
-    borderColor: 'rgba(124,106,240,0.3)',
+    borderColor: 'rgba(6,182,212,0.3)',
   },
   greenBtn: {
     backgroundColor: 'rgba(52,211,153,0.12)',

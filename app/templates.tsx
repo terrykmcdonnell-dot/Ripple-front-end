@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   templateFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   alarmCount: { color: alarmTheme.muted, fontSize: 11, fontFamily: 'monospace' },
   installBtn: { borderWidth: 1, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 16 },
-  installBtnDefault: { backgroundColor: alarmTheme.accentDim, borderColor: 'rgba(124,106,240,0.3)' },
+  installBtnDefault: { backgroundColor: alarmTheme.accentDim, borderColor: 'rgba(6,182,212,0.3)' },
   installBtnGreen: { backgroundColor: 'rgba(52,211,153,0.12)', borderColor: 'rgba(52,211,153,0.3)' },
   installBtnInstalled: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: alarmTheme.border },
   installBtnText: { fontSize: 12, fontWeight: '600' },
