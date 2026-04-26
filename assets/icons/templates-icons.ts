@@ -1,0 +1,17 @@
+export const templatesIcons = {
+  search: '🔍',
+  plants: '🌱',
+  health: '💊',
+  home: '🔧',
+  pets: '🐾',
+  taPlant: '🌿',
+  taCactus: '🌵',
+  taPill: '💊',
+  taLotion: '🧴',
+  taInjection: '💉',
+  taCar: '🚗',
+  alarms: '🏠',
+  history: '📅',
+  templates: '📦',
+  settings: '⚙️',
+} as const;
