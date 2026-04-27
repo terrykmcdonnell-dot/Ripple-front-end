@@ -1,18 +1,49 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { signInIcons } from '@/assets/icons/signin-icons';
 import { alarmTheme } from '@/components/alarms/theme';
 import { SignInField } from '@/components/signin/SignInField';
 import { SocialAuthButton } from '@/components/signin/SocialAuthButton';
 
+WebBrowser.maybeCompleteAuthSession();
+
 export default function SignInScreen() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(true);
   const [email, setEmail] = useState('you@example.com');
   const [password, setPassword] = useState('password123');
+  const googleConfig = useMemo(() => {
+    return {
+      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    };
+  }, []);
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: googleConfig.androidClientId,
+    iosClientId: googleConfig.iosClientId,
+    webClientId: googleConfig.webClientId,
+  });
+
+  useEffect(() => {
+    if (response?.type !== 'success') {
+      return;
+    }
+
+    const accessToken = response.authentication?.accessToken;
+    if (!accessToken) {
+      Alert.alert('Google Sign-In', 'Signed in, but no access token was returned.');
+      return;
+    }
+
+    Alert.alert('Google Sign-In', 'Google authentication completed successfully.');
+  }, [response]);
 
   return (
     <View style={styles.screen}>
@@ -77,7 +108,27 @@ export default function SignInScreen() {
 
         <View style={styles.socialRow}>
           <SocialAuthButton icon={signInIcons.apple} label="Apple" />
-          <SocialAuthButton icon={signInIcons.google} label="Google" />
+          <SocialAuthButton
+            icon={signInIcons.google}
+            label="Google"
+            onPress={() => {
+              const activeClientId =
+                Platform.OS === 'web'
+                  ? googleConfig.webClientId
+                  : Platform.OS === 'ios'
+                    ? googleConfig.iosClientId
+                    : googleConfig.androidClientId;
+              if (!activeClientId) {
+                Alert.alert('Google Sign-In', `Google Client ID is missing for ${Platform.OS}.`);
+                return;
+              }
+              if (!request) {
+                Alert.alert('Google Sign-In', 'Google auth is still loading. Try again in a moment.');
+                return;
+              }
+              void promptAsync();
+            }}
+          />
         </View>
 
         <Text style={styles.footer}>

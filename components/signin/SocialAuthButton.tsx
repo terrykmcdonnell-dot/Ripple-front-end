@@ -5,11 +5,12 @@ import { alarmTheme } from '@/components/alarms/theme';
 type SocialAuthButtonProps = {
   icon: string;
   label: string;
+  onPress?: () => void;
 };
 
-export function SocialAuthButton({ icon, label }: SocialAuthButtonProps) {
+export function SocialAuthButton({ icon, label, onPress }: SocialAuthButtonProps) {
   return (
-    <Pressable style={styles.btn}>
+    <Pressable style={styles.btn} onPress={onPress}>
       <Text style={styles.icon}>{icon}</Text>
       <Text style={styles.label}>{label}</Text>
     </Pressable>
