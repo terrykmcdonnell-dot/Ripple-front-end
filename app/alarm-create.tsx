@@ -3,12 +3,14 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { createCategoryIcons, createSoundIcon } from '@/assets/icons/alarm-create-icons';
+import { AlarmTimePickRow } from '@/components/alarms-create/AlarmTimePickRow';
 import { SectionField } from '@/components/alarms-create/SectionField';
 import { IntervalControl } from '@/components/alarms-create/IntervalControl';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { SoundRow } from '@/components/alarms-create/SoundRow';
 import { alarmTheme } from '@/components/alarms/theme';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 const categories = [
@@ -23,7 +25,7 @@ const categories = [
 export default function AlarmCreateScreen() {
   useRequireAuth();
   const router = useRouter();
-  const [meridiem, setMeridiem] = useState<'AM' | 'PM'>('AM');
+  const [alarmTime, setAlarmTime] = useState(getSmartDefaultAlarmTime);
   const [label, setLabel] = useState('');
   const [interval, setInterval] = useState(3);
   const [unit, setUnit] = useState<(typeof units)[number]>('Days');
@@ -43,22 +45,7 @@ export default function AlarmCreateScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.timePicker}>
-        <Text style={styles.timeVal}>7</Text>
-        <Text style={styles.timeSep}>:</Text>
-        <Text style={styles.timeVal}>00</Text>
-        <View style={styles.ampmWrap}>
-          {(['AM', 'PM'] as const).map((item) => (
-            <SegmentButton
-              key={item}
-              label={item}
-              compact
-              active={meridiem === item}
-              onPress={() => setMeridiem(item)}
-            />
-          ))}
-        </View>
-      </View>
+      <AlarmTimePickRow value={alarmTime} onChange={setAlarmTime} />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionField label="Label">
@@ -152,37 +139,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '600',
-  },
-  timePicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingTop: 16,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: alarmTheme.border,
-    marginHorizontal: 20,
-    marginBottom: 16,
-  },
-  timeVal: {
-    color: alarmTheme.text,
-    fontSize: 52,
-    fontWeight: '800',
-    lineHeight: 52,
-    letterSpacing: -1.5,
-    paddingHorizontal: 6,
-  },
-  timeSep: {
-    color: alarmTheme.muted,
-    fontSize: 40,
-    fontWeight: '300',
-    lineHeight: 40,
-    paddingBottom: 4,
-  },
-  ampmWrap: {
-    gap: 4,
-    paddingBottom: 4,
   },
   scroll: {
     flex: 1,
