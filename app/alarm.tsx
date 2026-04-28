@@ -7,6 +7,7 @@ import { AlarmCard } from '@/components/alarms/AlarmCard';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { RichWordText } from '@/components/alarms/RichWordText';
 import { alarmTheme } from '@/components/alarms/theme';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 const initialAlarmRows = [
   { icon: alarmIcons.medication, time: '7:00', ampm: 'AM', label: 'Take Medication', tag: '↻ Every 3 days', active: true, tone: 'purple' as const },
@@ -17,6 +18,7 @@ const initialAlarmRows = [
 ];
 
 export default function AlarmScreen() {
+  useRequireAuth();
   const router = useRouter();
   const [alarmRows, setAlarmRows] = useState(initialAlarmRows);
 

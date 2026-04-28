@@ -1,49 +1,70 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { signInIcons } from '@/assets/icons/signin-icons';
 import { alarmTheme } from '@/components/alarms/theme';
 import { SignInField } from '@/components/signin/SignInField';
 import { SocialAuthButton } from '@/components/signin/SocialAuthButton';
-
-WebBrowser.maybeCompleteAuthSession();
+import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
+import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
+import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { isValidEmail, sanitizeEmailInput } from '@/lib/auth-validation';
+import { supabase } from '@/lib/supabase';
 
 export default function SignInScreen() {
+  useRedirectIfAuthenticated();
   const router = useRouter();
+  const { googleLoading, onGooglePress } = useGoogleAuthWithSupabase();
   const [showPassword, setShowPassword] = useState(true);
-  const [email, setEmail] = useState('you@example.com');
-  const [password, setPassword] = useState('password123');
-  const googleConfig = useMemo(() => {
-    return {
-      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    };
-  }, []);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [signInLoading, setSignInLoading] = useState(false);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: googleConfig.androidClientId,
-    iosClientId: googleConfig.iosClientId,
-    webClientId: googleConfig.webClientId,
-  });
-
-  useEffect(() => {
-    if (response?.type !== 'success') {
+  const onSignInPress = async () => {
+    const emailValue = email.trim().toLowerCase();
+    if (!emailValue || !password) {
+      notifyAuthMessage('Sign In', 'Enter both email and password.');
       return;
     }
-
-    const accessToken = response.authentication?.accessToken;
-    if (!accessToken) {
-      Alert.alert('Google Sign-In', 'Signed in, but no access token was returned.');
+    if (!isValidEmail(emailValue)) {
+      setEmailError('Enter a valid email address.');
+      notifyAuthMessage('Sign In', 'Enter a valid email address.');
       return;
     }
+    setEmailError('');
 
-    Alert.alert('Google Sign-In', 'Google authentication completed successfully.');
-  }, [response]);
+    setSignInLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailValue,
+      password,
+    });
+    setSignInLoading(false);
+
+    if (error) {
+      notifyAuthError('Sign In', error);
+      return;
+    }
+    router.replace('/alarm');
+  };
+
+  const onEmailChange = (text: string) => {
+    setEmail(sanitizeEmailInput(text));
+    if (emailError) {
+      setEmailError('');
+    }
+  };
+
+  const onEmailBlur = () => {
+    const v = email.trim().toLowerCase();
+    if (!v) {
+      setEmailError('');
+      return;
+    }
+    setEmailError(isValidEmail(v) ? '' : 'Enter a valid email address.');
+  };
 
   return (
     <View style={styles.screen}>
@@ -75,8 +96,10 @@ export default function SignInScreen() {
         <SignInField
           label="Email"
           value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
+          onChangeText={onEmailChange}
+          onBlur={onEmailBlur}
+          variant="email"
+          errorMessage={emailError}
           rightIcon={signInIcons.email}
           focused
         />
@@ -96,8 +119,8 @@ export default function SignInScreen() {
           </Pressable>
         </View>
 
-        <Pressable style={styles.ctaBtn}>
-          <Text style={styles.ctaText}>Sign In {signInIcons.arrow}</Text>
+        <Pressable style={styles.ctaBtn} onPress={() => void onSignInPress()}>
+          <Text style={styles.ctaText}>{signInLoading ? 'Signing in...' : `Sign In ${signInIcons.arrow}`}</Text>
         </Pressable>
 
         <View style={styles.divider}>
@@ -110,24 +133,8 @@ export default function SignInScreen() {
           <SocialAuthButton icon={signInIcons.apple} label="Apple" />
           <SocialAuthButton
             icon={signInIcons.google}
-            label="Google"
-            onPress={() => {
-              const activeClientId =
-                Platform.OS === 'web'
-                  ? googleConfig.webClientId
-                  : Platform.OS === 'ios'
-                    ? googleConfig.iosClientId
-                    : googleConfig.androidClientId;
-              if (!activeClientId) {
-                Alert.alert('Google Sign-In', `Google Client ID is missing for ${Platform.OS}.`);
-                return;
-              }
-              if (!request) {
-                Alert.alert('Google Sign-In', 'Google auth is still loading. Try again in a moment.');
-                return;
-              }
-              void promptAsync();
-            }}
+            label={googleLoading ? 'Google...' : 'Google'}
+            onPress={onGooglePress}
           />
         </View>
 

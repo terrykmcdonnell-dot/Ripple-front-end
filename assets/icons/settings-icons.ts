@@ -10,6 +10,7 @@ export const settingsIcons = {
   privacy: '📄',
   feedback: '💬',
   info: 'ℹ️',
+  signOut: '🚪',
   chevron: '›',
   alarms: '🏠',
   history: '📅',

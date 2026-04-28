@@ -3,33 +3,28 @@ import { useEffect } from 'react';
 
 import { supabase } from '@/lib/supabase';
 
-export default function Index() {
+/** Send users with an active session to `/alarm` (guest-only routes: sign-in, sign-up, verify). */
+export function useRedirectIfAuthenticated() {
   const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
 
-    const routeBySession = async () => {
+    void (async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
-      if (!mounted) {
-        return;
+      if (mounted && session) {
+        router.replace('/alarm');
       }
-
-      router.replace(session ? '/alarm' : '/signin');
-    };
-
-    void routeBySession();
+    })();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) {
-        return;
+      if (mounted && session) {
+        router.replace('/alarm');
       }
-      router.replace(session ? '/alarm' : '/signin');
     });
 
     return () => {
@@ -37,6 +32,4 @@ export default function Index() {
       subscription.unsubscribe();
     };
   }, [router]);
-
-  return null;
 }

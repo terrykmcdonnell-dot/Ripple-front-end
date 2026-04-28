@@ -7,8 +7,10 @@ import { paywallIcons } from '@/assets/icons/paywall-icons';
 import { alarmTheme } from '@/components/alarms/theme';
 import { FeatureRow } from '@/components/paywall/FeatureRow';
 import { PricingPlan, PricingToggle } from '@/components/paywall/PricingToggle';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function PaywallScreen() {
+  useRequireAuth();
   const router = useRouter();
   const [plan, setPlan] = useState<PricingPlan>('annual');
 

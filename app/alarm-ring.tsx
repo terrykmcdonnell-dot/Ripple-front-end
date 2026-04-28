@@ -5,8 +5,10 @@ import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
 import { RingPulse } from '@/components/alarm-ring/RingPulse';
 import { alarmTheme } from '@/components/alarms/theme';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function AlarmRingScreen() {
+  useRequireAuth();
   const router = useRouter();
 
   return (

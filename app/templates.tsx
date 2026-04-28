@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { templatesIcons } from '@/assets/icons/templates-icons';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { alarmTheme } from '@/components/alarms/theme';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 type Category = { key: string; label: string };
 
@@ -165,6 +166,7 @@ const initialTemplates = [
 ];
 
 export default function TemplatesScreen() {
+  useRequireAuth();
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState('all');
   const [templates, setTemplates] = useState(initialTemplates);

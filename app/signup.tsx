@@ -11,14 +11,117 @@ import { PasswordStrength } from '@/components/signup/PasswordStrength';
 import { TermsAgreement } from '@/components/signup/TermsAgreement';
 import { TopBrandRow } from '@/components/signup/TopBrandRow';
 import { ValueBanner } from '@/components/signup/ValueBanner';
+import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
+import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
+import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { isValidEmail, isValidPassword, sanitizeEmailInput } from '@/lib/auth-validation';
+import { savePendingSignUp } from '@/lib/pending-signup';
+import { syncUserProfileToTable } from '@/lib/sync-user-profile';
+import { supabase } from '@/lib/supabase';
 
 export default function SignUpScreen() {
+  useRedirectIfAuthenticated();
   const router = useRouter();
+  const { googleLoading, onGooglePress: startGoogleOAuth } = useGoogleAuthWithSupabase();
+
+  const onGooglePress = () => {
+    if (!termsChecked) {
+      notifyAuthMessage('Sign Up', 'Agree to the terms and privacy policy to continue.');
+      return;
+    }
+    startGoogleOAuth();
+  };
   const [showPassword, setShowPassword] = useState(true);
   const [termsChecked, setTermsChecked] = useState(true);
-  const [fullName, setFullName] = useState('Alex Johnson');
-  const [email, setEmail] = useState('you@example.com');
-  const [password, setPassword] = useState('Create a password');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const onCreateAccount = async () => {
+    const nameValue = fullName.trim();
+    const emailValue = email.trim().toLowerCase();
+
+    if (!nameValue || !emailValue || !password) {
+      notifyAuthMessage('Sign Up', 'Fill in your name, email, and password.');
+      return;
+    }
+    if (!isValidEmail(emailValue)) {
+      setEmailError('Enter a valid email address.');
+      notifyAuthMessage('Sign Up', 'Enter a valid email address.');
+      return;
+    }
+    setEmailError('');
+    if (!isValidPassword(password)) {
+      notifyAuthMessage('Sign Up', 'Password must be at least 6 characters.');
+      return;
+    }
+    if (!termsChecked) {
+      notifyAuthMessage('Sign Up', 'Agree to the terms and privacy policy to continue.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Use passwordless OTP first so no row is committed in auth.users until the user verifies.
+    // Password is applied after OTP via updateUser on the verify screen (or here if a session is returned immediately).
+    const { data: otpData, error: otpError } = await supabase.auth.signInWithOtp({
+      email: emailValue,
+      options: {
+        shouldCreateUser: true,
+        data: { name: nameValue },
+      },
+    });
+
+    if (otpError) {
+      setIsSubmitting(false);
+      notifyAuthError('Sign Up', otpError);
+      return;
+    }
+
+    // If your project disables email confirmation, you may get a session immediately — set password and finish.
+    if (otpData?.session) {
+      const { error: pwError } = await supabase.auth.updateUser({ password });
+      if (pwError) {
+        setIsSubmitting(false);
+        notifyAuthError('Sign Up', pwError);
+        return;
+      }
+      const { error: profileError } = await syncUserProfileToTable({
+        name: nameValue,
+        email: emailValue,
+        password,
+      });
+      setIsSubmitting(false);
+      if (profileError) {
+        notifyAuthError('Sign Up', profileError);
+        return;
+      }
+      router.replace('/alarm');
+      return;
+    }
+
+    await savePendingSignUp({ name: nameValue, email: emailValue, password });
+    setIsSubmitting(false);
+    router.push({ pathname: '/verify', params: { email: emailValue } });
+  };
+
+  const onEmailChange = (text: string) => {
+    setEmail(sanitizeEmailInput(text));
+    if (emailError) {
+      setEmailError('');
+    }
+  };
+
+  const onEmailBlur = () => {
+    const v = email.trim().toLowerCase();
+    if (!v) {
+      setEmailError('');
+      return;
+    }
+    setEmailError(isValidEmail(v) ? '' : 'Enter a valid email address.');
+  };
 
   return (
     <View style={styles.screen}>
@@ -52,8 +155,10 @@ export default function SignUpScreen() {
         <SignInField
           label="Email"
           value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
+          onChangeText={onEmailChange}
+          onBlur={onEmailBlur}
+          variant="email"
+          errorMessage={emailError}
           rightIcon={signUpIcons.email}
         />
 
@@ -67,13 +172,13 @@ export default function SignUpScreen() {
             secure={showPassword}
             onToggleSecure={() => setShowPassword((v) => !v)}
           />
-          <PasswordStrength level="medium" />
+          <PasswordStrength password={password} />
         </View>
 
         <TermsAgreement checked={termsChecked} onToggle={() => setTermsChecked((v) => !v)} />
 
-        <Pressable style={styles.ctaBtn}>
-          <Text style={styles.ctaText}>Create Account {signUpIcons.arrow}</Text>
+        <Pressable style={styles.ctaBtn} onPress={() => void onCreateAccount()}>
+          <Text style={styles.ctaText}>{isSubmitting ? 'Creating...' : `Create Account ${signUpIcons.arrow}`}</Text>
         </Pressable>
 
         <View style={styles.divider}>
@@ -84,7 +189,11 @@ export default function SignUpScreen() {
 
         <View style={styles.socialRow}>
           <SocialAuthButton icon={signUpIcons.apple} label="Apple" />
-          <SocialAuthButton icon={signUpIcons.google} label="Google" />
+          <SocialAuthButton
+            icon={signUpIcons.google}
+            label={googleLoading ? 'Google...' : 'Google'}
+            onPress={onGooglePress}
+          />
         </View>
 
         <Text style={styles.footer}>

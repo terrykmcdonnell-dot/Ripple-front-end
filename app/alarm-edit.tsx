@@ -9,6 +9,7 @@ import { IntervalControl } from '@/components/alarms-create/IntervalControl';
 import { SectionField } from '@/components/alarms-create/SectionField';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { alarmTheme } from '@/components/alarms/theme';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 const categories = [
@@ -20,6 +21,7 @@ const categories = [
 ] as const;
 
 export default function AlarmEditScreen() {
+  useRequireAuth();
   const router = useRouter();
   const [meridiem, setMeridiem] = useState<'AM' | 'PM'>('AM');
   const [label, setLabel] = useState('Take Medication');

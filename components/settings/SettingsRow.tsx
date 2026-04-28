@@ -6,6 +6,7 @@ import { alarmTheme } from '@/components/alarms/theme';
 type SettingsRowProps = {
   icon: string;
   title: string;
+  titleColor?: string;
   value?: string;
   valueColor?: string;
   right?: ReactNode;
@@ -16,6 +17,7 @@ type SettingsRowProps = {
 export function SettingsRow({
   icon,
   title,
+  titleColor,
   value,
   valueColor,
   right,
@@ -28,7 +30,7 @@ export function SettingsRow({
         <Text style={styles.icon}>{icon}</Text>
       </View>
       <View style={styles.info}>
-        <Text style={styles.name}>{title}</Text>
+        <Text style={[styles.name, titleColor ? { color: titleColor } : null]}>{title}</Text>
         {value ? <Text style={[styles.value, valueColor ? { color: valueColor } : null]}>{value}</Text> : null}
       </View>
       {right}

@@ -8,6 +8,7 @@ import { alarmTheme } from '@/components/alarms/theme';
 import { ComplianceBanner } from '@/components/history/ComplianceBanner';
 import { HistoryFilterTabs } from '@/components/history/HistoryFilterTabs';
 import { HistoryItemRow } from '@/components/history/HistoryItemRow';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 const tabs = [
   { key: 'all', label: 'All Alarms' },
@@ -17,7 +18,7 @@ const tabs = [
 ];
 
 const groups = [
-  {
+  { 
     day: 'Today - 24 April',
     items: [
       { icon: historyIcons.medication, name: 'Take Medication', timeText: '7:00 AM - dismissed at 7:02 AM', status: 'dismissed' as const },
@@ -38,6 +39,7 @@ const groups = [
 ];
 
 export default function HistoryScreen() {
+  useRequireAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('all');
 

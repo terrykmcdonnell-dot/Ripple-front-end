@@ -12,7 +12,11 @@ type SignInFieldProps = {
   secure?: boolean;
   onToggleSecure?: () => void;
   onChangeText?: (text: string) => void;
+  onBlur?: () => void;
   keyboardType?: 'default' | 'email-address';
+  /** Email fields: correct keyboard, no autocorrect, email autofill. */
+  variant?: 'default' | 'email';
+  errorMessage?: string;
 };
 
 export function SignInField({
@@ -25,20 +29,36 @@ export function SignInField({
   secure,
   onToggleSecure,
   onChangeText,
+  onBlur,
   keyboardType = 'default',
+  variant = 'default',
+  errorMessage,
 }: SignInFieldProps) {
+  const isEmail = variant === 'email';
+  const showError = Boolean(errorMessage);
+
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputWrap, focused ? styles.inputFocused : null]}>
+      <View
+        style={[
+          styles.inputWrap,
+          focused ? styles.inputFocused : null,
+          showError ? styles.inputError : null,
+        ]}>
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onBlur={onBlur}
           placeholder={placeholder}
           placeholderTextColor={alarmTheme.muted}
           secureTextEntry={secure}
-          keyboardType={keyboardType}
+          keyboardType={isEmail ? 'email-address' : keyboardType}
           autoCapitalize="none"
+          autoCorrect={isEmail || secure ? false : true}
+          textContentType={isEmail ? 'emailAddress' : secure ? 'password' : 'none'}
+          autoComplete={isEmail ? 'email' : secure ? 'password' : 'off'}
+          importantForAutofill={isEmail ? 'yes' : secure ? 'yes' : 'auto'}
           style={[styles.inputText, secure ? styles.secureText : null]}
         />
         {rightText ? (
@@ -49,6 +69,7 @@ export function SignInField({
           <Text style={styles.rightIcon}>{rightIcon}</Text>
         ) : null}
       </View>
+      {showError ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
     </View>
   );
 }
@@ -85,6 +106,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 2,
+  },
+  inputError: {
+    borderColor: alarmTheme.red,
+  },
+  errorText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: alarmTheme.red,
   },
   inputText: {
     flex: 1,

@@ -6,6 +6,7 @@ import { widgetIcons } from '@/assets/icons/widget-icons';
 import { alarmTheme } from '@/components/alarms/theme';
 import { WidgetMediumCard } from '@/components/widget/WidgetMediumCard';
 import { WidgetSmallCard } from '@/components/widget/WidgetSmallCard';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 const mediumAlarms = [
   { emoji: widgetIcons.medication, name: 'Take Medication', next: 'Tomorrow · Every 3 days', time: '7:00' },
@@ -14,6 +15,7 @@ const mediumAlarms = [
 ];
 
 export default function WidgetScreen() {
+  useRequireAuth();
   const [smallToggleOn, setSmallToggleOn] = useState(true);
 
   return (

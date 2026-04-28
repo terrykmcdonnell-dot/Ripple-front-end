@@ -9,14 +9,35 @@ import { AlarmToggle } from '@/components/alarms/AlarmToggle';
 import { alarmTheme } from '@/components/alarms/theme';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { SettingsRow } from '@/components/settings/SettingsRow';
+import { useRequireAuth } from '@/hooks/use-require-auth';
+import { notifyAuthError } from '@/lib/auth-notify';
+import { clearPendingSignUp } from '@/lib/pending-signup';
+import { supabase } from '@/lib/supabase';
 
 const themes = ['Light', 'Dark', 'Auto'] as const;
 
 export default function SettingScreen() {
+  useRequireAuth();
   const router = useRouter();
   const [vibrationOn, setVibrationOn] = useState(true);
   const [upcomingOn, setUpcomingOn] = useState(true);
   const [theme, setTheme] = useState<(typeof themes)[number]>('Dark');
+  const [signingOut, setSigningOut] = useState(false);
+
+  const onSignOut = async () => {
+    if (signingOut) {
+      return;
+    }
+    setSigningOut(true);
+    await clearPendingSignUp();
+    const { error } = await supabase.auth.signOut();
+    setSigningOut(false);
+    if (error) {
+      notifyAuthError('Sign out', error);
+      return;
+    }
+    router.replace('/signin');
+  };
 
   return (
     <View style={styles.screen}>
@@ -129,6 +150,17 @@ export default function SettingScreen() {
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
           />
           <SettingsRow icon={settingsIcons.info} title="Version" value="1.0.0" noBorder />
+        </SettingsGroup>
+
+        <Text style={styles.sectionLabel}>Account</Text>
+        <SettingsGroup>
+          <SettingsRow
+            icon={settingsIcons.signOut}
+            title={signingOut ? 'Signing out...' : 'Sign out'}
+            titleColor={alarmTheme.red}
+            onPress={() => void onSignOut()}
+            noBorder
+          />
         </SettingsGroup>
       </ScrollView>
 
