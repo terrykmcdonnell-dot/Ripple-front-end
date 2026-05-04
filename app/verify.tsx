@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { verifyIcons } from '@/assets/icons/verify-icons';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { OtpVerificationCode } from '@/components/verify/OtpVerificationCode';
 import { VerifyHelpNote } from '@/components/verify/VerifyHelpNote';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
@@ -16,8 +17,180 @@ import { supabase } from '@/lib/supabase';
 const OTP_LENGTH = 6;
 const CODE_TTL_SECONDS = 10 * 60;
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: alarmTheme.bg,
+    },
+    glowBg: {
+      position: 'absolute',
+      top: 100,
+      left: '50%',
+      marginLeft: -150,
+      width: 300,
+      height: 220,
+      borderRadius: 150,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      paddingTop: 60,
+      paddingHorizontal: 24,
+      paddingBottom: 36,
+      alignItems: 'center',
+    },
+    topRow: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 36,
+    },
+    backBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      backgroundColor: alarmTheme.surface2,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    backIcon: {
+      color: alarmTheme.muted,
+      fontSize: 14,
+      marginTop: -1,
+    },
+    topLogo: {
+      color: alarmTheme.text,
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: -0.32,
+    },
+    topLogoAccent: {
+      color: alarmTheme.accentBright,
+    },
+    envelopeWrap: {
+      width: 100,
+      height: 100,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 28,
+    },
+    envRing: {
+      position: 'absolute',
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      borderWidth: 1,
+      borderColor: alarmTheme.accentBannerBorder,
+    },
+    envRing1: {
+      transform: [{ scale: 1 }],
+      opacity: 0.62,
+    },
+    envRing2: {
+      transform: [{ scale: 1.32 }],
+      opacity: 0.34,
+    },
+    envRing3: {
+      transform: [{ scale: 1.62 }],
+      opacity: 0.18,
+    },
+    envCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: alarmTheme.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 24,
+      elevation: 4,
+    },
+    envEmoji: {
+      fontSize: 30,
+    },
+    title: {
+      color: alarmTheme.text,
+      fontSize: 24,
+      fontWeight: '800',
+      letterSpacing: -0.48,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: alarmTheme.muted,
+      textAlign: 'center',
+      lineHeight: 21,
+      marginBottom: 8,
+    },
+    emailHighlight: {
+      fontSize: 13,
+      color: alarmTheme.accentBright,
+      fontWeight: '600',
+      fontFamily: 'monospace',
+      marginBottom: 32,
+    },
+    expiryText: {
+      fontSize: 11,
+      color: alarmTheme.muted,
+      fontFamily: 'monospace',
+      textAlign: 'center',
+      marginBottom: 28,
+    },
+    expiryValue: {
+      color: alarmTheme.accentBright,
+    },
+    ctaBtn: {
+      width: '100%',
+      backgroundColor: alarmTheme.accent,
+      borderRadius: 14,
+      paddingVertical: 15,
+      alignItems: 'center',
+      marginBottom: 16,
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    ctaDisabled: {
+      opacity: 0.7,
+    },
+    ctaText: {
+      color: '#ffffff',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    resendRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginBottom: 24,
+    },
+    resendText: {
+      fontSize: 13,
+      color: alarmTheme.muted,
+    },
+    resendLink: {
+      fontSize: 13,
+      color: alarmTheme.accentBright,
+      fontWeight: '600',
+    },
+  });
+}
+
 export default function VerifyScreen() {
   useRedirectIfAuthenticated();
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const params = useLocalSearchParams<{ email?: string | string[] }>();
   const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
@@ -78,51 +251,55 @@ export default function VerifyScreen() {
     }
 
     setVerifyLoading(true);
-    // Matches signInWithOtp — user is created/confirmed when this succeeds (not on the sign-up screen).
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otpCode,
-      type: 'email',
-    });
-    setVerifyLoading(false);
+    try {
+      // Matches signInWithOtp — user is created/confirmed when this succeeds (not on the sign-up screen).
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: 'email',
+      });
 
-    if (error) {
-      notifyAuthError('Verify', error);
-      return;
-    }
+      if (error) {
+        notifyAuthError('Verify', error);
+        return;
+      }
 
-    if (!data.session) {
-      notifyAuthMessage('Verify', 'Verification did not finish. Try again or tap Resend code.');
-      return;
-    }
+      if (!data.session) {
+        notifyAuthMessage('Verify', 'Verification did not finish. Try again or tap Resend code.');
+        return;
+      }
 
-    const pending = await getPendingSignUp();
-    if (!pending || pending.email !== email) {
-      notifyAuthMessage('Verify', 'Your sign-up data is missing. Please create an account again.');
+      const pending = await getPendingSignUp();
+      if (!pending || pending.email !== email) {
+        notifyAuthMessage('Verify', 'Your sign-up data is missing. Please create an account again.');
+        await clearPendingSignUp();
+        router.replace('/signup');
+        return;
+      }
+
+      const { error: pwError } = await supabase.auth.updateUser({ password: pending.password });
+      if (pwError) {
+        notifyAuthError('Verify', pwError);
+        return;
+      }
+
+      const { error: profileError } = await syncUserProfileToTable({
+        name: pending.name,
+        email: pending.email,
+        password: pending.password,
+      });
+
+      if (profileError) {
+        notifyAuthError('Verify', profileError);
+        return;
+      }
+
       await clearPendingSignUp();
-      router.replace('/signup');
-      return;
+      await supabase.auth.signOut();
+      router.replace('/signin');
+    } finally {
+      setVerifyLoading(false);
     }
-
-    const { error: pwError } = await supabase.auth.updateUser({ password: pending.password });
-    if (pwError) {
-      notifyAuthError('Verify', pwError);
-      return;
-    }
-
-    const { error: profileError } = await syncUserProfileToTable({
-      name: pending.name,
-      email: pending.email,
-      password: pending.password,
-    });
-
-    if (profileError) {
-      notifyAuthError('Verify', profileError);
-      return;
-    }
-
-    await clearPendingSignUp();
-    router.replace('/alarm');
   }, [emailDisplay, otpCode, router]);
 
   const onResend = useCallback(async () => {
@@ -132,7 +309,7 @@ export default function VerifyScreen() {
     }
     setResendLoading(true);
     const { error } = await supabase.auth.resend({
-      type: 'email',
+      type: 'signup',
       email,
     });
     setResendLoading(false);
@@ -203,174 +380,7 @@ export default function VerifyScreen() {
 
         <VerifyHelpNote />
       </ScrollView>
+      <FullScreenLoadingOverlay visible={verifyLoading || resendLoading} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: alarmTheme.bg,
-  },
-  glowBg: {
-    position: 'absolute',
-    top: 100,
-    left: '50%',
-    marginLeft: -150,
-    width: 300,
-    height: 220,
-    borderRadius: 150,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 36,
-    alignItems: 'center',
-  },
-  topRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 36,
-  },
-  backBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    color: alarmTheme.muted,
-    fontSize: 14,
-    marginTop: -1,
-  },
-  topLogo: {
-    color: alarmTheme.text,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.32,
-  },
-  topLogoAccent: {
-    color: alarmTheme.accentBright,
-  },
-  envelopeWrap: {
-    width: 100,
-    height: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
-  },
-  envRing: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(6,182,212,0.35)',
-  },
-  envRing1: {
-    transform: [{ scale: 1 }],
-    opacity: 0.62,
-  },
-  envRing2: {
-    transform: [{ scale: 1.32 }],
-    opacity: 0.34,
-  },
-  envRing3: {
-    transform: [{ scale: 1.62 }],
-    opacity: 0.18,
-  },
-  envCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: alarmTheme.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: alarmTheme.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 4,
-  },
-  envEmoji: {
-    fontSize: 30,
-  },
-  title: {
-    color: alarmTheme.text,
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.48,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: alarmTheme.muted,
-    textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 8,
-  },
-  emailHighlight: {
-    fontSize: 13,
-    color: alarmTheme.accentBright,
-    fontWeight: '600',
-    fontFamily: 'monospace',
-    marginBottom: 32,
-  },
-  expiryText: {
-    fontSize: 11,
-    color: alarmTheme.muted,
-    fontFamily: 'monospace',
-    textAlign: 'center',
-    marginBottom: 28,
-  },
-  expiryValue: {
-    color: alarmTheme.accentBright,
-  },
-  ctaBtn: {
-    width: '100%',
-    backgroundColor: alarmTheme.accent,
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: alarmTheme.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  ctaDisabled: {
-    opacity: 0.7,
-  },
-  ctaText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  resendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 24,
-  },
-  resendText: {
-    fontSize: 13,
-    color: alarmTheme.muted,
-  },
-  resendLink: {
-    fontSize: 13,
-    color: alarmTheme.accentBright,
-    fontWeight: '600',
-  },
-});

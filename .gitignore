@@ -2,7 +2,8 @@
 
 # dependencies
 node_modules/
-
+test-f06a8-firebase-adminsdk-fbsvc-0c5c6121a6.json
+google-services.json
 # Expo
 .expo/
 dist/

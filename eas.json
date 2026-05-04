@@ -14,7 +14,8 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "developmentClient": false
     },
     "production": {
       "autoIncrement": true,

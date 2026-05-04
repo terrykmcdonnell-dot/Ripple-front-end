@@ -6,19 +6,22 @@ type AlarmToggleProps = {
   enabled: boolean;
   onColor?: string;
   onPress?: () => void;
+  disabled?: boolean;
 };
 
-export function AlarmToggle({ enabled, onColor, onPress }: AlarmToggleProps) {
+export function AlarmToggle({ enabled, onColor, onPress, disabled }: AlarmToggleProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       hitSlop={8}
       accessibilityRole="switch"
       accessibilityState={{ checked: enabled }}
+      disabled={disabled}
       style={[
         styles.track,
         {
           backgroundColor: enabled ? (onColor ?? alarmTheme.accent) : alarmTheme.surface3,
+          opacity: disabled ? 0.55 : 1,
         },
       ]}>
       <View style={[styles.knob, enabled ? styles.knobOn : styles.knobOff]} />

@@ -1,7 +1,7 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type SettingsRowProps = {
   icon: string;
@@ -14,6 +14,49 @@ type SettingsRowProps = {
   noBorder?: boolean;
 };
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    row: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+      borderBottomWidth: 1,
+      borderBottomColor: alarmTheme.border,
+    },
+    noBorder: {
+      borderBottomWidth: 0,
+    },
+    iconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: alarmTheme.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    icon: {
+      fontSize: 18,
+    },
+    info: {
+      flex: 1,
+    },
+    name: {
+      color: alarmTheme.text,
+      fontSize: 13,
+      fontWeight: '500',
+      marginBottom: 1,
+    },
+    value: {
+      color: alarmTheme.muted,
+      fontSize: 11,
+    },
+  });
+}
+
 export function SettingsRow({
   icon,
   title,
@@ -24,6 +67,9 @@ export function SettingsRow({
   onPress,
   noBorder,
 }: SettingsRowProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+
   return (
     <Pressable onPress={onPress} style={[styles.row, noBorder ? styles.noBorder : null]}>
       <View style={styles.iconWrap}>
@@ -37,44 +83,3 @@ export function SettingsRow({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: alarmTheme.border,
-  },
-  noBorder: {
-    borderBottomWidth: 0,
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: alarmTheme.surface2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  icon: {
-    fontSize: 18,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    color: alarmTheme.text,
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 1,
-  },
-  value: {
-    color: alarmTheme.muted,
-    fontSize: 11,
-  },
-});

@@ -1,28 +1,266 @@
+import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { settingsIcons } from '@/assets/icons/settings-icons';
-import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
+import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { alarmTheme } from '@/components/alarms/theme';
+import { NotificationsHubSheet } from '@/components/settings/NotificationsHubSheet';
+import { NotificationsMasterRow } from '@/components/settings/NotificationsMasterRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { SettingsRow } from '@/components/settings/SettingsRow';
+import { SnoozePickerSheet } from '@/components/settings/SnoozePickerSheet';
+import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
+import { VolumePickerSheet } from '@/components/settings/VolumePickerSheet';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { syncPersistedAlarmVolumeToSystem } from '@/lib/alarm-system-volume';
 import { notifyAuthError } from '@/lib/auth-notify';
+import { cancelAllRippleScheduledNotifications } from '@/lib/cancel-all-app-notifications';
+import { isOsNotificationAllowed } from '@/lib/notification-os-status';
 import { clearPendingSignUp } from '@/lib/pending-signup';
+import {
+  AlarmSoundId,
+  APP_THEME_OPTIONS,
+  type AppThemePreference,
+  DEFAULT_ALARM_SOUND_OPTIONS,
+  DEFAULT_SNOOZE_OPTIONS_MINUTES,
+  DEFAULT_VOLUME_PERCENT_OPTIONS,
+  formatSnoozeMinutesLabel,
+  formatUpcomingReminderLeadLabel,
+  formatVolumePercentLabel,
+  loadAppThemePreference,
+  loadDefaultAlarmSoundId,
+  loadDefaultSnoozeMinutes,
+  loadDefaultVibrationEnabled,
+  loadDefaultVolumePercent,
+  loadNotificationsMasterEnabled,
+  loadUpcomingReminderEnabled,
+  loadUpcomingReminderLeadMinutes,
+  saveAppThemePreference,
+  saveDefaultAlarmSoundId,
+  saveDefaultSnoozeMinutes,
+  saveDefaultVibrationEnabled,
+  saveDefaultVolumePercent,
+  saveNotificationsMasterEnabled,
+  saveUpcomingReminderEnabled,
+} from '@/lib/settings-preferences';
 import { supabase } from '@/lib/supabase';
-
-const themes = ['Light', 'Dark', 'Auto'] as const;
+import { useAppToast } from '@/components/ui/AppToastProvider';
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings } from '@/lib/sync-user-settings-db';
+import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
+import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 
 export default function SettingScreen() {
   useRequireAuth();
   const router = useRouter();
+  const { showToast } = useAppToast();
   const [vibrationOn, setVibrationOn] = useState(true);
   const [upcomingOn, setUpcomingOn] = useState(true);
-  const [theme, setTheme] = useState<(typeof themes)[number]>('Dark');
+  const [upcomingLeadMinutes, setUpcomingLeadMinutes] = useState(60);
+  const [theme, setTheme] = useState<AppThemePreference>('Dark');
   const [signingOut, setSigningOut] = useState(false);
+  const [defaultSnoozeMinutes, setDefaultSnoozeMinutes] = useState(10);
+  const [snoozePickerOpen, setSnoozePickerOpen] = useState(false);
+  const [defaultSoundId, setDefaultSoundId] = useState<AlarmSoundId>('gentle-rise');
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
+  const [defaultVolumePercent, setDefaultVolumePercent] = useState(80);
+  const [volumePickerOpen, setVolumePickerOpen] = useState(false);
+  const [notificationHubOpen, setNotificationHubOpen] = useState(false);
+  const [notifOsAllowed, setNotifOsAllowed] = useState(false);
+  const [notifCanAskAgain, setNotifCanAskAgain] = useState(true);
+  const [notificationsMasterEnabled, setNotificationsMasterEnabled] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [
+        loadedSnooze,
+        loadedSound,
+        loadedVolume,
+        loadedVibration,
+        loadedUpcoming,
+        loadedLead,
+        loadedMaster,
+        loadedTheme,
+      ] = await Promise.all([
+        loadDefaultSnoozeMinutes(),
+        loadDefaultAlarmSoundId(),
+        loadDefaultVolumePercent(),
+        loadDefaultVibrationEnabled(),
+        loadUpcomingReminderEnabled(),
+        loadUpcomingReminderLeadMinutes(),
+        loadNotificationsMasterEnabled(),
+        loadAppThemePreference(),
+      ]);
+      if (!cancelled) {
+        setDefaultSnoozeMinutes(loadedSnooze);
+        setDefaultSoundId(loadedSound);
+        setDefaultVolumePercent(loadedVolume);
+        setVibrationOn(loadedVibration);
+        setUpcomingOn(loadedUpcoming);
+        setUpcomingLeadMinutes(loadedLead);
+        setNotificationsMasterEnabled(loadedMaster);
+        setTheme(loadedTheme);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refreshNotificationPermissionUi = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+    const p = await getPermissionsAsync();
+    setNotifOsAllowed(isOsNotificationAllowed(p));
+    setNotifCanAskAgain(p.canAskAgain !== false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void (async () => {
+        const master = await loadNotificationsMasterEnabled();
+        if (!active) {
+          return;
+        }
+        setNotificationsMasterEnabled(master);
+        if (Platform.OS !== 'web') {
+          await refreshNotificationPermissionUi();
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [refreshNotificationPermissionUi]),
+  );
+
+  const applyDefaultSnooze = useCallback(async (minutes: number) => {
+    setDefaultSnoozeMinutes(minutes);
+    await saveDefaultSnoozeMinutes(minutes);
+    await patchSignedInUserSettings({ defaultSnoozeDuration: minutes });
+  }, []);
+
+  const applyDefaultSound = useCallback(async (id: AlarmSoundId) => {
+    setDefaultSoundId(id);
+    await saveDefaultAlarmSoundId(id);
+    await syncUpcomingReminderNotifications();
+    await syncAlarmFireNotifications();
+    if (await notificationPrefsEligibleForDbSync()) {
+      await patchSignedInUserSettings({ defaultAlarmSound: id });
+    }
+  }, []);
+
+  const applyDefaultVolume = useCallback(async (percent: number) => {
+    setDefaultVolumePercent(percent);
+    await saveDefaultVolumePercent(percent);
+    const volumeApplied = await syncPersistedAlarmVolumeToSystem(percent);
+    if (volumeApplied) {
+      await patchSignedInUserSettings({ alarmVolume: String(percent) });
+    }
+  }, []);
+
+  const applyVibration = useCallback(async (enabled: boolean) => {
+    setVibrationOn(enabled);
+    await saveDefaultVibrationEnabled(enabled);
+    await syncUpcomingReminderNotifications();
+    await syncAlarmFireNotifications();
+    if (await notificationPrefsEligibleForDbSync()) {
+      await patchSignedInUserSettings({ isVibrationEnabled: enabled });
+    }
+  }, []);
+
+  const applyUpcomingReminder = useCallback(async (enabled: boolean) => {
+    setUpcomingOn(enabled);
+    await saveUpcomingReminderEnabled(enabled);
+    await syncUpcomingReminderNotifications();
+    await syncAlarmFireNotifications();
+    if (!enabled || (await notificationPrefsEligibleForDbSync())) {
+      await patchSignedInUserSettings({ isUpcomingReminderEnabled: enabled });
+    }
+    showToast(enabled ? 'Upcoming reminders on' : 'Upcoming reminders off');
+  }, []);
+
+  const openSnoozeFromHub = useCallback(() => {
+    setNotificationHubOpen(false);
+    setTimeout(() => setSnoozePickerOpen(true), 280);
+  }, []);
+
+  const openSoundFromHub = useCallback(() => {
+    setNotificationHubOpen(false);
+    setTimeout(() => setSoundPickerOpen(true), 280);
+  }, []);
+
+  const openVolumeFromHub = useCallback(() => {
+    setNotificationHubOpen(false);
+    setTimeout(() => setVolumePickerOpen(true), 280);
+  }, []);
+
+  const notificationsEffectiveOn =
+    Platform.OS !== 'web' && notifOsAllowed && notificationsMasterEnabled;
+
+  const onNotificationsMasterToggle = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      showToast('Notification toggles are available in the Ripple mobile app.');
+      return;
+    }
+    await Haptics.selectionAsync();
+
+    if (notificationsEffectiveOn) {
+      await saveNotificationsMasterEnabled(false);
+      setNotificationsMasterEnabled(false);
+      await cancelAllRippleScheduledNotifications();
+      await patchSignedInUserSettings({ areNotificationsAllowed: false });
+      showToast('Notifications turned off');
+      return;
+    }
+
+    let p = await getPermissionsAsync();
+    let allowed = isOsNotificationAllowed(p);
+    if (!allowed && p.canAskAgain !== false) {
+      const req = await requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true },
+      });
+      allowed = isOsNotificationAllowed(req);
+      await refreshNotificationPermissionUi();
+    }
+    if (!allowed) {
+      await Linking.openSettings();
+      showToast('Allow notifications in Settings to turn Ripple alerts on.');
+      return;
+    }
+
+    await saveNotificationsMasterEnabled(true);
+    setNotificationsMasterEnabled(true);
+    await syncUpcomingReminderNotifications();
+    await syncAlarmFireNotifications();
+    await patchSignedInUserSettings({ areNotificationsAllowed: true });
+    showToast('Notifications turned on');
+  }, [notificationsEffectiveOn, refreshNotificationPermissionUi]);
+
+  let notificationsStatusLabel = 'Paused';
+  let notificationsStatusColor = alarmTheme.muted;
+  if (Platform.OS === 'web') {
+    notificationsStatusLabel = 'Mobile app only';
+    notificationsStatusColor = alarmTheme.muted;
+  } else if (!notifOsAllowed) {
+    notificationsStatusLabel = notifCanAskAgain ? 'Tap toggle to enable' : 'Off — open Settings';
+    notificationsStatusColor = alarmTheme.red;
+  } else if (!notificationsMasterEnabled) {
+    notificationsStatusLabel = 'Paused';
+    notificationsStatusColor = alarmTheme.muted;
+  } else {
+    notificationsStatusLabel = 'Allowed';
+    notificationsStatusColor = alarmTheme.green;
+  }
 
   const onSignOut = async () => {
     if (signingOut) {
@@ -43,9 +281,11 @@ export default function SettingScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.header}>
-        <Text style={styles.pageTitle}>Settings</Text>
-      </View>
+      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+        <View style={styles.header}>
+          <Text style={styles.pageTitle}>Settings</Text>
+        </View>
+      </SafeAreaView>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <LinearGradient
@@ -63,35 +303,6 @@ export default function SettingScreen() {
           </Pressable>
         </LinearGradient>
 
-        <Text style={styles.sectionLabel}>Alarms</Text>
-        <SettingsGroup>
-          <SettingsRow
-            icon={settingsIcons.snooze}
-            title="Default Snooze"
-            value="10 minutes"
-            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-          />
-          <SettingsRow
-            icon={settingsIcons.sound}
-            title="Default Sound"
-            value="Gentle Rise"
-            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-          />
-          <SettingsRow
-            icon={settingsIcons.vibration}
-            title="Vibration"
-            value={vibrationOn ? 'On' : 'Off'}
-            right={<AlarmToggle enabled={vibrationOn} onPress={() => setVibrationOn((v) => !v)} />}
-          />
-          <SettingsRow
-            icon={settingsIcons.volume}
-            title="Volume"
-            value="80%"
-            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-            noBorder
-          />
-        </SettingsGroup>
-
         <Text style={styles.sectionLabel}>Appearance</Text>
         <SettingsGroup>
           <View style={styles.themeRow}>
@@ -102,13 +313,19 @@ export default function SettingScreen() {
               <Text style={styles.themeLabel}>Theme</Text>
             </View>
             <View style={styles.themeOptions}>
-              {themes.map((item) => {
+              {APP_THEME_OPTIONS.map((item) => {
                 const active = theme === item;
                 return (
                   <Pressable
                     key={item}
                     style={[styles.themeOption, active ? styles.themeOptionActive : null]}
-                    onPress={() => setTheme(item)}>
+                    onPress={() => {
+                      void (async () => {
+                        setTheme(item);
+                        await saveAppThemePreference(item);
+                        await patchSignedInUserSettings({ appTheme: item });
+                      })();
+                    }}>
                     <Text style={[styles.themeOptionText, active ? styles.themeOptionTextActive : null]}>
                       {item}
                     </Text>
@@ -121,18 +338,22 @@ export default function SettingScreen() {
 
         <Text style={styles.sectionLabel}>Notifications</Text>
         <SettingsGroup>
-          <SettingsRow
+          <NotificationsMasterRow
             icon={settingsIcons.notifications}
             title="Notifications"
-            value="Allowed"
-            valueColor={alarmTheme.green}
-            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
+            statusLabel={notificationsStatusLabel}
+            statusColor={notificationsStatusColor}
+            summaryLine={`${formatSnoozeMinutesLabel(defaultSnoozeMinutes)} · ${formatVolumePercentLabel(defaultVolumePercent)}`}
+            toggleEnabled={notificationsEffectiveOn}
+            showToggle={Platform.OS !== 'web'}
+            onPressHub={() => setNotificationHubOpen(true)}
+            onToggle={() => void onNotificationsMasterToggle()}
           />
           <SettingsRow
             icon={settingsIcons.upcoming}
             title="Upcoming Reminder"
-            value="1 hour before"
-            right={<AlarmToggle enabled={upcomingOn} onPress={() => setUpcomingOn((v) => !v)} />}
+            value={formatUpcomingReminderLeadLabel(upcomingLeadMinutes)}
+            right={<AlarmToggle enabled={upcomingOn} onPress={() => void applyUpcomingReminder(!upcomingOn)} />}
             noBorder
           />
         </SettingsGroup>
@@ -164,6 +385,43 @@ export default function SettingScreen() {
         </SettingsGroup>
       </ScrollView>
 
+      <NotificationsHubSheet
+        visible={notificationHubOpen}
+        onClose={() => setNotificationHubOpen(false)}
+        snoozeMinutes={defaultSnoozeMinutes}
+        soundId={defaultSoundId}
+        vibrationEnabled={vibrationOn}
+        volumePercent={defaultVolumePercent}
+        onPressSnooze={openSnoozeFromHub}
+        onPressSound={openSoundFromHub}
+        onPressVolume={openVolumeFromHub}
+        onToggleVibration={(enabled) => void applyVibration(enabled)}
+      />
+
+      <SnoozePickerSheet
+        visible={snoozePickerOpen}
+        onClose={() => setSnoozePickerOpen(false)}
+        options={DEFAULT_SNOOZE_OPTIONS_MINUTES}
+        selectedMinutes={defaultSnoozeMinutes}
+        onSelectMinutes={(m) => void applyDefaultSnooze(m)}
+      />
+
+      <SoundPickerSheet
+        visible={soundPickerOpen}
+        onClose={() => setSoundPickerOpen(false)}
+        options={DEFAULT_ALARM_SOUND_OPTIONS}
+        selectedId={defaultSoundId}
+        onSelectSoundId={(id) => void applyDefaultSound(id as AlarmSoundId)}
+      />
+
+      <VolumePickerSheet
+        visible={volumePickerOpen}
+        onClose={() => setVolumePickerOpen(false)}
+        options={DEFAULT_VOLUME_PERCENT_OPTIONS}
+        selectedPercent={defaultVolumePercent}
+        onSelectPercent={(p) => void applyDefaultVolume(p)}
+      />
+
       <BottomNavbar
         items={[
           { icon: settingsIcons.alarms, label: 'Alarms', onPress: () => router.push('/alarm') },
@@ -172,6 +430,7 @@ export default function SettingScreen() {
           { icon: settingsIcons.settings, label: 'Settings', active: true, onPress: () => router.push('/setting') },
         ]}
       />
+      <FullScreenLoadingOverlay visible={signingOut} />
     </View>
   );
 }
@@ -180,12 +439,18 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: alarmTheme.bg,
-    paddingTop: 20,
+  },
+  headerSafe: {
+    backgroundColor: alarmTheme.bg,
+    zIndex: 2,
+    elevation: 6,
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   pageTitle: {
     color: alarmTheme.text,

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type PasswordStrengthProps = {
   password: string;
@@ -15,14 +15,14 @@ type Strength = {
   labelColor: string;
 };
 
-function computeStrength(password: string): Strength {
+function computeStrength(password: string, t: AlarmThemePalette): Strength {
   if (!password.length) {
     return {
       activeBars: 0,
       level: 'none',
       label: 'Password strength',
-      activeColor: alarmTheme.surface3,
-      labelColor: alarmTheme.muted,
+      activeColor: t.surface3,
+      labelColor: t.muted,
     };
   }
 
@@ -33,7 +33,6 @@ function computeStrength(password: string): Strength {
   const hasSpecial = /[^a-zA-Z0-9]/.test(password);
   const variety = [hasLower, hasUpper, hasNum, hasSpecial].filter(Boolean).length;
 
-  // Length drives most of the bar fill; variety nudges up (caps at 4).
   let bars = Math.min(4, Math.ceil(len / 3));
   if (variety >= 2 && bars < 4) {
     bars += 1;
@@ -48,8 +47,8 @@ function computeStrength(password: string): Strength {
       activeBars: bars,
       level: 'weak',
       label: 'Weak strength',
-      activeColor: alarmTheme.red,
-      labelColor: alarmTheme.red,
+      activeColor: t.red,
+      labelColor: t.red,
     };
   }
   if (bars <= 3) {
@@ -57,21 +56,46 @@ function computeStrength(password: string): Strength {
       activeBars: bars,
       level: 'medium',
       label: 'Medium strength',
-      activeColor: alarmTheme.amber,
-      labelColor: alarmTheme.amber,
+      activeColor: t.amber,
+      labelColor: t.amber,
     };
   }
   return {
     activeBars: 4,
     level: 'strong',
     label: 'Strong strength',
-    activeColor: alarmTheme.green,
-    labelColor: alarmTheme.green,
+    activeColor: t.green,
+    labelColor: t.green,
   };
 }
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    wrap: {
+      marginTop: 6,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 4,
+    },
+    bar: {
+      flex: 1,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: alarmTheme.surface3,
+    },
+    label: {
+      marginTop: 4,
+      fontSize: 10,
+      fontFamily: 'monospace',
+    },
+  });
+}
+
 export function PasswordStrength({ password }: PasswordStrengthProps) {
-  const strength = useMemo(() => computeStrength(password), [password]);
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+  const strength = useMemo(() => computeStrength(password, alarmTheme), [password, alarmTheme]);
 
   return (
     <View style={styles.wrap}>
@@ -81,10 +105,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
           return (
             <View
               key={idx}
-              style={[
-                styles.bar,
-                isActive ? { backgroundColor: strength.activeColor } : null,
-              ]}
+              style={[styles.bar, isActive ? { backgroundColor: strength.activeColor } : null]}
             />
           );
         })}
@@ -93,24 +114,3 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    marginTop: 6,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  bar: {
-    flex: 1,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: alarmTheme.surface3,
-  },
-  label: {
-    marginTop: 4,
-    fontSize: 10,
-    fontFamily: 'monospace',
-  },
-});

@@ -29,10 +29,15 @@ function normalizeError(error: unknown): { message: string; code?: string; statu
   return { message: '' };
 }
 
+/** Plain text for inline UI / toasts (same mapping as {@link notifyAuthError}). */
+export function getAuthErrorDisplayText(error: unknown): string {
+  const { message, code, status } = normalizeError(error);
+  return formatAuthErrorMessage(message, { code, status });
+}
+
 /** User-visible alert for failed auth / account actions (maps Supabase messages to friendly copy). */
 export function notifyAuthError(title: string, error: unknown) {
-  const { message, code, status } = normalizeError(error);
-  const text = formatAuthErrorMessage(message, { code, status });
+  const text = getAuthErrorDisplayText(error);
   Alert.alert(title, text);
 }
 

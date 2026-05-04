@@ -1,14 +1,14 @@
+import {
+  GoogleSignin,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
-import { syncUserProfileToTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
-
-WebBrowser.maybeCompleteAuthSession();
+import { syncUserProfileToTable } from '@/lib/sync-user-profile';
 
 type UseGoogleAuthOptions = {
   /** Upsert `public.users` after a successful Google session (OAuth users use an empty password). */
@@ -29,35 +29,66 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
     [],
   );
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: googleConfig.androidClientId,
-    iosClientId: googleConfig.iosClientId,
-    webClientId: googleConfig.webClientId,
-  });
-
   useEffect(() => {
-    const completeGoogleSignIn = async () => {
-      if (response?.type !== 'success') {
+    if (Platform.OS === 'web') {
+      return;
+    }
+    const { webClientId, iosClientId, androidClientId } = googleConfig;
+    if (__DEV__ && webClientId?.trim() && androidClientId?.trim() && webClientId.trim() === androidClientId.trim()) {
+      console.warn(
+        '[Google Sign-In] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID must be the **Web application** OAuth client, not the Android client ID. Using the Android ID here causes Android DEVELOPER_ERROR (code 10). Create a separate Web client in Google Cloud and set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to that.',
+      );
+    }
+    if (!webClientId?.trim()) {
+      return;
+    }
+    GoogleSignin.configure({
+      webClientId: webClientId.trim(),
+      ...(iosClientId?.trim() ? { iosClientId: iosClientId.trim() } : {}),
+      scopes: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
+      offlineAccess: false,
+    });
+  }, [googleConfig]);
+
+  const signInWithGoogleNative = useCallback(async () => {
+    const { webClientId } = googleConfig;
+    if (!webClientId?.trim()) {
+      notifyAuthMessage(
+        'Google Sign-In',
+        'Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID. Supabase verifies the Google ID token against the Web OAuth client.',
+      );
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
+
+      const response = await GoogleSignin.signIn();
+      if (response.type === 'cancelled') {
         return;
       }
 
-      const idToken =
-        response.authentication?.idToken ??
-        (typeof response.params?.id_token === 'string' ? response.params.id_token : undefined);
-      const accessToken = response.authentication?.accessToken;
+      let idToken = response.data.idToken;
+      if (!idToken) {
+        const tokens = await GoogleSignin.getTokens();
+        idToken = tokens.idToken;
+      }
 
       if (!idToken) {
-        notifyAuthMessage('Google Sign-In', 'Google did not return a sign-in token. Try again.');
+        notifyAuthMessage(
+          'Google Sign-In',
+          'Google did not return an ID token. Confirm Web Client ID and OAuth clients in Google Cloud Console.',
+        );
         return;
       }
 
-      setGoogleLoading(true);
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
-        ...(accessToken ? { access_token: accessToken } : {}),
       });
-      setGoogleLoading(false);
 
       if (error) {
         notifyAuthError('Google Sign-In', error);
@@ -86,37 +117,37 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
       }
 
       router.replace('/alarm');
-    };
-
-    void completeGoogleSignIn();
-  }, [response, router, syncUsersTable]);
-
-  useEffect(() => {
-    if (response?.type === 'dismiss' || response?.type === 'cancel' || response?.type === 'error') {
+    } catch (err: unknown) {
+      const code =
+        err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : '';
+      if (code === statusCodes.SIGN_IN_CANCELLED) {
+        return;
+      }
+      notifyAuthError('Google Sign-In', err);
+    } finally {
       setGoogleLoading(false);
     }
-  }, [response]);
+  }, [googleConfig, router, syncUsersTable]);
 
   const onGooglePress = useCallback(() => {
-    const activeClientId =
-      Platform.OS === 'web'
-        ? googleConfig.webClientId
-        : Platform.OS === 'ios'
-          ? googleConfig.iosClientId
-          : googleConfig.androidClientId;
-
-    if (!activeClientId) {
-      notifyAuthMessage('Google Sign-In', `Google sign-in is not configured for ${Platform.OS}. Check EXPO_PUBLIC_GOOGLE_* in .env.`);
-      return;
-    }
-    if (!request) {
-      notifyAuthMessage('Google Sign-In', 'Google sign-in is still loading. Try again in a moment.');
+    if (Platform.OS === 'web') {
+      notifyAuthMessage(
+        'Google Sign-In',
+        'Google Sign-In runs in the iOS/Android app. Use email sign-in on web or install the Ripple app.',
+      );
       return;
     }
 
-    setGoogleLoading(true);
-    void promptAsync();
-  }, [googleConfig.androidClientId, googleConfig.iosClientId, googleConfig.webClientId, promptAsync, request]);
+    if (!googleConfig.webClientId?.trim()) {
+      notifyAuthMessage(
+        'Google Sign-In',
+        'Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID. Add your Web OAuth client ID from Google Cloud Console.',
+      );
+      return;
+    }
+
+    void signInWithGoogleNative();
+  }, [googleConfig.webClientId, signInWithGoogleNative]);
 
   return { googleLoading, onGooglePress };
 }

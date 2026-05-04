@@ -1,16 +1,31 @@
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createCategoryIcons, createSoundIcon } from '@/assets/icons/alarm-create-icons';
 import { AlarmTimePickRow } from '@/components/alarms-create/AlarmTimePickRow';
-import { SectionField } from '@/components/alarms-create/SectionField';
 import { IntervalControl } from '@/components/alarms-create/IntervalControl';
+import { SectionField } from '@/components/alarms-create/SectionField';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { SoundRow } from '@/components/alarms-create/SoundRow';
+import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
 import { alarmTheme } from '@/components/alarms/theme';
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { createAlarm } from '@/lib/alarm-api';
 import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
+import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
+import {
+  AlarmSoundId,
+  DEFAULT_ALARM_SOUND_OPTIONS,
+  labelForAlarmSoundId,
+  loadDefaultAlarmSoundId,
+} from '@/lib/settings-preferences';
+import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
+import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
+import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 const categories = [
@@ -30,20 +45,98 @@ export default function AlarmCreateScreen() {
   const [interval, setInterval] = useState(3);
   const [unit, setUnit] = useState<(typeof units)[number]>('Days');
   const [category, setCategory] = useState<(typeof categories)[number]['key']>('health');
+  const [selectedSoundId, setSelectedSoundId] = useState<AlarmSoundId>('gentle-rise');
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadDefaultAlarmSoundId().then((id) => {
+      if (!cancelled) {
+        setSelectedSoundId(id);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);
+
+  const handleSave = async () => {
+    const labelValue = label.trim();
+    if (!labelValue) {
+      notifyAuthMessage('New Alarm', 'Enter a label for this alarm.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { id: userId, error: userIdError } = await fetchCurrentUserRowId();
+      if (userIdError || userId == null) {
+        notifyAuthError('New Alarm', userIdError ?? new Error('Missing user profile.'));
+        return;
+      }
+
+      const categoryLabel = categories.find((item) => item.key === category)?.label ?? 'Health';
+
+      await createAlarm({
+        user_id: userId,
+        label: labelValue,
+        scheduled_at: alarmTime.toISOString(),
+        interval,
+        unit,
+        category: categoryLabel,
+        sound: selectedSoundLabel,
+      });
+
+      router.replace('/alarm');
+      void Promise.all([syncUpcomingReminderNotifications(), syncAlarmFireNotifications()]).catch(
+        () => undefined,
+      );
+    } catch (err) {
+      notifyAuthError('New Alarm', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.push('/alarm')}>
-          <Text style={styles.backBtnText}>Cancel</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>New Alarm</Text>
-        <Pressable style={styles.saveBtn}>
-          <Text style={styles.saveBtnText}>Save</Text>
-        </Pressable>
-      </View>
+      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+        <View style={styles.header}>
+          <View style={[styles.headerThird, styles.headerThirdLeft]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              hitSlop={HEADER_NAV_HIT_SLOP}
+              style={({ pressed }) => [styles.backBtn, pressed && styles.headerBtnPressed]}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/alarm'))}>
+              <Text style={styles.backBtnText}>Cancel</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.headerThird, styles.headerThirdMid]} pointerEvents="none">
+            <Text style={styles.headerTitle}>New Alarm</Text>
+          </View>
+          <View style={[styles.headerThird, styles.headerThirdRight]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Save alarm"
+              hitSlop={HEADER_NAV_HIT_SLOP}
+              disabled={isSaving}
+              style={({ pressed }) => [
+                styles.saveBtn,
+                isSaving && styles.saveBtnDisabled,
+                !isSaving && pressed && styles.headerBtnPressed,
+              ]}
+              onPress={() => void handleSave()}>
+              <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : 'Save'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
 
       <AlarmTimePickRow value={alarmTime} onChange={setAlarmTime} />
 
@@ -93,9 +186,24 @@ export default function AlarmCreateScreen() {
         </SectionField>
 
         <SectionField label="Sound">
-          <SoundRow icon={createSoundIcon} title="Gentle Rise" />
+          <SoundRow
+            icon={createSoundIcon}
+            title={selectedSoundLabel}
+            onPress={() => setSoundPickerOpen(true)}
+          />
         </SectionField>
       </ScrollView>
+
+      <SoundPickerSheet
+        visible={soundPickerOpen}
+        onClose={() => setSoundPickerOpen(false)}
+        options={DEFAULT_ALARM_SOUND_OPTIONS}
+        selectedId={selectedSoundId}
+        sheetTitle="Alarm sound"
+        sheetHint="Plays when this alarm fires"
+        onSelectSoundId={(id) => setSelectedSoundId(id as AlarmSoundId)}
+      />
+      <FullScreenLoadingOverlay visible={isSaving} />
     </View>
   );
 }
@@ -104,20 +212,44 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: alarmTheme.bg,
-    paddingTop: 20,
+  },
+  headerSafe: {
+    backgroundColor: alarmTheme.bg,
+    zIndex: 2,
+    elevation: 6,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+  },
+  headerThird: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  headerThirdLeft: {
+    alignItems: 'flex-start',
+  },
+  headerThirdMid: {
+    alignItems: 'center',
+  },
+  headerThirdRight: {
+    alignItems: 'flex-end',
   },
   backBtn: {
     backgroundColor: alarmTheme.surface2,
     borderRadius: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerBtnPressed: {
+    opacity: 0.85,
   },
   backBtnText: {
     color: alarmTheme.muted,
@@ -128,12 +260,20 @@ const styles = StyleSheet.create({
     color: alarmTheme.text,
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
   },
   saveBtn: {
     backgroundColor: alarmTheme.accent,
     borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minWidth: 72,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnDisabled: {
+    opacity: 0.65,
   },
   saveBtnText: {
     color: '#ffffff',

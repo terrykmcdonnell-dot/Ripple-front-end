@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { alarmThemes, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type WidgetAlarm = {
   emoji: string;
@@ -14,7 +15,77 @@ type WidgetMediumCardProps = {
   alarms: WidgetAlarm[];
 };
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  const glass = alarmTheme === alarmThemes.dark;
+  return StyleSheet.create({
+    card: {
+      width: '100%',
+      backgroundColor: glass ? 'rgba(8,8,24,0.85)' : alarmTheme.surface,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: glass ? 'rgba(6,182,212,0.2)' : alarmTheme.accentBannerBorder,
+      padding: 14,
+      marginBottom: 14,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    logo: {
+      color: glass ? '#ffffff' : alarmTheme.text,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    logoAccent: {
+      color: alarmTheme.accentBright,
+    },
+    count: {
+      color: glass ? 'rgba(255,255,255,0.7)' : alarmTheme.muted,
+      fontSize: 11,
+      fontFamily: 'monospace',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 7,
+      borderBottomWidth: 1,
+      borderBottomColor: glass ? 'rgba(255,255,255,0.06)' : alarmTheme.border,
+    },
+    lastRow: {
+      borderBottomWidth: 0,
+    },
+    emoji: {
+      fontSize: 16,
+    },
+    info: {
+      flex: 1,
+    },
+    name: {
+      color: glass ? '#ffffff' : alarmTheme.text,
+      fontSize: 12,
+      fontWeight: '500',
+      marginBottom: 1,
+    },
+    next: {
+      color: glass ? 'rgba(255,255,255,0.7)' : alarmTheme.muted,
+      fontSize: 11,
+      fontFamily: 'monospace',
+    },
+    time: {
+      color: alarmTheme.accentBright,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+  });
+}
+
 export function WidgetMediumCard({ alarms }: WidgetMediumCardProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -36,67 +107,3 @@ export function WidgetMediumCard({ alarms }: WidgetMediumCardProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    width: '100%',
-    backgroundColor: 'rgba(8,8,24,0.85)',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(6,182,212,0.2)',
-    padding: 14,
-    marginBottom: 14,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  logo: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  logoAccent: {
-    color: alarmTheme.accentBright,
-  },
-  count: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
-    fontFamily: 'monospace',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 7,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  lastRow: {
-    borderBottomWidth: 0,
-  },
-  emoji: {
-    fontSize: 16,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 1,
-  },
-  next: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
-    fontFamily: 'monospace',
-  },
-  time: {
-    color: alarmTheme.accentBright,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});

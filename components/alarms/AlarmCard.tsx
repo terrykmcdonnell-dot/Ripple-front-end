@@ -13,6 +13,7 @@ type AlarmCardProps = {
   tone: AlarmTone;
   toggleOnColor?: string;
   onToggle?: () => void;
+  toggleDisabled?: boolean;
   onPress?: () => void;
 };
 
@@ -45,28 +46,36 @@ export function AlarmCard({
   tone,
   toggleOnColor,
   onToggle,
+  toggleDisabled,
   onPress,
 }: AlarmCardProps) {
   const toneStyle = toneStyles[tone];
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <View style={styles.card}>
       <View style={[styles.stripe, { backgroundColor: active ? toneStyle.stripe : alarmTheme.border }]} />
-      <View style={[styles.icon, { backgroundColor: active ? toneStyle.iconBg : alarmTheme.surface2 }]}>
-        <Text style={styles.iconText}>{icon}</Text>
-      </View>
-      <View style={styles.info}>
-        <View style={styles.timeRow}>
-          <Text style={[styles.time, { color: active ? alarmTheme.text : alarmTheme.muted }]}>{time}</Text>
-          <Text style={styles.ampm}>{ampm}</Text>
+      <Pressable style={styles.cardMain} onPress={onPress}>
+        <View style={[styles.icon, { backgroundColor: active ? toneStyle.iconBg : alarmTheme.surface2 }]}>
+          <Text style={styles.iconText}>{icon}</Text>
         </View>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={styles.tag}>
-          {tagText}
-        </Text>
-      </View>
-      <AlarmToggle enabled={active} onColor={toggleOnColor} onPress={onToggle} />
-    </Pressable>
+        <View style={styles.info}>
+          <View style={styles.timeRow}>
+            <Text style={[styles.time, { color: active ? alarmTheme.text : alarmTheme.muted }]}>{time}</Text>
+            <Text style={styles.ampm}>{ampm}</Text>
+          </View>
+          <Text style={styles.label}>{label}</Text>
+          <Text style={styles.tag}>
+            {tagText}
+          </Text>
+        </View>
+      </Pressable>
+      <AlarmToggle
+        enabled={active}
+        onColor={toggleOnColor}
+        onPress={onToggle}
+        disabled={toggleDisabled}
+      />
+    </View>
   );
 }
 
@@ -78,11 +87,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 18,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingRight: 16,
+    paddingLeft: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     overflow: 'hidden',
+  },
+  cardMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   stripe: {
     position: 'absolute',

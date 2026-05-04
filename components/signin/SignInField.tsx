@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type SignInFieldProps = {
   label: string;
@@ -17,7 +18,77 @@ type SignInFieldProps = {
   /** Email fields: correct keyboard, no autocorrect, email autofill. */
   variant?: 'default' | 'email';
   errorMessage?: string;
+  /** Label and inline error alignment (inputs stay left-aligned for readability). */
+  labelAlign?: 'left' | 'center';
 };
+
+function createStyles(alarmTheme: AlarmThemePalette, labelAlign: 'left' | 'center') {
+  return StyleSheet.create({
+    field: {
+      marginBottom: 14,
+      width: '100%',
+    },
+    label: {
+      fontSize: 10,
+      fontFamily: 'monospace',
+      letterSpacing: 1.4,
+      textTransform: 'uppercase',
+      color: alarmTheme.muted,
+      marginBottom: 7,
+      textAlign: labelAlign,
+    },
+    inputWrap: {
+      width: '100%',
+      backgroundColor: alarmTheme.surface2,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      borderRadius: 13,
+      paddingVertical: 13,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    inputFocused: {
+      borderColor: alarmTheme.accent,
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    inputError: {
+      borderColor: alarmTheme.red,
+    },
+    errorText: {
+      marginTop: 6,
+      fontSize: 12,
+      color: alarmTheme.red,
+      textAlign: labelAlign,
+    },
+    inputText: {
+      flex: 1,
+      color: alarmTheme.text,
+      fontSize: 14,
+      padding: 0,
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+    },
+    secureText: {
+      letterSpacing: 2.8,
+    },
+    rightText: {
+      color: alarmTheme.muted,
+      fontSize: 13,
+      fontFamily: 'monospace',
+      letterSpacing: 0.5,
+    },
+    rightIcon: {
+      color: alarmTheme.muted,
+      fontSize: 16,
+    },
+  });
+}
 
 export function SignInField({
   label,
@@ -33,7 +104,10 @@ export function SignInField({
   keyboardType = 'default',
   variant = 'default',
   errorMessage,
+  labelAlign = 'left',
 }: SignInFieldProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme, labelAlign), [alarmTheme, labelAlign]);
   const isEmail = variant === 'email';
   const showError = Boolean(errorMessage);
 
@@ -73,68 +147,3 @@ export function SignInField({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  field: {
-    marginBottom: 14,
-    width: '100%',
-  },
-  label: {
-    fontSize: 10,
-    fontFamily: 'monospace',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-    color: alarmTheme.muted,
-    marginBottom: 7,
-  },
-  inputWrap: {
-    width: '100%',
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    borderRadius: 13,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  inputFocused: {
-    borderColor: alarmTheme.accent,
-    shadowColor: alarmTheme.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  inputError: {
-    borderColor: alarmTheme.red,
-  },
-  errorText: {
-    marginTop: 6,
-    fontSize: 12,
-    color: alarmTheme.red,
-  },
-  inputText: {
-    flex: 1,
-    color: alarmTheme.text,
-    fontSize: 14,
-    padding: 0,
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-    outlineStyle: 'none',
-  },
-  secureText: {
-    letterSpacing: 2.8,
-  },
-  rightText: {
-    color: alarmTheme.muted,
-    fontSize: 13,
-    fontFamily: 'monospace',
-    letterSpacing: 0.5,
-  },
-  rightIcon: {
-    color: alarmTheme.muted,
-    fontSize: 16,
-  },
-});

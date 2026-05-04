@@ -1,15 +1,53 @@
+import * as Haptics from 'expo-haptics';
 import { Stack, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
 import { RingPulse } from '@/components/alarm-ring/RingPulse';
 import { alarmTheme } from '@/components/alarms/theme';
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { notifyAuthMessage } from '@/lib/auth-notify';
+import { scheduleSnoozeNotification } from '@/lib/device-snooze';
+import { useDefaultSnoozeMinutes } from '@/hooks/use-default-snooze-minutes';
+import { useDefaultVibrationEnabled } from '@/hooks/use-default-vibration-enabled';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function AlarmRingScreen() {
   useRequireAuth();
   const router = useRouter();
+  const defaultSnoozeMinutes = useDefaultSnoozeMinutes();
+  const vibrationEnabled = useDefaultVibrationEnabled();
+  const [snoozeBusy, setSnoozeBusy] = useState(false);
+  const snoozePendingRef = useRef(false);
+
+  const alarmTitle = 'Take Medication';
+
+  const onSnoozePress = useCallback(async () => {
+    if (snoozePendingRef.current) {
+      return;
+    }
+    snoozePendingRef.current = true;
+    setSnoozeBusy(true);
+    try {
+      const result = await scheduleSnoozeNotification({
+        minutes: defaultSnoozeMinutes,
+        alarmTitle,
+      });
+      if (!result.ok) {
+        notifyAuthMessage('Snooze', result.message);
+        return;
+      }
+      if (vibrationEnabled) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      router.replace('/alarm');
+    } finally {
+      snoozePendingRef.current = false;
+      setSnoozeBusy(false);
+    }
+  }, [alarmTitle, defaultSnoozeMinutes, router, vibrationEnabled]);
 
   return (
     <View style={styles.screen}>
@@ -21,11 +59,16 @@ export default function AlarmRingScreen() {
         <Text style={styles.time}>7:00</Text>
         <Text style={styles.date}>Friday, 25 April 2026</Text>
 
-        <Text style={styles.name}>Take Medication</Text>
+        <Text style={styles.name}>{alarmTitle}</Text>
         <Text style={styles.repeat}>↻ Repeats every 3 days</Text>
 
         <View style={styles.actions}>
-          <RingActionButton icon={ringIcons.snooze} label="Snooze 10m" variant="snooze" />
+          <RingActionButton
+            icon={ringIcons.snooze}
+            label={snoozeBusy ? 'Scheduling…' : `Snooze ${defaultSnoozeMinutes}m`}
+            variant="snooze"
+            onPress={() => void onSnoozePress()}
+          />
           <RingActionButton
             icon={ringIcons.dismiss}
             label="Dismiss"
@@ -36,6 +79,7 @@ export default function AlarmRingScreen() {
 
         <Text style={styles.next}>Next ring: Monday 28 April at 7:00 AM</Text>
       </View>
+      <FullScreenLoadingOverlay visible={snoozeBusy} />
     </View>
   );
 }

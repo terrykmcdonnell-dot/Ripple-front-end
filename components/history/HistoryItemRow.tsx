@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type RowStatus = 'dismissed' | 'snoozed' | 'missed';
 
@@ -11,29 +12,86 @@ type HistoryItemRowProps = {
   status: RowStatus;
 };
 
-const statusMap = {
-  dismissed: {
-    iconBg: 'rgba(52,211,153,0.12)',
-    badgeBg: 'rgba(52,211,153,0.12)',
-    badgeColor: '#34d399',
-    label: 'Dismissed',
-  },
-  snoozed: {
-    iconBg: 'rgba(251,191,36,0.12)',
-    badgeBg: 'rgba(251,191,36,0.12)',
-    badgeColor: '#fbbf24',
-    label: 'Snoozed',
-  },
-  missed: {
-    iconBg: 'rgba(248,113,113,0.12)',
-    badgeBg: 'rgba(248,113,113,0.12)',
-    badgeColor: '#f87171',
-    label: 'Missed',
-  },
-} as const;
+function statusMapFor(t: AlarmThemePalette) {
+  return {
+    dismissed: {
+      iconBg: t.greenDim,
+      badgeBg: t.greenDim,
+      badgeColor: t.green,
+      label: 'Dismissed',
+    },
+    snoozed: {
+      iconBg: t.amberDim,
+      badgeBg: t.amberDim,
+      badgeColor: t.amber,
+      label: 'Snoozed',
+    },
+    missed: {
+      iconBg: t.redDim,
+      badgeBg: t.redDim,
+      badgeColor: t.red,
+      label: 'Missed',
+    },
+  } as const;
+}
+
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    card: {
+      width: '100%',
+      backgroundColor: alarmTheme.surface,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      borderRadius: 12,
+      paddingVertical: 11,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 6,
+    },
+    iconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    icon: {
+      fontSize: 18,
+    },
+    info: {
+      flex: 1,
+    },
+    name: {
+      color: alarmTheme.text,
+      fontSize: 13,
+      fontWeight: '500',
+      marginBottom: 2,
+    },
+    time: {
+      color: alarmTheme.muted,
+      fontSize: 11,
+      fontFamily: 'monospace',
+    },
+    badge: {
+      fontSize: 10,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      fontFamily: 'monospace',
+      overflow: 'hidden',
+    },
+  });
+}
 
 export function HistoryItemRow({ icon, name, timeText, status }: HistoryItemRowProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+  const statusMap = useMemo(() => statusMapFor(alarmTheme), [alarmTheme]);
   const s = statusMap[status];
+
   return (
     <View style={styles.card}>
       <View style={[styles.iconWrap, { backgroundColor: s.iconBg }]}>
@@ -47,52 +105,3 @@ export function HistoryItemRow({ icon, name, timeText, status }: HistoryItemRowP
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    width: '100%',
-    backgroundColor: alarmTheme.surface,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    borderRadius: 12,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 6,
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  icon: {
-    fontSize: 18,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    color: alarmTheme.text,
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  time: {
-    color: alarmTheme.muted,
-    fontSize: 11,
-    fontFamily: 'monospace',
-  },
-  badge: {
-    fontSize: 10,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    fontFamily: 'monospace',
-    overflow: 'hidden',
-  },
-});

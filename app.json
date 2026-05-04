@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "alarm-app",
-    "slug": "alarm-app",
+    "name": "Ripple-Alarm",
+    "slug": "repple-alarm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "alarmapp",
+    "scheme": "alarm-app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -16,6 +16,18 @@
       }
     },
     "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "com.terrykm.ripplealarm" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "alarm-app" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -24,7 +36,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.terrykm.ripplealarm"
+      "package": "com.terrykm.ripplealarm",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -33,8 +46,8 @@
     "plugins": [
       "expo-router",
       [
-        "expo-splash-screen",
-        {
+        "expo-splash-screen",                                     
+        {                                                               
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
@@ -42,6 +55,28 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.629364170217-in6ab46jfkv74m4p4a8dq0ae10u0pkce"
+        }
+
+      ],
+      "expo-task-manager",
+      [
+        "expo-notifications",
+        {
+          "enableBackgroundRemoteNotifications": true,
+          "sounds": [
+            "./assets/sounds/gentle_rise.wav",
+            "./assets/sounds/morning_glow.wav",
+            "./assets/sounds/classic_bell.wav",
+            "./assets/sounds/digital_beep.wav",
+            "./assets/sounds/soft_piano.wav",
+            "./assets/sounds/nature_birds.wav"
+          ]
         }
       ],
       "expo-web-browser",
@@ -54,10 +89,10 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "6aeb5bd1-d871-49bd-a14a-b6c6a8f0b6c9"
+        "projectId": "7073624f-7686-47a1-b177-cac58f1b04d6"
       }
     },
-    "owner": "blackcatkai",
+    "owner": "terrykm",
     "runtimeVersion": {
       "policy": "appVersion"
     },

@@ -38,6 +38,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    /** Web: recover session from `#access_token=…` after Supabase reset-password redirect. Native uses parsed URLs + `setSession`. */
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });

@@ -52,6 +52,9 @@ export function formatAuthErrorMessage(message: string, meta?: AuthErrorMeta) {
   if (lower.includes('invalid login credentials')) {
     return 'That email or password is incorrect. Check your details and try again.';
   }
+  if (lower.includes('invalid authentication credentials')) {
+    return 'Wrong email/password, or Google is not configured in Supabase (Dashboard → Authentication → Providers → Google → Client ID).';
+  }
   if (lower.includes('user not found')) {
     return 'No account found for this email. Sign up first or check the address.';
   }

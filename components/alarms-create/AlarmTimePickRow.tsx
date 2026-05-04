@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { alarmThemes, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { clockPartsFromDate } from '@/lib/alarm-time';
 
@@ -12,7 +12,105 @@ type AlarmTimePickRowProps = {
   onChange: (next: Date) => void;
 };
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    wrap: {
+      borderBottomWidth: 1,
+      borderBottomColor: alarmTheme.border,
+      marginHorizontal: 20,
+      marginBottom: 16,
+      paddingBottom: 8,
+    },
+    timePicker: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      paddingTop: 16,
+      paddingBottom: 6,
+    },
+    nativeTap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    webTimeBlock: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    webCol: {
+      alignItems: 'center',
+      gap: 2,
+    },
+    nudgeBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+    },
+    nudgeText: {
+      color: alarmTheme.accentBright,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    timeVal: {
+      color: alarmTheme.text,
+      fontSize: 52,
+      fontWeight: '800',
+      lineHeight: 52,
+      letterSpacing: -1.5,
+      paddingHorizontal: 6,
+    },
+    timeSep: {
+      color: alarmTheme.muted,
+      fontSize: 40,
+      fontWeight: '300',
+      lineHeight: 40,
+      paddingBottom: 4,
+    },
+    ampmWrap: {
+      gap: 4,
+      paddingBottom: 4,
+      marginLeft: 4,
+    },
+    hint: {
+      textAlign: 'center',
+      color: alarmTheme.muted,
+      fontSize: 11,
+      paddingBottom: 8,
+    },
+    modalRoot: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    modalDismiss: {
+      flex: 1,
+      width: '100%',
+    },
+    iosSheet: {
+      backgroundColor: alarmTheme.surface,
+      paddingBottom: 28,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+    },
+    iosHeader: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
+    iosDone: {
+      color: alarmTheme.accentBright,
+      fontSize: 17,
+      fontWeight: '600',
+    },
+  });
+}
+
 export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+  const pickerTheme = alarmTheme === alarmThemes.dark ? 'dark' : 'light';
+
   const { h12, minute, meridiem } = useMemo(() => clockPartsFromDate(value), [value]);
   const [iosOpen, setIosOpen] = useState(false);
 
@@ -22,7 +120,7 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
         return;
       }
       const d = new Date(value);
-      let h = d.getHours();
+      const h = d.getHours();
       if (nextMeridiem === 'PM' && h < 12) {
         d.setHours(h + 12);
       } else if (nextMeridiem === 'AM' && h >= 12) {
@@ -70,7 +168,6 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
 
     if (Platform.OS === 'ios') {
       setIosOpen(true);
-      return;
     }
   };
 
@@ -148,7 +245,7 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
                 display="spinner"
                 minuteInterval={5}
                 onChange={onIosPick}
-                themeVariant="dark"
+                themeVariant={pickerTheme}
               />
             </View>
           </View>
@@ -157,95 +254,3 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    borderBottomWidth: 1,
-    borderBottomColor: alarmTheme.border,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    paddingBottom: 8,
-  },
-  timePicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingTop: 16,
-    paddingBottom: 6,
-  },
-  nativeTap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  webTimeBlock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  webCol: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  nudgeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  nudgeText: {
-    color: alarmTheme.accentBright,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  timeVal: {
-    color: alarmTheme.text,
-    fontSize: 52,
-    fontWeight: '800',
-    lineHeight: 52,
-    letterSpacing: -1.5,
-    paddingHorizontal: 6,
-  },
-  timeSep: {
-    color: alarmTheme.muted,
-    fontSize: 40,
-    fontWeight: '300',
-    lineHeight: 40,
-    paddingBottom: 4,
-  },
-  ampmWrap: {
-    gap: 4,
-    paddingBottom: 4,
-    marginLeft: 4,
-  },
-  hint: {
-    textAlign: 'center',
-    color: alarmTheme.muted,
-    fontSize: 11,
-    paddingBottom: 8,
-  },
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  modalDismiss: {
-    flex: 1,
-    width: '100%',
-  },
-  iosSheet: {
-    backgroundColor: alarmTheme.surface,
-    paddingBottom: 28,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  iosHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  iosDone: {
-    color: alarmTheme.accentBright,
-    fontSize: 17,
-    fontWeight: '600',
-  },
-});

@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type SegmentButtonProps = {
   label: string;
@@ -12,6 +13,47 @@ type SegmentButtonProps = {
   withIcon?: string;
 };
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    base: {
+      backgroundColor: alarmTheme.surface2,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    regular: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    compact: {
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+    },
+    square: {
+      borderRadius: 10,
+    },
+    rounded: {
+      borderRadius: 20,
+    },
+    flex: {
+      flex: 1,
+    },
+    text: {
+      fontSize: 12,
+      color: alarmTheme.muted,
+      fontWeight: '500',
+    },
+    activeBackground: {
+      backgroundColor: alarmTheme.accentDim,
+      borderColor: alarmTheme.accent,
+    },
+    activeText: {
+      color: alarmTheme.accentBright,
+    },
+  });
+}
+
 export function SegmentButton({
   label,
   active,
@@ -21,6 +63,9 @@ export function SegmentButton({
   flex,
   withIcon,
 }: SegmentButtonProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+
   return (
     <Pressable
       onPress={onPress}
@@ -38,42 +83,3 @@ export function SegmentButton({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  regular: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  compact: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  square: {
-    borderRadius: 10,
-  },
-  rounded: {
-    borderRadius: 20,
-  },
-  flex: {
-    flex: 1,
-  },
-  text: {
-    fontSize: 12,
-    color: alarmTheme.muted,
-    fontWeight: '500',
-  },
-  activeBackground: {
-    backgroundColor: alarmTheme.accentDim,
-    borderColor: alarmTheme.accent,
-  },
-  activeText: {
-    color: alarmTheme.accentBright,
-  },
-});

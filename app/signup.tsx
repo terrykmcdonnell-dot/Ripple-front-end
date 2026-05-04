@@ -1,16 +1,17 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { signUpIcons } from '@/assets/icons/signup-icons';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { SignInField } from '@/components/signin/SignInField';
 import { SocialAuthButton } from '@/components/signin/SocialAuthButton';
 import { PasswordStrength } from '@/components/signup/PasswordStrength';
 import { TermsAgreement } from '@/components/signup/TermsAgreement';
 import { TopBrandRow } from '@/components/signup/TopBrandRow';
 import { ValueBanner } from '@/components/signup/ValueBanner';
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
@@ -19,8 +20,101 @@ import { savePendingSignUp } from '@/lib/pending-signup';
 import { syncUserProfileToTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: alarmTheme.bg,
+    },
+    glowBg: {
+      position: 'absolute',
+      top: 40,
+      left: '50%',
+      marginLeft: -140,
+      width: 280,
+      height: 180,
+      borderRadius: 140,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      paddingTop: 58,
+      paddingHorizontal: 24,
+      paddingBottom: 28,
+    },
+    title: {
+      color: alarmTheme.text,
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+      marginBottom: 4,
+    },
+    subtitle: {
+      color: alarmTheme.muted,
+      fontSize: 13,
+      marginBottom: 20,
+      lineHeight: 19.5,
+    },
+    passwordFieldWrap: {
+      width: '100%',
+    },
+    ctaBtn: {
+      width: '100%',
+      backgroundColor: alarmTheme.accent,
+      borderRadius: 14,
+      paddingVertical: 15,
+      alignItems: 'center',
+      marginBottom: 14,
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    ctaText: {
+      color: '#ffffff',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: alarmTheme.border,
+    },
+    dividerText: {
+      color: alarmTheme.muted,
+      fontSize: 11,
+      fontFamily: 'monospace',
+    },
+    socialRow: {
+      width: '100%',
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 20,
+    },
+    footer: {
+      textAlign: 'center',
+      fontSize: 13,
+      color: alarmTheme.muted,
+    },
+    footerLink: {
+      color: alarmTheme.accentBright,
+      fontWeight: '600',
+    },
+  });
+}
+
 export default function SignUpScreen() {
   useRedirectIfAuthenticated();
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const { googleLoading, onGooglePress: startGoogleOAuth } = useGoogleAuthWithSupabase();
 
@@ -98,7 +192,8 @@ export default function SignUpScreen() {
         notifyAuthError('Sign Up', profileError);
         return;
       }
-      router.replace('/alarm');
+      await supabase.auth.signOut();
+      router.replace('/signin');
       return;
     }
 
@@ -203,95 +298,7 @@ export default function SignUpScreen() {
           </Text>
         </Text>
       </ScrollView>
+      <FullScreenLoadingOverlay visible={isSubmitting || googleLoading} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: alarmTheme.bg,
-  },
-  glowBg: {
-    position: 'absolute',
-    top: 40,
-    left: '50%',
-    marginLeft: -140,
-    width: 280,
-    height: 180,
-    borderRadius: 140,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingTop: 58,
-    paddingHorizontal: 24,
-    paddingBottom: 28,
-  },
-  title: {
-    color: alarmTheme.text,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: alarmTheme.muted,
-    fontSize: 13,
-    marginBottom: 20,
-    lineHeight: 19.5,
-  },
-  passwordFieldWrap: {
-    width: '100%',
-  },
-  ctaBtn: {
-    width: '100%',
-    backgroundColor: alarmTheme.accent,
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginBottom: 14,
-    shadowColor: alarmTheme.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  ctaText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: alarmTheme.border,
-  },
-  dividerText: {
-    color: alarmTheme.muted,
-    fontSize: 11,
-    fontFamily: 'monospace',
-  },
-  socialRow: {
-    width: '100%',
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  footer: {
-    textAlign: 'center',
-    fontSize: 13,
-    color: alarmTheme.muted,
-  },
-  footerLink: {
-    color: alarmTheme.accentBright,
-    fontWeight: '600',
-  },
-});

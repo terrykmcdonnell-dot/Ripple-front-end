@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, TextStyle } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type WordChunk = {
   text: string;
@@ -13,7 +14,19 @@ type RichWordTextProps = {
   style?: TextStyle;
 };
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    base: {
+      color: alarmTheme.muted,
+      fontSize: 11,
+      fontFamily: 'monospace',
+    },
+  });
+}
+
 export function RichWordText({ words, style }: RichWordTextProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   return (
     <Text style={[styles.base, style]}>
       {words.map((word, index) => (
@@ -24,11 +37,3 @@ export function RichWordText({ words, style }: RichWordTextProps) {
     </Text>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    color: alarmTheme.muted,
-    fontSize: 11,
-    fontFamily: 'monospace',
-  },
-});

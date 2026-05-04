@@ -1,11 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { signInIcons } from '@/assets/icons/signin-icons';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { SignInField } from '@/components/signin/SignInField';
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { SocialAuthButton } from '@/components/signin/SocialAuthButton';
 import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
@@ -13,8 +14,158 @@ import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { isValidEmail, sanitizeEmailInput } from '@/lib/auth-validation';
 import { supabase } from '@/lib/supabase';
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: alarmTheme.bg,
+    },
+    glowBg: {
+      position: 'absolute',
+      top: 60,
+      left: '50%',
+      marginLeft: -140,
+      width: 280,
+      height: 200,
+      borderRadius: 140,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      paddingTop: 60,
+      paddingHorizontal: 24,
+      paddingBottom: 32,
+    },
+    logoWrap: {
+      alignItems: 'center',
+      paddingVertical: 24,
+      marginBottom: 4,
+    },
+    logoIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: alarmTheme.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 14,
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.45,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+    logoRing: {
+      position: 'absolute',
+      color: 'rgba(6,182,212,0.35)',
+      fontSize: 44,
+    },
+    logoRingDelayed: {
+      position: 'absolute',
+      color: 'rgba(6,182,212,0.22)',
+      fontSize: 54,
+    },
+    logoEmoji: {
+      fontSize: 28,
+    },
+    logoName: {
+      color: alarmTheme.text,
+      fontSize: 26,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    logoNameAccent: {
+      color: alarmTheme.accentBright,
+    },
+    logoTagline: {
+      color: alarmTheme.muted,
+      fontSize: 12,
+      marginTop: 3,
+      fontFamily: 'monospace',
+    },
+    title: {
+      color: alarmTheme.text,
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+    subtitle: {
+      color: alarmTheme.muted,
+      fontSize: 13,
+      marginBottom: 24,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    forgotRow: {
+      width: '100%',
+      alignItems: 'flex-end',
+      marginTop: -8,
+      marginBottom: 20,
+    },
+    forgotLink: {
+      color: alarmTheme.accentBright,
+      fontSize: 12,
+    },
+    ctaBtn: {
+      width: '100%',
+      backgroundColor: alarmTheme.accent,
+      borderRadius: 14,
+      padding: 15,
+      alignItems: 'center',
+      marginBottom: 14,
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    ctaText: {
+      color: '#ffffff',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: alarmTheme.border,
+    },
+    dividerText: {
+      color: alarmTheme.muted,
+      fontSize: 11,
+      fontFamily: 'monospace',
+      textAlign: 'center',
+    },
+    socialRow: {
+      flexDirection: 'row',
+      width: '100%',
+      gap: 10,
+      marginBottom: 24,
+    },
+    footer: {
+      textAlign: 'center',
+      fontSize: 13,
+      color: alarmTheme.muted,
+    },
+    footerLink: {
+      color: alarmTheme.accentBright,
+      fontWeight: '600',
+    },
+  });
+}
+
 export default function SignInScreen() {
   useRedirectIfAuthenticated();
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const { googleLoading, onGooglePress } = useGoogleAuthWithSupabase();
   const [showPassword, setShowPassword] = useState(true);
@@ -114,7 +265,7 @@ export default function SignInScreen() {
         />
 
         <View style={styles.forgotRow}>
-          <Pressable>
+          <Pressable onPress={() => router.push('/forgot-password')} accessibilityRole="link" accessibilityLabel="Forgot password">
             <Text style={styles.forgotLink}>Forgot password?</Text>
           </Pressable>
         </View>
@@ -145,147 +296,7 @@ export default function SignInScreen() {
           </Text>
         </Text>
       </ScrollView>
+      <FullScreenLoadingOverlay visible={signInLoading || googleLoading} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: alarmTheme.bg,
-  },
-  glowBg: {
-    position: 'absolute',
-    top: 60,
-    left: '50%',
-    marginLeft: -140,
-    width: 280,
-    height: 200,
-    borderRadius: 140,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
-  logoWrap: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    marginBottom: 4,
-  },
-  logoIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: alarmTheme.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-    shadowColor: alarmTheme.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  logoRing: {
-    position: 'absolute',
-    color: 'rgba(6,182,212,0.35)',
-    fontSize: 44,
-  },
-  logoRingDelayed: {
-    position: 'absolute',
-    color: 'rgba(6,182,212,0.22)',
-    fontSize: 54,
-  },
-  logoEmoji: {
-    fontSize: 28,
-  },
-  logoName: {
-    color: alarmTheme.text,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  logoNameAccent: {
-    color: alarmTheme.accentBright,
-  },
-  logoTagline: {
-    color: alarmTheme.muted,
-    fontSize: 12,
-    marginTop: 3,
-    fontFamily: 'monospace',
-  },
-  title: {
-    color: alarmTheme.text,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: alarmTheme.muted,
-    fontSize: 13,
-    marginBottom: 24,
-  },
-  forgotRow: {
-    alignItems: 'flex-end',
-    marginTop: -8,
-    marginBottom: 20,
-  },
-  forgotLink: {
-    color: alarmTheme.accentBright,
-    fontSize: 12,
-  },
-  ctaBtn: {
-    width: '100%',
-    backgroundColor: alarmTheme.accent,
-    borderRadius: 14,
-    padding: 15,
-    alignItems: 'center',
-    marginBottom: 14,
-    shadowColor: alarmTheme.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  ctaText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: alarmTheme.border,
-  },
-  dividerText: {
-    color: alarmTheme.muted,
-    fontSize: 11,
-    fontFamily: 'monospace',
-  },
-  socialRow: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 10,
-    marginBottom: 24,
-  },
-  footer: {
-    textAlign: 'center',
-    fontSize: 13,
-    color: alarmTheme.muted,
-  },
-  footerLink: {
-    color: alarmTheme.accentBright,
-    fontWeight: '600',
-  },
-});

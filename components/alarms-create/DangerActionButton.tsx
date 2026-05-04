@@ -7,15 +7,33 @@ type DangerActionButtonProps = {
   label: string;
   variant: 'skip' | 'delete';
   onPress?: () => void;
+  disabled?: boolean;
 };
 
-export function DangerActionButton({ icon, label, variant, onPress }: DangerActionButtonProps) {
+export function DangerActionButton({ icon, label, variant, onPress, disabled }: DangerActionButtonProps) {
   const isDelete = variant === 'delete';
+  const isDisabled = disabled === true;
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled }}
+      disabled={isDisabled}
       onPress={onPress}
-      style={[styles.base, isDelete ? styles.deleteBackground : styles.skipBackground]}>
-      <Text style={[styles.text, isDelete ? styles.deleteText : styles.skipText]}>
+      android_ripple={{ color: isDelete ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)' }}
+      hitSlop={isDelete ? { top: 6, bottom: 6, left: 4, right: 4 } : undefined}
+      style={({ pressed }) => [
+        styles.base,
+        isDelete ? styles.deleteBackground : styles.skipBackground,
+        !isDisabled && pressed && !isDelete && styles.skipPressed,
+        !isDisabled && pressed && isDelete && styles.deletePressed,
+        isDisabled && styles.disabled,
+      ]}>
+      <Text
+        style={[
+          styles.text,
+          isDelete ? styles.deleteText : styles.skipText,
+          !isDisabled && isDelete && styles.deleteTextEnabled,
+        ]}>
         {icon} {label}
       </Text>
     </Pressable>
@@ -37,8 +55,16 @@ const styles = StyleSheet.create({
     borderColor: alarmTheme.border,
   },
   deleteBackground: {
-    backgroundColor: 'rgba(248,113,113,0.12)',
-    borderColor: 'rgba(248,113,113,0.25)',
+    backgroundColor: 'rgba(239,68,68,0.18)',
+    borderColor: 'rgba(248,113,113,0.5)',
+    borderWidth: 1,
+  },
+  deletePressed: {
+    backgroundColor: 'rgba(239,68,68,0.28)',
+    borderColor: 'rgba(251,146,146,0.7)',
+  },
+  skipPressed: {
+    opacity: 0.92,
   },
   text: {
     fontSize: 14,
@@ -48,6 +74,13 @@ const styles = StyleSheet.create({
     color: alarmTheme.text,
   },
   deleteText: {
-    color: '#f87171',
+    color: '#fca5a5',
+  },
+  deleteTextEnabled: {
+    fontWeight: '600',
+    color: '#fecaca',
+  },
+  disabled: {
+    opacity: 0.42,
   },
 });

@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type Category = { key: string; label: string };
 
@@ -10,9 +11,54 @@ type TemplateCategoryTabsProps = {
   onSelect: (key: string) => void;
 };
 
+/** Matches `HistoryFilterTabs` so category chips don’t stretch vertically (ScrollView needs flexGrow: 0). */
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    scroll: {
+      flexGrow: 0,
+    },
+    container: {
+      paddingLeft: 16,
+      paddingBottom: 14,
+      gap: 8,
+      alignItems: 'center',
+    },
+    tab: {
+      backgroundColor: alarmTheme.surface2,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      borderRadius: 20,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+    },
+    activeTab: {
+      backgroundColor: alarmTheme.accentDim,
+      borderColor: alarmTheme.accent,
+    },
+    tabText: {
+      fontSize: 12,
+      color: alarmTheme.muted,
+      lineHeight: 14,
+    },
+    activeTabText: {
+      color: alarmTheme.accentBright,
+    },
+    endSpace: {
+      width: 8,
+    },
+  });
+}
+
 export function TemplateCategoryTabs({ categories, activeKey, onSelect }: TemplateCategoryTabsProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={styles.scroll}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.container}>
       {categories.map((cat) => {
         const active = cat.key === activeKey;
         return (
@@ -20,41 +66,11 @@ export function TemplateCategoryTabs({ categories, activeKey, onSelect }: Templa
             key={cat.key}
             onPress={() => onSelect(cat.key)}
             style={[styles.tab, active ? styles.activeTab : null]}>
-            <Text style={[styles.tabText, active ? styles.activeText : null]}>{cat.label}</Text>
+            <Text style={[styles.tabText, active ? styles.activeTabText : null]}>{cat.label}</Text>
           </Pressable>
         );
       })}
-      <View style={styles.end} />
+      <View style={styles.endSpace} />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    gap: 8,
-  },
-  tab: {
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  activeTab: {
-    backgroundColor: alarmTheme.accentDim,
-    borderColor: alarmTheme.accent,
-  },
-  tabText: {
-    color: alarmTheme.muted,
-    fontSize: 12,
-  },
-  activeText: {
-    color: alarmTheme.accentBright,
-  },
-  end: {
-    width: 8,
-  },
-});

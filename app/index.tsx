@@ -1,24 +1,32 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { supabase } from '@/lib/supabase';
 
 export default function Index() {
   const router = useRouter();
+  const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     const routeBySession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (!mounted) {
-        return;
+        if (!mounted) {
+          return;
+        }
+
+        router.replace(session ? '/alarm' : '/signin');
+      } finally {
+        if (mounted) {
+          setBootstrapping(false);
+        }
       }
-
-      router.replace(session ? '/alarm' : '/signin');
     };
 
     void routeBySession();
@@ -38,5 +46,5 @@ export default function Index() {
     };
   }, [router]);
 
-  return null;
+  return <FullScreenLoadingOverlay visible={bootstrapping} />;
 }

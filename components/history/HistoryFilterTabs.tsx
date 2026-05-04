@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type TabItem = {
   key: string;
@@ -13,7 +14,47 @@ type HistoryFilterTabsProps = {
   onSelect: (key: string) => void;
 };
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    scroll: {
+      flexGrow: 0,
+    },
+    container: {
+      paddingLeft: 16,
+      paddingBottom: 14,
+      gap: 8,
+      alignItems: 'center',
+    },
+    tab: {
+      backgroundColor: alarmTheme.surface2,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      borderRadius: 20,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+    },
+    activeTab: {
+      backgroundColor: alarmTheme.accentDim,
+      borderColor: alarmTheme.accent,
+    },
+    tabText: {
+      fontSize: 12,
+      color: alarmTheme.muted,
+      lineHeight: 14,
+    },
+    activeTabText: {
+      color: alarmTheme.accentBright,
+    },
+    endSpace: {
+      width: 8,
+    },
+  });
+}
+
 export function HistoryFilterTabs({ tabs, activeKey, onSelect }: HistoryFilterTabsProps) {
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -35,38 +76,3 @@ export function HistoryFilterTabs({ tabs, activeKey, onSelect }: HistoryFilterTa
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flexGrow: 'unset',
-  },
-  container: {
-    paddingLeft: 16,
-    paddingBottom: 14,
-    gap: 8,
-    alignItems: 'center',
-  },
-  tab: {
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  activeTab: {
-    backgroundColor: alarmTheme.accentDim,
-    borderColor: alarmTheme.accent,
-  },
-  tabText: {
-    fontSize: 12,
-    color: alarmTheme.muted,
-    lineHeight: 14,
-  },
-  activeTabText: {
-    color: alarmTheme.accentBright,
-  },
-  endSpace: {
-    width: 8,
-  },
-});

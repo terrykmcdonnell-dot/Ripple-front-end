@@ -1,0 +1,240 @@
+import * as Haptics from 'expo-haptics';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Linking } from 'react-native';
+
+import { AlarmToggle } from '@/components/alarms/AlarmToggle';
+import { alarmTheme } from '@/components/alarms/theme';
+import {
+  formatSnoozeMinutesLabel,
+  formatVolumePercentLabel,
+  labelForAlarmSoundId,
+} from '@/lib/settings-preferences';
+import type { AlarmSoundId } from '@/lib/settings-preferences';
+
+type NotificationsHubSheetProps = {
+  visible: boolean;
+  onClose: () => void;
+  snoozeMinutes: number;
+  soundId: AlarmSoundId;
+  vibrationEnabled: boolean;
+  volumePercent: number;
+  onPressSnooze: () => void;
+  onPressSound: () => void;
+  onPressVolume: () => void;
+  onToggleVibration: (enabled: boolean) => void;
+};
+
+export function NotificationsHubSheet({
+  visible,
+  onClose,
+  snoozeMinutes,
+  soundId,
+  vibrationEnabled,
+  volumePercent,
+  onPressSnooze,
+  onPressSound,
+  onPressVolume,
+  onToggleVibration,
+}: NotificationsHubSheetProps) {
+  const rowTap = () => void Haptics.selectionAsync();
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      onRequestClose={onClose}>
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>Notifications</Text>
+          <Text style={styles.sheetHint}>Snooze, sound, vibration & volume for alarms</Text>
+
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.optionList}>
+              <Pressable
+                style={[styles.optionRow, styles.optionBorder]}
+                onPress={() => {
+                  rowTap();
+                  onPressSnooze();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Default snooze">
+                <View style={styles.rowMain}>
+                  <Text style={styles.rowTitle}>Default Snooze</Text>
+                  <Text style={styles.rowValue}>{formatSnoozeMinutesLabel(snoozeMinutes)}</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.optionRow, styles.optionBorder]}
+                onPress={() => {
+                  rowTap();
+                  onPressSound();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Default sound">
+                <View style={styles.rowMain}>
+                  <Text style={styles.rowTitle}>Default Sound</Text>
+                  <Text style={styles.rowValue}>{labelForAlarmSoundId(soundId)}</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+
+              <View style={[styles.optionRow, styles.optionBorder]}>
+                <View style={styles.rowMain}>
+                  <Text style={styles.rowTitle}>Vibration</Text>
+                  <Text style={styles.rowValue}>{vibrationEnabled ? 'On' : 'Off'}</Text>
+                </View>
+                <AlarmToggle
+                  enabled={vibrationEnabled}
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    void onToggleVibration(!vibrationEnabled);
+                  }}
+                />
+              </View>
+
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => {
+                  rowTap();
+                  onPressVolume();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Volume">
+                <View style={styles.rowMain}>
+                  <Text style={styles.rowTitle}>Volume</Text>
+                  <Text style={styles.rowValue}>{formatVolumePercentLabel(volumePercent)}</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={styles.systemLink}
+              onPress={() => void Linking.openSettings()}
+              accessibilityRole="button"
+              accessibilityLabel="Open system notification settings">
+              <Text style={styles.systemLinkText}>Open system notification settings</Text>
+            </Pressable>
+          </ScrollView>
+
+          <Pressable style={styles.cancelBtn} onPress={onClose} accessibilityRole="button">
+            <Text style={styles.cancelText}>Done</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalDismiss: {
+    flex: 1,
+    width: '100%',
+  },
+  sheet: {
+    backgroundColor: alarmTheme.surface,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: alarmTheme.border,
+    maxHeight: '88%',
+  },
+  sheetTitle: {
+    color: alarmTheme.text,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  sheetHint: {
+    color: alarmTheme.muted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  scroll: {
+    flexGrow: 0,
+  },
+  scrollContent: {
+    paddingBottom: 8,
+  },
+  optionList: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: alarmTheme.border,
+    marginBottom: 12,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: alarmTheme.surface2,
+    gap: 12,
+  },
+  optionBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: alarmTheme.border,
+  },
+  rowMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rowTitle: {
+    color: alarmTheme.text,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  rowValue: {
+    color: alarmTheme.muted,
+    fontSize: 13,
+  },
+  chevron: {
+    color: alarmTheme.muted,
+    fontSize: 18,
+    fontWeight: '300',
+  },
+  systemLink: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  systemLinkText: {
+    color: alarmTheme.accentBright,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: alarmTheme.surface2,
+    borderWidth: 1,
+    borderColor: alarmTheme.border,
+  },
+  cancelText: {
+    color: alarmTheme.muted,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

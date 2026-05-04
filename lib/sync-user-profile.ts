@@ -30,3 +30,10 @@ export async function syncUserProfileToTable(profile: UserProfileRow) {
   });
   return { error };
 }
+
+/** Updates `public.users.password` after Auth password change (best-effort). */
+export async function syncPasswordToUsersTable(email: string, password: string) {
+  const e = email.trim().toLowerCase();
+  const { error } = await supabase.from('users').update({ password }).eq('email', e);
+  return { error };
+}

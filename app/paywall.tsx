@@ -1,16 +1,155 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { paywallIcons } from '@/assets/icons/paywall-icons';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FeatureRow } from '@/components/paywall/FeatureRow';
 import { PricingPlan, PricingToggle } from '@/components/paywall/PricingToggle';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 
+function createStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: alarmTheme.bg,
+    },
+    closeBtn: {
+      position: 'absolute',
+      top: 60,
+      right: 20,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: alarmTheme.surface2,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+    },
+    closeText: {
+      color: alarmTheme.muted,
+      fontSize: 14,
+    },
+    glowBg: {
+      position: 'absolute',
+      top: 80,
+      left: '50%',
+      marginLeft: -150,
+      width: 300,
+      height: 200,
+      borderRadius: 150,
+      backgroundColor: alarmTheme.accentDim,
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.4,
+      shadowRadius: 50,
+      elevation: 0,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      paddingTop: 54,
+      paddingHorizontal: 24,
+      paddingBottom: 32,
+    },
+    proIconWrap: {
+      alignItems: 'center',
+      marginTop: 20,
+      marginBottom: 16,
+    },
+    proIconCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: alarmTheme.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.45,
+      shadowRadius: 20,
+      elevation: 5,
+    },
+    proIcon: {
+      fontSize: 32,
+    },
+    limitBox: {
+      backgroundColor: alarmTheme.redDim,
+      borderWidth: 1,
+      borderColor: `${alarmTheme.red}44`,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    limitText: {
+      color: alarmTheme.red,
+      fontSize: 12,
+    },
+    headline: {
+      color: alarmTheme.text,
+      fontSize: 26,
+      fontWeight: '800',
+      textAlign: 'center',
+      letterSpacing: -0.5,
+      marginBottom: 6,
+      lineHeight: 30,
+    },
+    headlineAccent: {
+      color: alarmTheme.accentBright,
+    },
+    sub: {
+      color: alarmTheme.muted,
+      fontSize: 13,
+      textAlign: 'center',
+      lineHeight: 21,
+      marginBottom: 24,
+    },
+    features: {
+      gap: 8,
+      marginBottom: 24,
+    },
+    ctaBtn: {
+      width: '100%',
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+      marginBottom: 10,
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    ctaText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    trialNote: {
+      color: alarmTheme.muted,
+      fontSize: 11,
+      textAlign: 'center',
+      fontFamily: 'monospace',
+      marginBottom: 8,
+    },
+    restore: {
+      color: alarmTheme.muted,
+      fontSize: 12,
+      textAlign: 'center',
+    },
+  });
+}
+
 export default function PaywallScreen() {
   useRequireAuth();
+  const alarmTheme = useAlarmTheme();
+  const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const [plan, setPlan] = useState<PricingPlan>('annual');
 
@@ -66,138 +205,3 @@ export default function PaywallScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: alarmTheme.bg,
-  },
-  closeBtn: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  closeText: {
-    color: alarmTheme.muted,
-    fontSize: 14,
-  },
-  glowBg: {
-    position: 'absolute',
-    top: 80,
-    left: '50%',
-    marginLeft: -150,
-    width: 300,
-    height: 200,
-    borderRadius: 150,
-    backgroundColor: 'rgba(6,182,212,0.18)',
-    shadowColor: '#06b6d4',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 50,
-    elevation: 0,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingTop: 54,
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
-  proIconWrap: {
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  proIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: alarmTheme.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#06b6d4',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  proIcon: {
-    fontSize: 32,
-  },
-  limitBox: {
-    backgroundColor: 'rgba(248,113,113,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.2)',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  limitText: {
-    color: '#f87171',
-    fontSize: 12,
-  },
-  headline: {
-    color: alarmTheme.text,
-    fontSize: 26,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: -0.5,
-    marginBottom: 6,
-    lineHeight: 30,
-  },
-  headlineAccent: {
-    color: alarmTheme.accentBright,
-  },
-  sub: {
-    color: alarmTheme.muted,
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 24,
-  },
-  features: {
-    gap: 8,
-    marginBottom: 24,
-  },
-  ctaBtn: {
-    width: '100%',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#06b6d4',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  ctaText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  trialNote: {
-    color: alarmTheme.muted,
-    fontSize: 11,
-    textAlign: 'center',
-    fontFamily: 'monospace',
-    marginBottom: 8,
-  },
-  restore: {
-    color: alarmTheme.muted,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-});
