@@ -1,6 +1,7 @@
 import { Alert, type AlertButton } from 'react-native';
 
 import { formatAuthErrorMessage } from '@/lib/auth-validation';
+import { isExpiredJwtOrSessionError, refreshOrSignOutOnExpiredSession } from '@/lib/auth-session-errors';
 
 type ErrorLike = {
   message?: string;
@@ -37,6 +38,10 @@ export function getAuthErrorDisplayText(error: unknown): string {
 
 /** User-visible alert for failed auth / account actions (maps Supabase messages to friendly copy). */
 export function notifyAuthError(title: string, error: unknown) {
+  if (isExpiredJwtOrSessionError(error)) {
+    void refreshOrSignOutOnExpiredSession();
+    return;
+  }
   const text = getAuthErrorDisplayText(error);
   Alert.alert(title, text);
 }

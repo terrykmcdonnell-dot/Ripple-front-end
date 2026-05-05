@@ -35,8 +35,14 @@ export function VolumePickerSheet({
       <View style={styles.modalRoot}>
         <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
         <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Volume</Text>
-          <Text style={styles.sheetHint}>Default level for alarm playback</Text>
+          <Text style={styles.sheetTitle}>Volume preference</Text>
+          <Text style={styles.sheetHint}>
+            {Platform.OS === 'android'
+              ? 'Choosing a level updates notification volume only (not media or ringtone). Saved for your account. Applied only when you pick here — not when opening the app.'
+              : Platform.OS === 'ios'
+                ? 'Choosing a level adjusts system volume used for alerts and similar sounds. Saved for your account. Applied only when you pick here — not when opening the app.'
+                : 'Saved for your account.'}
+          </Text>
           <View style={styles.optionList}>
             {options.map((p, index) => {
               const active = p === selectedPercent;

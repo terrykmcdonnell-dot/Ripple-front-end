@@ -2,7 +2,9 @@
 
 # dependencies
 node_modules/
-test-f06a8-firebase-adminsdk-fbsvc-0c5c6121a6.json
+# Firebase / GCP service accounts — never commit (GitHub push protection)
+**/firebase-adminsdk*.json
+**/*-adminsdk-*.json
 google-services.json
 # Expo
 .expo/

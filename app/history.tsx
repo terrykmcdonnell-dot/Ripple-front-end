@@ -15,6 +15,7 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { categoryIdToChipKey } from '@/lib/alarm-format';
 import { notifyAuthError } from '@/lib/auth-notify';
+import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { fetchAlarmHistory, type AlarmHistoryApiRow } from '@/lib/alarm-history-api';
 import {
   buildHistoryGroups,
@@ -93,6 +94,12 @@ export default function HistoryScreen() {
 
     const { id: userId, error: userErr } = await fetchCurrentUserRowId();
     if (userErr || userId == null) {
+      if (await shouldSkipAuthFailureAlerts()) {
+        setRows([]);
+        setListError(null);
+        setInitialLoad(false);
+        return;
+      }
       setListError(userErr?.message ?? 'Could not resolve your profile.');
       setInitialLoad(false);
       return;

@@ -9,10 +9,14 @@ import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { TemplateCard } from '@/components/templates/TemplateCard';
 import { TemplateCategoryTabs } from '@/components/templates/TemplateCategoryTabs';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { notifyAuthError } from '@/lib/auth-notify';
+import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { installTemplatePack, uninstallTemplatePack } from '@/lib/install-template-pack';
+import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { TEMPLATE_PACK_DEFINITIONS, type TemplatePackId } from '@/lib/template-packs-data';
 import { getAllPackAlarmIds, reconcilePackAlarmIdsWithServer } from '@/lib/template-packs-storage';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
@@ -87,6 +91,8 @@ export default function TemplatesScreen() {
   const router = useRouter();
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+  const { showToast } = useAppToast();
+  const { limitsApply } = useSubscriptionStatus();
   const [activeCategory, setActiveCategory] = useState('all');
   const [packAlarmIds, setPackAlarmIds] = useState<Record<string, number[]>>({});
   const [busyPackId, setBusyPackId] = useState<TemplatePackId | null>(null);
@@ -113,6 +119,7 @@ export default function TemplatesScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      invalidateSubscriptionCache();
       void refreshPackState();
     }, [refreshPackState]),
   );
@@ -139,12 +146,19 @@ export default function TemplatesScreen() {
       try {
         const { id: userId, error } = await fetchCurrentUserRowId();
         if (error || userId == null) {
-          notifyAuthError('Templates', error ?? new Error('Missing user profile.'));
+          if (!(await shouldSkipAuthFailureAlerts())) {
+            notifyAuthError('Templates', error ?? new Error('Missing user profile.'));
+          }
           return;
         }
         if (installed) {
           await uninstallTemplatePack(packId, ids);
         } else {
+          if (limitsApply) {
+            showToast('Template packs are included with Ripple Pro.');
+            router.push('/paywall');
+            return;
+          }
           await installTemplatePack(userId, pack);
         }
         await refreshPackState();
@@ -154,7 +168,7 @@ export default function TemplatesScreen() {
         setBusyPackId(null);
       }
     },
-    [busyPackId, packAlarmIds, refreshPackState],
+    [busyPackId, limitsApply, packAlarmIds, refreshPackState, router, showToast],
   );
 
   return (
@@ -189,6 +203,7 @@ export default function TemplatesScreen() {
             }))}
             installed={(packAlarmIds[item.id]?.length ?? 0) > 0}
             installBusy={busyPackId === item.id}
+            premiumLocked={limitsApply}
             onToggleInstall={() => void onTogglePack(item.id)}
           />
         ))}

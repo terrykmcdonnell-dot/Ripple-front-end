@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { Stack, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
@@ -8,21 +8,96 @@ import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
 import { RingPulse } from '@/components/alarm-ring/RingPulse';
 import { alarmTheme } from '@/components/alarms/theme';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
-import { notifyAuthMessage } from '@/lib/auth-notify';
-import { scheduleSnoozeNotification } from '@/lib/device-snooze';
 import { useDefaultSnoozeMinutes } from '@/hooks/use-default-snooze-minutes';
 import { useDefaultVibrationEnabled } from '@/hooks/use-default-vibration-enabled';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { formatScheduledLocalParts } from '@/lib/alarm-format';
+import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
+import { notifyAuthMessage } from '@/lib/auth-notify';
+import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
+import { scheduleSnoozeNotification } from '@/lib/device-snooze';
+import { recordAlarmHistoryDismissed, recordAlarmHistorySnoozed } from '@/lib/alarm-history-sync';
+
+function paramOne(v: string | string[] | undefined): string | undefined {
+  if (v == null) {
+    return undefined;
+  }
+  const s = Array.isArray(v) ? v[0] : v;
+  return typeof s === 'string' && s.trim().length > 0 ? s.trim() : undefined;
+}
+
+function parsedFromParams(params: {
+  alarmId?: string | string[];
+  fireAt?: string | string[];
+  label?: string | string[];
+  category?: string | string[];
+  userId?: string | string[];
+}): ParsedAlarmFireData | null {
+  const alarmIdRaw = paramOne(params.alarmId);
+  const fireAt = paramOne(params.fireAt);
+  if (!alarmIdRaw || !fireAt) {
+    return null;
+  }
+  const alarmId = Number(alarmIdRaw);
+  if (!Number.isFinite(alarmId)) {
+    return null;
+  }
+  const label = paramOne(params.label)?.trim() || 'Alarm';
+  const category = paramOne(params.category)?.trim() ?? '';
+  const uidRaw = paramOne(params.userId);
+  const uid = uidRaw != null ? Number(uidRaw) : NaN;
+  return {
+    alarmId,
+    fireAt,
+    label,
+    category,
+    ...(Number.isFinite(uid) ? { userId: uid } : {}),
+  };
+}
 
 export default function AlarmRingScreen() {
   useRequireAuth();
   const router = useRouter();
+  const rawParams = useLocalSearchParams();
+  const liveParsed = useMemo(() => parsedFromParams(rawParams), [rawParams]);
+
   const defaultSnoozeMinutes = useDefaultSnoozeMinutes();
   const vibrationEnabled = useDefaultVibrationEnabled();
   const [snoozeBusy, setSnoozeBusy] = useState(false);
   const snoozePendingRef = useRef(false);
 
-  const alarmTitle = 'Take Medication';
+  const alarmTitle = liveParsed?.label ?? 'Alarm';
+
+  const heroClock = useMemo(() => {
+    if (!liveParsed?.fireAt) {
+      return { time: '7:00', ampm: 'AM' as const };
+    }
+    return formatScheduledLocalParts(liveParsed.fireAt);
+  }, [liveParsed]);
+
+  const heroDate = useMemo(() => {
+    if (!liveParsed?.fireAt) {
+      return 'Demo preview · create alarms on the Alarms tab';
+    }
+    const d = new Date(liveParsed.fireAt);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleDateString(undefined, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  }, [liveParsed]);
+
+  const onDismissPress = useCallback(async () => {
+    if (liveParsed) {
+      await recordAlarmHistoryDismissed(liveParsed).catch(() => undefined);
+      void syncAlarmFireNotifications();
+    }
+    router.replace('/alarm');
+  }, [liveParsed, router]);
 
   const onSnoozePress = useCallback(async () => {
     if (snoozePendingRef.current) {
@@ -39,6 +114,10 @@ export default function AlarmRingScreen() {
         notifyAuthMessage('Snooze', result.message);
         return;
       }
+      if (liveParsed) {
+        await recordAlarmHistorySnoozed(liveParsed, defaultSnoozeMinutes).catch(() => undefined);
+      }
+      void syncAlarmFireNotifications();
       if (vibrationEnabled) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -47,7 +126,7 @@ export default function AlarmRingScreen() {
       snoozePendingRef.current = false;
       setSnoozeBusy(false);
     }
-  }, [alarmTitle, defaultSnoozeMinutes, router, vibrationEnabled]);
+  }, [alarmTitle, defaultSnoozeMinutes, liveParsed, router, vibrationEnabled]);
 
   return (
     <View style={styles.screen}>
@@ -56,11 +135,14 @@ export default function AlarmRingScreen() {
         <RingPulse icon={ringIcons.alarm} />
 
         <Text style={styles.alarmLabel}>Alarm</Text>
-        <Text style={styles.time}>7:00</Text>
-        <Text style={styles.date}>Friday, 25 April 2026</Text>
+        <View style={styles.heroClockRow}>
+          <Text style={styles.time}>{heroClock.time}</Text>
+          <Text style={styles.ampm}>{heroClock.ampm}</Text>
+        </View>
+        <Text style={styles.date}>{heroDate}</Text>
 
         <Text style={styles.name}>{alarmTitle}</Text>
-        <Text style={styles.repeat}>↻ Repeats every 3 days</Text>
+        {liveParsed?.category ? <Text style={styles.categoryHint}>{liveParsed.category}</Text> : null}
 
         <View style={styles.actions}>
           <RingActionButton
@@ -73,11 +155,15 @@ export default function AlarmRingScreen() {
             icon={ringIcons.dismiss}
             label="Dismiss"
             variant="dismiss"
-            onPress={() => router.push('/alarm')}
+            onPress={() => void onDismissPress()}
           />
         </View>
 
-        <Text style={styles.next}>Next ring: Monday 28 April at 7:00 AM</Text>
+        <Text style={styles.footerHint}>
+          {liveParsed
+            ? 'Swipe away from the banner still keeps this screen until you tap Dismiss or Snooze.'
+            : 'Ring screen opens automatically when an alarm fires while the app is open.'}
+        </Text>
       </View>
       <FullScreenLoadingOverlay visible={snoozeBusy} />
     </View>
@@ -106,40 +192,59 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontFamily: 'monospace',
   },
-  name: {
-    color: alarmTheme.text,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginBottom: 6,
-  },
-  repeat: {
-    color: alarmTheme.accentBright,
-    fontSize: 13,
-    marginBottom: 10,
+  heroClockRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginBottom: 4,
   },
   time: {
     color: alarmTheme.text,
     fontSize: 48,
     fontWeight: '800',
-    lineHeight: 48,
+    lineHeight: 52,
     letterSpacing: -1.4,
-    marginBottom: 4,
+  },
+  ampm: {
+    color: alarmTheme.muted,
+    fontSize: 17,
+    fontWeight: '700',
+    paddingBottom: 6,
+  },
+  name: {
+    color: alarmTheme.text,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginTop: 28,
+    marginBottom: 22,
+    textAlign: 'center',
+  },
+  categoryHint: {
+    color: alarmTheme.accentBright,
+    fontSize: 13,
+    marginTop: -18,
+    marginBottom: 18,
   },
   date: {
     color: alarmTheme.muted,
     fontSize: 13,
-    marginBottom: 40,
+    marginBottom: 4,
+    textAlign: 'center',
+    paddingHorizontal: 12,
   },
   actions: {
     width: '100%',
     flexDirection: 'row',
     gap: 12,
   },
-  next: {
+  footerHint: {
     color: alarmTheme.muted,
     fontSize: 11,
-    marginTop: 14,
+    marginTop: 20,
     fontFamily: 'monospace',
+    textAlign: 'center',
+    lineHeight: 16,
+    paddingHorizontal: 8,
   },
 });

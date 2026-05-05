@@ -48,7 +48,9 @@ export function NotificationsHubSheet({
         <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
         <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>Notifications</Text>
-          <Text style={styles.sheetHint}>Snooze, sound, vibration & volume for alarms</Text>
+          <Text style={styles.sheetHint}>
+            Snooze, sound & vibration. Use Alarm volume to sync loudness to your phone when you choose a level.
+          </Text>
 
           <ScrollView
             style={styles.scroll}
@@ -107,9 +109,9 @@ export function NotificationsHubSheet({
                   onPressVolume();
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Volume">
+                accessibilityLabel="Alarm volume">
                 <View style={styles.rowMain}>
-                  <Text style={styles.rowTitle}>Volume</Text>
+                  <Text style={styles.rowTitle}>Alarm volume</Text>
                   <Text style={styles.rowValue}>{formatVolumePercentLabel(volumePercent)}</Text>
                 </View>
                 <Text style={styles.chevron}>›</Text>

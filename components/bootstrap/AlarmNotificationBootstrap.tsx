@@ -6,6 +6,7 @@ import {
   addNotificationReceivedListener,
   addNotificationResponseReceivedListener,
   clearLastNotificationResponseAsync,
+  DEFAULT_ACTION_IDENTIFIER,
   getLastNotificationResponseAsync,
 } from 'expo-notifications/build/NotificationsEmitter';
 import registerTaskAsync from 'expo-notifications/build/registerTaskAsync';
@@ -18,6 +19,7 @@ import {
   ALARM_NOTIFICATION_ACTION_DISMISS,
   ALARM_NOTIFICATION_ACTION_SNOOZE,
 } from '@/lib/alarm-notification-constants';
+import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
 import {
@@ -28,6 +30,7 @@ import {
 } from '@/lib/alarm-history-sync';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
+import { router } from 'expo-router';
 
 async function ensureAlarmFireCategoryRegistered(): Promise<void> {
   await setNotificationCategoryAsync(ALARM_FIRE_CATEGORY_ID, [
@@ -44,7 +47,20 @@ async function ensureAlarmFireCategoryRegistered(): Promise<void> {
   ]);
 }
 
-/** Shared handler: dismiss banner, record history for Snooze/Dismiss actions, reschedule fires. */
+function openAlarmRingScreen(parsed: ParsedAlarmFireData): void {
+  router.push({
+    pathname: '/alarm-ring',
+    params: {
+      alarmId: String(parsed.alarmId),
+      fireAt: parsed.fireAt,
+      label: parsed.label,
+      category: parsed.category,
+      ...(parsed.userId != null ? { userId: String(parsed.userId) } : {}),
+    },
+  });
+}
+
+/** Shared handler: full-screen ring UI, dismiss banner, record history for Snooze/Dismiss actions, reschedule fires. */
 async function handleAlarmFireNotificationResponse(response: NotificationResponse): Promise<void> {
   const data = response.notification.request.content.data as Record<string, unknown> | undefined;
   if (data?.type !== ALARM_FIRE_DATA_TYPE) {
@@ -57,9 +73,16 @@ async function handleAlarmFireNotificationResponse(response: NotificationRespons
   }
 
   const reqId = response.notification.request.identifier;
-  await dismissNotificationAsync(reqId).catch(() => undefined);
-
   const action = response.actionIdentifier;
+
+  if (action === DEFAULT_ACTION_IDENTIFIER) {
+    openAlarmRingScreen(parsed);
+    await dismissNotificationAsync(reqId).catch(() => undefined);
+    await syncAlarmFireNotifications();
+    return;
+  }
+
+  await dismissNotificationAsync(reqId).catch(() => undefined);
 
   if (action === ALARM_NOTIFICATION_ACTION_SNOOZE) {
     const minutes = await loadSnoozeMinutesForHistory();
@@ -117,6 +140,7 @@ export function AlarmNotificationBootstrap() {
           return;
         }
         void recordAlarmHistoryMissed(parsed);
+        openAlarmRingScreen(parsed);
       });
 
       responseSub = addNotificationResponseReceivedListener((response) => {

@@ -27,6 +27,10 @@ import {
   loadDefaultVibrationEnabled,
   loadNotificationsMasterEnabled,
 } from '@/lib/settings-preferences';
+import {
+  alignAlarmNotificationTriggerDate,
+  MIN_ALARM_SCHEDULE_LEAD_MS,
+} from '@/lib/alarm-notification-trigger';
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
 import { nextCanonicalAlarmFire } from '@/lib/upcoming-reminder-scheduler';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
@@ -119,8 +123,12 @@ export async function syncAlarmFireNotifications(alarms?: AlarmListItem[]): Prom
   const scheduledIds: string[] = [];
 
   for (const alarm of rows.filter((a) => a.isEnabled)) {
-    const fireAt = nextCanonicalAlarmFire(alarm, now);
-    if (!fireAt || fireAt.getTime() <= now.getTime() + 1500) {
+    const fireAtRaw = nextCanonicalAlarmFire(alarm, now);
+    if (!fireAtRaw || fireAtRaw.getTime() <= now.getTime() + MIN_ALARM_SCHEDULE_LEAD_MS) {
+      continue;
+    }
+    const fireAt = alignAlarmNotificationTriggerDate(fireAtRaw);
+    if (fireAt.getTime() <= now.getTime() + MIN_ALARM_SCHEDULE_LEAD_MS) {
       continue;
     }
 
@@ -136,6 +144,12 @@ export async function syncAlarmFireNotifications(alarms?: AlarmListItem[]): Prom
           sound: soundFile,
           priority: AndroidNotificationPriority.MAX,
           categoryIdentifier: ALARM_FIRE_CATEGORY_ID,
+          ...(Platform.OS === 'android'
+            ? {
+                sticky: true,
+                autoDismiss: false,
+              }
+            : {}),
           data: {
             type: ALARM_FIRE_DATA_TYPE,
             alarmId: alarm.id,

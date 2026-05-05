@@ -27,6 +27,10 @@ import {
   loadUpcomingReminderLeadMinutes,
 } from '@/lib/settings-preferences';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import {
+  alignAlarmNotificationTriggerDate,
+  MIN_ALARM_SCHEDULE_LEAD_MS,
+} from '@/lib/alarm-notification-trigger';
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
 
 const STORAGE_IDS_KEY = 'ripple_upcoming_scheduled_notification_ids';
@@ -102,7 +106,7 @@ function nextReminderSlot(
   const horizonEnd = from.getTime() + 730 * 24 * 60 * 60 * 1000;
   while (fire && guard++ < 10000 && fire.getTime() <= horizonEnd) {
     const reminderAt = new Date(fire.getTime() - leadMs);
-    if (reminderAt.getTime() > from.getTime() + 1500) {
+    if (reminderAt.getTime() > from.getTime() + MIN_ALARM_SCHEDULE_LEAD_MS) {
       return { reminderAt, fireAt: fire };
     }
     const next = advanceOccurrence(fire, alarm.interval, alarm.unit);
@@ -185,6 +189,8 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
       continue;
     }
 
+    const reminderAt = alignAlarmNotificationTriggerDate(slot.reminderAt);
+
     const { time, ampm } = formatScheduledLocalParts(slot.fireAt.toISOString());
     const label = alarm.label.trim() || 'Alarm';
     const leadPhrase = formatUpcomingReminderLeadLabel(leadMinutes);
@@ -213,7 +219,7 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
         },
         trigger: {
           type: SchedulableTriggerInputTypes.DATE,
-          date: slot.reminderAt,
+          date: reminderAt,
           ...(Platform.OS === 'android' ? { channelId: androidChannelId } : {}),
         },
       });

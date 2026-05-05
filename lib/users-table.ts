@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { isExpiredJwtOrSessionError, refreshOrSignOutOnExpiredSession } from '@/lib/auth-session-errors';
 
 function coerceNumericId(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -13,6 +14,10 @@ function coerceNumericId(value: unknown): number | null {
   return null;
 }
 
+async function selectUsersRowByEmail(email: string) {
+  return supabase.from('users').select('id').eq('email', email).maybeSingle();
+}
+
 /** `public.users.id` for the signed-in user (matched by Auth email ↔ `users.email`). */
 export async function fetchCurrentUserRowId(): Promise<{ id: number | null; error: Error | null }> {
   const {
@@ -24,9 +29,24 @@ export async function fetchCurrentUserRowId(): Promise<{ id: number | null; erro
     return { id: null, error: new Error('You must be signed in to save alarms.') };
   }
 
-  const { data, error } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+  let { data, error } = await selectUsersRowByEmail(email);
+
+  if (error && isExpiredJwtOrSessionError(error)) {
+    await refreshOrSignOutOnExpiredSession();
+    const {
+      data: { session: after },
+    } = await supabase.auth.getSession();
+    if (!after) {
+      return { id: null, error: null };
+    }
+    ({ data, error } = await selectUsersRowByEmail(email));
+  }
 
   if (error) {
+    if (isExpiredJwtOrSessionError(error)) {
+      await supabase.auth.signOut();
+      return { id: null, error: null };
+    }
     return { id: null, error };
   }
 

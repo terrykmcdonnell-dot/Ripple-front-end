@@ -18,6 +18,8 @@ type TemplateCardProps = {
   installed: boolean;
   /** Disables install button while API work runs */
   installBusy?: boolean;
+  /** When true and not installed, install action is for Pro upgrade (parent handles navigation). */
+  premiumLocked?: boolean;
   onToggleInstall: () => void;
 };
 
@@ -87,6 +89,11 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     defaultText: { color: alarmTheme.accentBright },
     greenText: { color: alarmTheme.green },
     installedText: { color: alarmTheme.muted },
+    lockedBtn: {
+      backgroundColor: alarmTheme.amberDim,
+      borderColor: 'rgba(251,191,36,0.35)',
+    },
+    lockedText: { color: alarmTheme.amber },
   });
 }
 
@@ -98,6 +105,7 @@ export function TemplateCard({
   alarms,
   installed,
   installBusy,
+  premiumLocked,
   onToggleInstall,
 }: TemplateCardProps) {
   const alarmTheme = useAlarmTheme();
@@ -111,6 +119,8 @@ export function TemplateCard({
     }),
     [alarmTheme]
   );
+
+  const showProInstall = premiumLocked === true && !installed;
 
   return (
     <View style={styles.card}>
@@ -141,15 +151,27 @@ export function TemplateCard({
           disabled={installBusy === true}
           style={[
             styles.installBtn,
-            installed ? styles.installedBtn : iconTone === 'green' ? styles.greenBtn : styles.defaultBtn,
+            installed
+              ? styles.installedBtn
+              : showProInstall
+                ? styles.lockedBtn
+                : iconTone === 'green'
+                  ? styles.greenBtn
+                  : styles.defaultBtn,
             installBusy ? { opacity: 0.55 } : null,
           ]}>
           <Text
             style={[
               styles.installText,
-              installed ? styles.installedText : iconTone === 'green' ? styles.greenText : styles.defaultText,
+              installed
+                ? styles.installedText
+                : showProInstall
+                  ? styles.lockedText
+                  : iconTone === 'green'
+                    ? styles.greenText
+                    : styles.defaultText,
             ]}>
-            {installBusy ? 'Working…' : installed ? '✓ Installed' : '+ Install Pack'}
+            {installBusy ? 'Working…' : installed ? '✓ Installed' : showProInstall ? 'Ripple Pro' : '+ Install Pack'}
           </Text>
         </Pressable>
       </View>

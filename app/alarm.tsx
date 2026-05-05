@@ -17,8 +17,10 @@ import { AlarmCard } from '@/components/alarms/AlarmCard';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { RichWordText } from '@/components/alarms/RichWordText';
 import { alarmTheme } from '@/components/alarms/theme';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { fetchAlarms, patchAlarm } from '@/lib/alarm-api';
 import {
   formatRepeatEveryTag,
@@ -28,12 +30,15 @@ import {
 } from '@/lib/alarm-format';
 import { ADD_ALARM_HIT_SLOP } from '@/lib/header-hit-slop';
 import { notifyAuthError } from '@/lib/auth-notify';
+import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { stashAlarmForEdit } from '@/lib/alarm-navigation-cache';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import {
   nextCanonicalAlarmFire,
   syncUpcomingReminderNotifications,
 } from '@/lib/upcoming-reminder-scheduler';
+import { canAddAlarm, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
+import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 function formatDeviceClock(now: Date): { time: string; ampm: 'AM' | 'PM' } {
@@ -99,6 +104,8 @@ function nextAlarmWords(alarms: AlarmListItem[], now: Date): { muted: string; ac
 export default function AlarmScreen() {
   useRequireAuth();
   const router = useRouter();
+  const { showToast } = useAppToast();
+  const { isSubscriber } = useSubscriptionStatus();
 
   const [alarms, setAlarms] = useState<AlarmListItem[]>([]);
   const [listError, setListError] = useState<string | null>(null);
@@ -128,6 +135,11 @@ export default function AlarmScreen() {
 
     const { id: userId, error: userErr } = await fetchCurrentUserRowId();
     if (userErr || userId == null) {
+      if (await shouldSkipAuthFailureAlerts()) {
+        setInitialLoad(false);
+        setRefreshing(false);
+        return;
+      }
       if (!silent) {
         notifyAuthError('Alarms', userErr ?? new Error('Missing user profile.'));
       }
@@ -156,10 +168,20 @@ export default function AlarmScreen() {
   useFocusEffect(
     useCallback(() => {
       setClockTick(Date.now());
+      invalidateSubscriptionCache();
       void loadAlarms({ silent: !firstFocus.current });
       firstFocus.current = false;
     }, [loadAlarms]),
   );
+
+  const goCreateAlarm = useCallback(() => {
+    if (!canAddAlarm(alarms.length, isSubscriber)) {
+      showToast(`Free plan allows ${FREE_TIER_MAX_ALARMS} alarms. Upgrade to Pro for unlimited.`);
+      router.push('/paywall');
+      return;
+    }
+    router.push('/alarm-create');
+  }, [alarms.length, isSubscriber, router, showToast]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -208,7 +230,7 @@ export default function AlarmScreen() {
             accessibilityLabel="Add alarm"
             hitSlop={ADD_ALARM_HIT_SLOP}
             style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-            onPress={() => router.push('/alarm-create')}>
+            onPress={goCreateAlarm}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
         </View>

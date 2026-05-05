@@ -13,9 +13,10 @@ import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
 import { alarmTheme } from '@/components/alarms/theme';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { createAlarm } from '@/lib/alarm-api';
+import { fetchAlarms, createAlarm } from '@/lib/alarm-api';
 import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
 import {
   AlarmSoundId,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/settings-preferences';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
+import { canAddAlarmFresh, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
@@ -74,11 +76,23 @@ export default function AlarmCreateScreen() {
     try {
       const { id: userId, error: userIdError } = await fetchCurrentUserRowId();
       if (userIdError || userId == null) {
-        notifyAuthError('New Alarm', userIdError ?? new Error('Missing user profile.'));
+        if (!(await shouldSkipAuthFailureAlerts())) {
+          notifyAuthError('New Alarm', userIdError ?? new Error('Missing user profile.'));
+        }
         return;
       }
 
       const categoryLabel = categories.find((item) => item.key === category)?.label ?? 'Health';
+
+      const existing = await fetchAlarms(userId);
+      if (!(await canAddAlarmFresh(existing.length))) {
+        notifyAuthMessage(
+          'Ripple Pro',
+          `Free accounts can save up to ${FREE_TIER_MAX_ALARMS} alarms. Upgrade for unlimited alarms and templates.`,
+        );
+        router.replace('/paywall');
+        return;
+      }
 
       await createAlarm({
         user_id: userId,

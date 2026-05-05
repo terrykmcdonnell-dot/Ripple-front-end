@@ -8,6 +8,10 @@ export type PricingPlan = 'annual' | 'monthly';
 type PricingToggleProps = {
   selected: PricingPlan;
   onSelect: (plan: PricingPlan) => void;
+  /** Store price string from RevenueCat (e.g. `$9.99`). Falls back to placeholder when omitted. */
+  annualPriceLabel?: string | null;
+  monthlyPriceLabel?: string | null;
+  disabled?: boolean;
 };
 
 function createStyles(alarmTheme: AlarmThemePalette) {
@@ -22,6 +26,9 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       padding: 4,
       gap: 4,
       marginBottom: 16,
+    },
+    wrapDisabled: {
+      opacity: 0.55,
     },
     option: {
       flex: 1,
@@ -63,25 +70,36 @@ function createStyles(alarmTheme: AlarmThemePalette) {
   });
 }
 
-export function PricingToggle({ selected, onSelect }: PricingToggleProps) {
+export function PricingToggle({
+  selected,
+  onSelect,
+  annualPriceLabel,
+  monthlyPriceLabel,
+  disabled,
+}: PricingToggleProps) {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
+  const annualLine = annualPriceLabel?.trim() ? `${annualPriceLabel} / year` : '$9.99 / year';
+  const monthlyLine = monthlyPriceLabel?.trim() ? `${monthlyPriceLabel} / month` : '$1.99 / month';
+
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, disabled ? styles.wrapDisabled : null]}>
       <Pressable
+        disabled={disabled}
         style={[styles.option, selected === 'annual' ? styles.optionActive : null]}
         onPress={() => onSelect('annual')}>
         <Text style={[styles.name, selected === 'annual' ? styles.activeText : null]}>
           Annual <Text style={styles.saveBadge}>SAVE 58%</Text>
         </Text>
-        <Text style={[styles.price, selected === 'annual' ? styles.activeText : null]}>$9.99 / year</Text>
+        <Text style={[styles.price, selected === 'annual' ? styles.activeText : null]}>{annualLine}</Text>
       </Pressable>
       <Pressable
+        disabled={disabled}
         style={[styles.option, selected === 'monthly' ? styles.optionActive : null]}
         onPress={() => onSelect('monthly')}>
         <Text style={[styles.name, selected === 'monthly' ? styles.activeText : null]}>Monthly</Text>
-        <Text style={[styles.price, selected === 'monthly' ? styles.activeText : null]}>$1.99 / month</Text>
+        <Text style={[styles.price, selected === 'monthly' ? styles.activeText : null]}>{monthlyLine}</Text>
       </Pressable>
     </View>
   );

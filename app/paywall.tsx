@@ -1,13 +1,38 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { paywallIcons } from '@/assets/icons/paywall-icons';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FeatureRow } from '@/components/paywall/FeatureRow';
 import { PricingPlan, PricingToggle } from '@/components/paywall/PricingToggle';
+import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
+import {
+  configureRevenueCat,
+  getRevenueCatApiKey,
+  hasPremiumEntitlement,
+  isPurchasesUserCancelled,
+  isRevenueCatConfigured,
+  pickMonthlyAnnualPackages,
+  purchasesErrorMessage,
+} from '@/lib/revenuecat';
+import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
+import Purchases from 'react-native-purchases';
+import type { PurchasesPackage } from 'react-native-purchases';
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -91,6 +116,21 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       color: alarmTheme.red,
       fontSize: 12,
     },
+    subscribedBox: {
+      backgroundColor: alarmTheme.greenDim,
+      borderWidth: 1,
+      borderColor: 'rgba(52,211,153,0.35)',
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    subscribedText: {
+      color: alarmTheme.green,
+      fontSize: 12,
+      fontWeight: '700',
+    },
     headline: {
       color: alarmTheme.text,
       fontSize: 26,
@@ -126,6 +166,9 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       shadowRadius: 12,
       elevation: 4,
     },
+    ctaDisabled: {
+      opacity: 0.55,
+    },
     ctaText: {
       color: '#ffffff',
       fontSize: 16,
@@ -139,9 +182,63 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       marginBottom: 8,
     },
     restore: {
+      color: alarmTheme.accentBright,
+      fontSize: 12,
+      textAlign: 'center',
+      paddingVertical: 8,
+    },
+    restoreMuted: {
       color: alarmTheme.muted,
       fontSize: 12,
       textAlign: 'center',
+    },
+    noticeBox: {
+      marginTop: 48,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+      backgroundColor: alarmTheme.surface2,
+    },
+    noticeTitle: {
+      color: alarmTheme.text,
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 8,
+    },
+    noticeBody: {
+      color: alarmTheme.muted,
+      fontSize: 13,
+      lineHeight: 20,
+    },
+    errorBox: {
+      marginBottom: 16,
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: alarmTheme.redDim,
+      borderWidth: 1,
+      borderColor: `${alarmTheme.red}44`,
+    },
+    errorText: {
+      color: alarmTheme.red,
+      fontSize: 13,
+      marginBottom: 8,
+    },
+    retryText: {
+      color: alarmTheme.accentBright,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    loadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      marginBottom: 16,
+    },
+    loadingLabel: {
+      color: alarmTheme.muted,
+      fontSize: 13,
     },
   });
 }
@@ -151,7 +248,249 @@ export default function PaywallScreen() {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
+  const { showToast } = useAppToast();
+
+  const {
+    isSubscriber,
+    loading: subLoading,
+    titleLine,
+    renewalHint,
+    managementURL,
+  } = useSubscriptionStatus();
+
   const [plan, setPlan] = useState<PricingPlan>('annual');
+  const [monthlyPkg, setMonthlyPkg] = useState<PurchasesPackage | undefined>();
+  const [annualPkg, setAnnualPkg] = useState<PurchasesPackage | undefined>();
+  const [loadingOfferings, setLoadingOfferings] = useState(Platform.OS !== 'web');
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
+  const monthlyPriceLabel = monthlyPkg?.product.priceString ?? null;
+  const annualPriceLabel = annualPkg?.product.priceString ?? null;
+
+  const selectedPackage = plan === 'annual' ? annualPkg : monthlyPkg;
+  const canPurchase =
+    Platform.OS !== 'web' && isRevenueCatConfigured() && !!selectedPackage && !loadingOfferings && !loadError;
+
+  const loadOfferings = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      setLoadingOfferings(false);
+      return;
+    }
+    if (!getRevenueCatApiKey()) {
+      setLoadError('Missing RevenueCat API key. Add EXPO_PUBLIC_REVENUECAT_API_KEY to .env and restart Expo.');
+      setLoadingOfferings(false);
+      setMonthlyPkg(undefined);
+      setAnnualPkg(undefined);
+      return;
+    }
+
+    setLoadingOfferings(true);
+    setLoadError(null);
+    configureRevenueCat();
+    try {
+      const offerings = await Purchases.getOfferings();
+      const current = offerings.current;
+      const { monthly, annual } = pickMonthlyAnnualPackages(current ?? undefined);
+      setMonthlyPkg(monthly);
+      setAnnualPkg(annual);
+      if (!monthly && !annual) {
+        setLoadError(
+          current
+            ? 'No subscription packages in this offering. Add Monthly / Annual packages in the RevenueCat dashboard.'
+            : 'No current offering. Configure an offering as "current" in RevenueCat.',
+        );
+      }
+      if (monthly && !annual) {
+        setPlan('monthly');
+      }
+      if (annual && !monthly) {
+        setPlan('annual');
+      }
+    } catch (e) {
+      setLoadError(purchasesErrorMessage(e));
+      setMonthlyPkg(undefined);
+      setAnnualPkg(undefined);
+    } finally {
+      setLoadingOfferings(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      invalidateSubscriptionCache();
+      void loadOfferings();
+    }, [loadOfferings]),
+  );
+
+  const onSubscribe = useCallback(async () => {
+    if (!selectedPackage || purchasing) {
+      return;
+    }
+    setPurchasing(true);
+    try {
+      const { customerInfo } = await Purchases.purchasePackage(selectedPackage);
+      invalidateSubscriptionCache();
+      if (hasPremiumEntitlement(customerInfo)) {
+        showToast('Subscription active. Welcome to Ripple Pro!');
+        router.replace('/alarm');
+      } else {
+        showToast('Purchase completed. It may take a moment for access to unlock.');
+        router.replace('/alarm');
+      }
+    } catch (e) {
+      if (isPurchasesUserCancelled(e)) {
+        return;
+      }
+      showToast(purchasesErrorMessage(e));
+    } finally {
+      setPurchasing(false);
+    }
+  }, [purchasing, router, selectedPackage, showToast]);
+
+  const onRestore = useCallback(async () => {
+    if (restoring || Platform.OS === 'web') {
+      return;
+    }
+    setRestoring(true);
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+      if (hasPremiumEntitlement(customerInfo)) {
+        showToast('Purchases restored.');
+        invalidateSubscriptionCache();
+        router.replace('/alarm');
+      } else {
+        showToast('No active subscription found for this account.');
+      }
+    } catch (e) {
+      showToast(purchasesErrorMessage(e));
+    } finally {
+      setRestoring(false);
+    }
+  }, [restoring, router, showToast]);
+
+  const onClose = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/setting');
+    }
+  };
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Pressable style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeText}>{paywallIcons.close}</Text>
+        </Pressable>
+        <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingTop: 100 }]}>
+          <Text style={styles.headline}>Ripple Pro</Text>
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeTitle}>Mobile subscriptions</Text>
+            <Text style={styles.noticeBody}>
+              Apple and Google subscriptions run through the Ripple iOS and Android apps (development build or App Store /
+              Play Store). Install the app on a device to subscribe with RevenueCat.
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  const rcKeyPresent = !!getRevenueCatApiKey();
+  const subscriptionGatePending = rcKeyPresent && subLoading;
+
+  if (subscriptionGatePending) {
+    return (
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Pressable style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeText}>{paywallIcons.close}</Text>
+        </Pressable>
+        <View style={[styles.loadingRow, { paddingTop: 140 }]}>
+          <ActivityIndicator color={alarmTheme.accent} />
+          <Text style={styles.loadingLabel}>Checking subscription…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (rcKeyPresent && isSubscriber) {
+    return (
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+
+        <View style={styles.glowBg} />
+
+        <Pressable style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeText}>{paywallIcons.close}</Text>
+        </Pressable>
+
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.proIconWrap}>
+            <View style={styles.proIconCircle}>
+              <Text style={styles.proIcon}>{paywallIcons.pro}</Text>
+            </View>
+          </View>
+
+          <View style={styles.subscribedBox}>
+            <Text style={styles.subscribedText}>Subscription active</Text>
+          </View>
+
+          <Text style={styles.headline}>
+            You&apos;re on <Text style={styles.headlineAccent}>Ripple Pro</Text>
+          </Text>
+
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[styles.sub, { marginBottom: renewalHint ? 8 : 24 }]}>{titleLine}</Text>
+            {renewalHint ? (
+              <Text style={[styles.sub, { fontSize: 12, lineHeight: 18, marginBottom: 0 }]}>{renewalHint}</Text>
+            ) : null}
+          </View>
+
+          <Text style={[styles.sub, { fontSize: 12, marginBottom: 12 }]}>Included with your plan:</Text>
+
+          <View style={styles.features}>
+            <FeatureRow text="Unlimited alarms — no cap, ever" />
+            <FeatureRow text="Home screen widget (iOS + Android)" />
+            <FeatureRow text="iCloud & Google sync across devices" />
+            <FeatureRow text="Premium themes" />
+            <FeatureRow text="Template gallery access" />
+          </View>
+
+          <Pressable
+            onPress={() => {
+              const url = managementURL;
+              if (url) {
+                void Linking.openURL(url);
+              } else {
+                void Linking.openSettings();
+              }
+            }}>
+            <LinearGradient
+              colors={['#06b6d4', '#0891b2']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.ctaBtn}>
+              <Text style={styles.ctaText}>Manage subscription</Text>
+            </LinearGradient>
+          </Pressable>
+
+          <Text style={styles.trialNote}>
+            Change plans or cancel in {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} subscription settings.
+          </Text>
+
+          <Pressable disabled={restoring || purchasing} onPress={() => void onRestore()}>
+            <Text style={[styles.restore, restoring && styles.restoreMuted]}>
+              {restoring ? 'Restoring…' : 'Restore purchases'}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -159,7 +498,7 @@ export default function PaywallScreen() {
 
       <View style={styles.glowBg} />
 
-      <Pressable style={styles.closeBtn} onPress={() => router.push('/setting')}>
+      <Pressable style={styles.closeBtn} onPress={onClose}>
         <Text style={styles.closeText}>{paywallIcons.close}</Text>
       </Pressable>
 
@@ -178,30 +517,64 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, cloud sync, widgets and more - for less than a coffee a month.
+          Unlimited alarms, cloud sync, widgets and more — billed through {Platform.OS === 'ios' ? 'Apple' : 'Google'} via
+          RevenueCat.
         </Text>
 
         <View style={styles.features}>
-          <FeatureRow text="Unlimited alarms - no cap, ever" />
+          <FeatureRow text="Unlimited alarms — no cap, ever" />
           <FeatureRow text="Home screen widget (iOS + Android)" />
           <FeatureRow text="iCloud & Google sync across devices" />
           <FeatureRow text="Premium themes" />
           <FeatureRow text="Template gallery access" />
         </View>
 
-        <PricingToggle selected={plan} onSelect={setPlan} />
+        {loadingOfferings ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={alarmTheme.accent} />
+            <Text style={styles.loadingLabel}>Loading plans…</Text>
+          </View>
+        ) : null}
 
-        <LinearGradient
-          colors={['#06b6d4', '#0891b2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.ctaBtn}>
-          <Text style={styles.ctaText}>Start 7-Day Free Trial {paywallIcons.arrow}</Text>
-        </LinearGradient>
+        {loadError ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{loadError}</Text>
+            <Pressable onPress={() => void loadOfferings()}>
+              <Text style={styles.retryText}>Tap to retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
-        <Text style={styles.trialNote}>No charge until trial ends · Cancel anytime</Text>
-        <Text style={styles.restore}>Restore previous purchase</Text>
+        <PricingToggle
+          selected={plan}
+          onSelect={setPlan}
+          annualPriceLabel={annualPriceLabel}
+          monthlyPriceLabel={monthlyPriceLabel}
+          disabled={loadingOfferings || !!loadError || restoring}
+        />
+
+        <Pressable disabled={!canPurchase || purchasing || restoring} onPress={() => void onSubscribe()}>
+          <LinearGradient
+            colors={['#06b6d4', '#0891b2']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.ctaBtn, (!canPurchase || purchasing || restoring) && styles.ctaDisabled]}>
+            <Text style={styles.ctaText}>
+              {purchasing ? 'Processing…' : `Subscribe ${paywallIcons.arrow}`}
+            </Text>
+          </LinearGradient>
+        </Pressable>
+
+        <Text style={styles.trialNote}>Subscriptions managed by the App Store / Play Store · Cancel anytime in Settings</Text>
+
+        <Pressable disabled={restoring || purchasing || loadingOfferings} onPress={() => void onRestore()}>
+          <Text style={[styles.restore, restoring && styles.restoreMuted]}>
+            {restoring ? 'Restoring…' : 'Restore purchases'}
+          </Text>
+        </Pressable>
       </ScrollView>
+
+      <FullScreenLoadingOverlay visible={purchasing && !loadError} />
     </View>
   );
 }

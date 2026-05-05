@@ -9,6 +9,8 @@ type SettingsRowProps = {
   titleColor?: string;
   value?: string;
   valueColor?: string;
+  /** Tint behind the emoji icon (e.g. About rows). Default: theme surface. */
+  iconBackgroundColor?: string;
   right?: ReactNode;
   onPress?: () => void;
   noBorder?: boolean;
@@ -63,6 +65,7 @@ export function SettingsRow({
   titleColor,
   value,
   valueColor,
+  iconBackgroundColor,
   right,
   onPress,
   noBorder,
@@ -70,9 +73,11 @@ export function SettingsRow({
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
-  return (
-    <Pressable onPress={onPress} style={[styles.row, noBorder ? styles.noBorder : null]}>
-      <View style={styles.iconWrap}>
+  const iconWrapStyle = [styles.iconWrap, iconBackgroundColor ? { backgroundColor: iconBackgroundColor } : null];
+
+  const core = (
+    <>
+      <View style={iconWrapStyle}>
         <Text style={styles.icon}>{icon}</Text>
       </View>
       <View style={styles.info}>
@@ -80,6 +85,18 @@ export function SettingsRow({
         {value ? <Text style={[styles.value, valueColor ? { color: valueColor } : null]}>{value}</Text> : null}
       </View>
       {right}
-    </Pressable>
+    </>
   );
+
+  const rowStyle = [styles.row, noBorder ? styles.noBorder : null];
+
+  if (onPress) {
+    return (
+      <Pressable accessibilityRole="button" onPress={onPress} style={rowStyle}>
+        {core}
+      </Pressable>
+    );
+  }
+
+  return <View style={rowStyle}>{core}</View>;
 }

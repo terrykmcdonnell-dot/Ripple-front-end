@@ -28,6 +28,7 @@ import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
 import { categoryIdToChipKey, coerceAlarmUnit } from '@/lib/alarm-format';
 import { takeStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
@@ -172,6 +173,9 @@ export default function AlarmEditScreen() {
     const { id: userId, error: userErr } = await fetchCurrentUserRowId();
     if (userErr || userId == null) {
       setLoading(false);
+      if (await shouldSkipAuthFailureAlerts()) {
+        return;
+      }
       setError(userErr?.message ?? 'Could not resolve your profile.');
       notifyAuthError('Edit Alarm', userErr ?? new Error('Missing user profile.'));
       return;
