@@ -19,13 +19,27 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": [{ "scheme": "com.terrykm.ripplealarm" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "com.terrykm.ripplealarm"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         },
         {
           "action": "VIEW",
-          "data": [{ "scheme": "alarm-app" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "alarm-app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -51,8 +65,8 @@
     "plugins": [
       "expo-router",
       [
-        "expo-splash-screen",                                     
-        {                                                               
+        "expo-splash-screen",
+        {
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
@@ -67,7 +81,6 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.629364170217-in6ab46jfkv74m4p4a8dq0ae10u0pkce"
         }
-
       ],
       "expo-task-manager",
       [
@@ -102,7 +115,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/6aeb5bd1-d871-49bd-a14a-b6c6a8f0b6c9"
+      "url": "https://u.expo.dev/7073624f-7686-47a1-b177-cac58f1b04d6"
     }
   }
 }
