@@ -87,7 +87,6 @@ export default function SettingScreen() {
     isSubscriber,
     loading: subLoading,
     titleLine,
-    managementURL,
     limitsApply,
     renewalHint,
   } = useSubscriptionStatus();
@@ -347,7 +346,7 @@ export default function SettingScreen() {
               <>
                 <Text style={styles.proTitle}>{titleLine}</Text>
                 <Text style={styles.proSub}>
-                  {renewalHint ?? 'Manage or change plan in the store'}
+                  {renewalHint ?? 'Tap Manage to switch billing (monthly / annual)'}
                 </Text>
               </>
             ) : (
@@ -358,16 +357,7 @@ export default function SettingScreen() {
             )}
           </View>
           {Platform.OS !== 'web' && !subLoading && isSubscriber ? (
-            <Pressable
-              style={styles.proBtn}
-              onPress={() => {
-                const url = managementURL;
-                if (url) {
-                  void Linking.openURL(url);
-                } else {
-                  void Linking.openSettings();
-                }
-              }}>
+            <Pressable style={styles.proBtn} onPress={() => router.push('/paywall?changePlan=1')}>
               <Text style={styles.proBtnText}>Manage</Text>
             </Pressable>
           ) : Platform.OS !== 'web' && !subLoading && !isSubscriber ? (

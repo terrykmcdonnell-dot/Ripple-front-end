@@ -7,18 +7,17 @@ import {
   derivePremiumPlan,
   isActiveSubscriber,
   limitsApply,
-  subscriptionDisplayTitle,
+  resolveDisplayedPremiumPlan,
   subscriptionPlanHeadline,
-  subscriptionRenewalHint,
+  subscriptionRenewalDisplay,
 } from '@/lib/subscription-access';
-import { configureRevenueCat, getRevenueCatApiKey } from '@/lib/revenuecat';
+import { configureRevenueCat, getRevenueCatApiKey, hasPremiumEntitlement } from '@/lib/revenuecat';
 import {
   getSubscriptionGeneration,
   subscribeSubscriptionGeneration,
 } from '@/lib/subscription-sync-hub';
 import {
   dbIndicatesActivePro,
-  displayPlanFromDb,
   fetchUserRcSubscriptionFromDb,
   type UserRcSubscriptionRow,
 } from '@/lib/user-subscription-row';
@@ -77,28 +76,36 @@ export function useSubscriptionStatus() {
   const subscriberDb = dbIndicatesActivePro(dbRow);
   const isSubscriber = subscriberSdk || subscriberDb;
 
-  const planKind = derivePremiumPlan(customerInfo);
-  const planShort = subscriberSdk
-    ? subscriptionPlanHeadline(planKind)
-    : subscriberDb
-      ? displayPlanFromDb(dbRow)
-      : subscriptionPlanHeadline(planKind);
+  const resolvedPlan = useMemo(
+    () => resolveDisplayedPremiumPlan(customerInfo, dbRow),
+    [customerInfo, dbRow],
+  );
 
-  const titleLine = subscriberSdk
-    ? subscriptionDisplayTitle(customerInfo)
-    : subscriberDb
-      ? `Ripple Pro · ${displayPlanFromDb(dbRow)}`
-      : subscriptionDisplayTitle(customerInfo);
+  const planKind = resolvedPlan;
+
+  const planShort = isSubscriber
+    ? subscriptionPlanHeadline(resolvedPlan)
+    : subscriptionPlanHeadline(derivePremiumPlan(customerInfo));
+
+  const titleLine = useMemo(() => {
+    if (!isSubscriber) {
+      const plan = derivePremiumPlan(customerInfo);
+      const head = subscriptionPlanHeadline(plan);
+      if (plan === 'unknown') {
+        return 'Ripple Pro';
+      }
+      return `Ripple Pro · ${head}`;
+    }
+    const head = subscriptionPlanHeadline(resolvedPlan);
+    if (resolvedPlan === 'unknown' && customerInfo && hasPremiumEntitlement(customerInfo)) {
+      return 'Ripple Pro';
+    }
+    return `Ripple Pro · ${head}`;
+  }, [isSubscriber, customerInfo, resolvedPlan]);
 
   const renewalHint = useMemo(() => {
-    if (subscriberSdk) {
-      return subscriptionRenewalHint(customerInfo);
-    }
-    if (subscriberDb) {
-      return 'Synced from your store subscription.';
-    }
-    return null;
-  }, [subscriberSdk, subscriberDb, customerInfo]);
+    return subscriptionRenewalDisplay(customerInfo, resolvedPlan, subscriberSdk, subscriberDb);
+  }, [customerInfo, resolvedPlan, subscriberSdk, subscriberDb]);
 
   const limitsActive = limitsApply(isSubscriber);
 

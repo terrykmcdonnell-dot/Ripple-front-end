@@ -8,12 +8,32 @@ import {
   getRevenueCatEntitlementId,
   hasPremiumEntitlement,
 } from '@/lib/revenuecat';
-import { dbIndicatesActivePro, fetchUserRcSubscriptionFromDb } from '@/lib/user-subscription-row';
+import {
+  dbIndicatesActivePro,
+  fetchUserRcSubscriptionFromDb,
+  type UserRcSubscriptionRow,
+} from '@/lib/user-subscription-row';
 
 /** Free tier cap — must match paywall copy. */
 export const FREE_TIER_MAX_ALARMS = 5;
 
 export type DerivedPremiumPlan = 'annual' | 'monthly' | 'trial' | 'intro' | 'unknown';
+
+/**
+ * Plan shown in Settings / paywall.
+ * When Supabase has `rc_subscription_plan` from RevenueCat webhooks, prefer that over SDK inference so UI matches backend.
+ */
+export function resolveDisplayedPremiumPlan(
+  customerInfo: CustomerInfo | null | undefined,
+  dbRow: UserRcSubscriptionRow | null | undefined,
+): DerivedPremiumPlan {
+  const dbRaw = (dbRow?.rc_subscription_plan ?? '').trim().toLowerCase();
+  if (dbRaw === 'annual') return 'annual';
+  if (dbRaw === 'monthly') return 'monthly';
+  if (dbRaw === 'trial') return 'trial';
+  if (dbRaw === 'intro') return 'intro';
+  return derivePremiumPlan(customerInfo);
+}
 
 export function derivePremiumPlan(info: CustomerInfo | null | undefined): DerivedPremiumPlan {
   if (!info || !hasPremiumEntitlement(info)) {
@@ -166,4 +186,39 @@ export function subscriptionRenewalHint(info: CustomerInfo | null | undefined): 
     return `Trial ends ${dateStr}`;
   }
   return `Renews or expires ${dateStr}`;
+}
+
+/** Renewal line plus context when displayed billing is monthly but entitlement end date is still far out (common after switching from annual). */
+export function subscriptionRenewalDisplay(
+  customerInfo: CustomerInfo | null | undefined,
+  resolvedPlan: DerivedPremiumPlan,
+  subscriberSdk: boolean,
+  subscriberDb: boolean,
+): string | null {
+  if (subscriberSdk) {
+    const line = subscriptionRenewalHint(customerInfo);
+    if (!line) {
+      return null;
+    }
+    if (
+      resolvedPlan === 'monthly' &&
+      customerInfo &&
+      isActiveSubscriber(customerInfo)
+    ) {
+      const id = getRevenueCatEntitlementId();
+      const ent = customerInfo.entitlements.active[id];
+      if (ent?.expirationDate && ent.periodType !== 'TRIAL') {
+        const days =
+          (new Date(ent.expirationDate).getTime() - Date.now()) / 86400000;
+        if (days > 42) {
+          return `${line} On monthly billing this date may still reflect prepaid access—confirm your next charge in subscription settings.`;
+        }
+      }
+    }
+    return line;
+  }
+  if (subscriberDb) {
+    return 'Synced from your store subscription.';
+  }
+  return null;
 }

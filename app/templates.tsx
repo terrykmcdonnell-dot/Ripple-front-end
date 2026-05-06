@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { templatesIcons } from '@/assets/icons/templates-icons';
@@ -17,7 +17,7 @@ import { notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { installTemplatePack, uninstallTemplatePack } from '@/lib/install-template-pack';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
-import { TEMPLATE_PACK_DEFINITIONS, type TemplatePackId } from '@/lib/template-packs-data';
+import { TEMPLATE_PACK_DEFINITIONS, type TemplatePackDefinition, type TemplatePackId } from '@/lib/template-packs-data';
 import { getAllPackAlarmIds, reconcilePackAlarmIdsWithServer } from '@/lib/template-packs-storage';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
@@ -28,6 +28,20 @@ const categories = [
   { key: 'home', label: '🔧 Home' },
   { key: 'pets', label: '🐾 Pets' },
 ];
+
+function packMatchesSearch(pack: TemplatePackDefinition, rawQuery: string): boolean {
+  const q = rawQuery.trim().toLowerCase();
+  if (!q) {
+    return true;
+  }
+  const haystack = [
+    pack.title,
+    pack.desc,
+    pack.apiCategory,
+    ...pack.alarms.flatMap((a) => [a.label, a.intervalLabel]),
+  ];
+  return haystack.some((t) => t.toLowerCase().includes(q));
+}
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -72,9 +86,12 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       fontSize: 14,
       color: alarmTheme.muted,
     },
-    searchText: {
+    searchInput: {
+      flex: 1,
       fontSize: 13,
-      color: alarmTheme.muted,
+      color: alarmTheme.text,
+      paddingVertical: 0,
+      minHeight: 20,
     },
     scroll: {
       flex: 1,
@@ -82,6 +99,17 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     scrollContent: {
       paddingBottom: 88,
+    },
+    emptySearch: {
+      paddingVertical: 28,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+    },
+    emptySearchText: {
+      fontSize: 13,
+      color: alarmTheme.muted,
+      textAlign: 'center',
+      lineHeight: 20,
     },
   });
 }
@@ -94,6 +122,7 @@ export default function TemplatesScreen() {
   const { showToast } = useAppToast();
   const { limitsApply } = useSubscriptionStatus();
   const [activeCategory, setActiveCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [packAlarmIds, setPackAlarmIds] = useState<Record<string, number[]>>({});
   const [busyPackId, setBusyPackId] = useState<TemplatePackId | null>(null);
   const [packStateLoading, setPackStateLoading] = useState(true);
@@ -126,11 +155,23 @@ export default function TemplatesScreen() {
 
   const filteredPacks = useMemo(
     () =>
-      TEMPLATE_PACK_DEFINITIONS.filter((item) =>
-        activeCategory === 'all' ? true : item.categoryTab === activeCategory,
-      ),
-    [activeCategory],
+      TEMPLATE_PACK_DEFINITIONS.filter((item) => {
+        const categoryOk = activeCategory === 'all' ? true : item.categoryTab === activeCategory;
+        return categoryOk && packMatchesSearch(item, searchQuery);
+      }),
+    [activeCategory, searchQuery],
   );
+
+  const emptyListMessage = useMemo(() => {
+    const q = searchQuery.trim();
+    if (q) {
+      return `No templates match “${q}”. Try another search or switch category.`;
+    }
+    if (activeCategory !== 'all') {
+      return 'No templates in this category yet. Try All or search above.';
+    }
+    return 'No templates available.';
+  }, [activeCategory, searchQuery]);
 
   const onTogglePack = useCallback(
     async (packId: TemplatePackId) => {
@@ -183,30 +224,46 @@ export default function TemplatesScreen() {
 
       <View style={styles.searchBar}>
         <Text style={styles.searchIcon}>{templatesIcons.search}</Text>
-        <Text style={styles.searchText}>Search templates…</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search templates…"
+          placeholderTextColor={alarmTheme.muted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+        />
       </View>
 
       <TemplateCategoryTabs categories={categories} activeKey={activeCategory} onSelect={setActiveCategory} />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {filteredPacks.map((item) => (
-          <TemplateCard
-            key={item.id}
-            icon={item.icon}
-            iconTone={item.iconTone}
-            title={item.title}
-            desc={item.desc}
-            alarms={item.alarms.map((a) => ({
-              emoji: a.emoji,
-              name: a.label,
-              interval: a.intervalLabel,
-            }))}
-            installed={(packAlarmIds[item.id]?.length ?? 0) > 0}
-            installBusy={busyPackId === item.id}
-            premiumLocked={limitsApply}
-            onToggleInstall={() => void onTogglePack(item.id)}
-          />
-        ))}
+        {filteredPacks.length === 0 ? (
+          <View style={styles.emptySearch}>
+            <Text style={styles.emptySearchText}>{emptyListMessage}</Text>
+          </View>
+        ) : (
+          filteredPacks.map((item) => (
+            <TemplateCard
+              key={item.id}
+              icon={item.icon}
+              iconTone={item.iconTone}
+              title={item.title}
+              desc={item.desc}
+              alarms={item.alarms.map((a) => ({
+                emoji: a.emoji,
+                name: a.label,
+                interval: a.intervalLabel,
+              }))}
+              installed={(packAlarmIds[item.id]?.length ?? 0) > 0}
+              installBusy={busyPackId === item.id}
+              premiumLocked={limitsApply}
+              onToggleInstall={() => void onTogglePack(item.id)}
+            />
+          ))
+        )}
       </ScrollView>
 
       <BottomNavbar

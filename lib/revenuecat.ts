@@ -78,6 +78,22 @@ export function hasPremiumEntitlement(info: CustomerInfo): boolean {
   return info.entitlements.active[id] != null;
 }
 
+/** Product identifiers currently active on the store subscription (RevenueCat SDK). */
+export function activeSubscriptionProductIds(info: CustomerInfo | null | undefined): string[] {
+  if (!info || !info.activeSubscriptions) return [];
+  const raw = info.activeSubscriptions as unknown;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((id) => String(id));
+}
+
+export function isPackageInActiveSubscription(
+  pkg: PurchasesPackage | null | undefined,
+  info: CustomerInfo | null | undefined,
+): boolean {
+  if (!pkg || !info) return false;
+  return activeSubscriptionProductIds(info).includes(pkg.product.identifier);
+}
+
 export function isPurchasesUserCancelled(error: unknown): boolean {
   const e = error as PurchasesError | undefined;
   if (!e || typeof e !== 'object') {
@@ -101,4 +117,27 @@ export function purchasesErrorMessage(error: unknown): string {
     return error.message;
   }
   return 'Something went wrong. Try again.';
+}
+
+/**
+ * Pull latest subscription state from App Store / Play Store after a transaction so CustomerInfo
+ * matches what RevenueCat + webhooks will see (fixes stale activeSubscriptions after plan changes).
+ */
+export async function syncPurchasesAfterTransaction(): Promise<void> {
+  if (Platform.OS === 'web') {
+    return;
+  }
+  if (!getRevenueCatApiKey()) {
+    return;
+  }
+  configureRevenueCat();
+  try {
+    await Purchases.syncPurchasesForResult();
+  } catch {
+    try {
+      await Purchases.syncPurchases();
+    } catch {
+      /* ignore — purchase already returned CustomerInfo */
+    }
+  }
 }

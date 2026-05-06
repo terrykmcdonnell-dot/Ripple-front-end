@@ -1,13 +1,12 @@
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
 import { RingPulse } from '@/components/alarm-ring/RingPulse';
 import { alarmTheme } from '@/components/alarms/theme';
-import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useDefaultSnoozeMinutes } from '@/hooks/use-default-snooze-minutes';
 import { useDefaultVibrationEnabled } from '@/hooks/use-default-vibration-enabled';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -63,7 +62,6 @@ export default function AlarmRingScreen() {
 
   const defaultSnoozeMinutes = useDefaultSnoozeMinutes();
   const vibrationEnabled = useDefaultVibrationEnabled();
-  const [snoozeBusy, setSnoozeBusy] = useState(false);
   const snoozePendingRef = useRef(false);
 
   const alarmTitle = liveParsed?.label ?? 'Alarm';
@@ -91,41 +89,42 @@ export default function AlarmRingScreen() {
     });
   }, [liveParsed]);
 
-  const onDismissPress = useCallback(async () => {
+  const onDismissPress = useCallback(() => {
+    router.replace('/alarm');
     if (liveParsed) {
-      await recordAlarmHistoryDismissed(liveParsed).catch(() => undefined);
+      void recordAlarmHistoryDismissed(liveParsed).catch(() => undefined);
       void syncAlarmFireNotifications();
     }
-    router.replace('/alarm');
   }, [liveParsed, router]);
 
-  const onSnoozePress = useCallback(async () => {
+  const onSnoozePress = useCallback(() => {
     if (snoozePendingRef.current) {
       return;
     }
     snoozePendingRef.current = true;
-    setSnoozeBusy(true);
-    try {
-      const result = await scheduleSnoozeNotification({
-        minutes: defaultSnoozeMinutes,
-        alarmTitle,
-      });
-      if (!result.ok) {
-        notifyAuthMessage('Snooze', result.message);
-        return;
+    router.replace('/alarm');
+
+    void (async () => {
+      try {
+        const result = await scheduleSnoozeNotification({
+          minutes: defaultSnoozeMinutes,
+          alarmTitle,
+        });
+        if (!result.ok) {
+          notifyAuthMessage('Snooze', result.message);
+          return;
+        }
+        if (liveParsed) {
+          await recordAlarmHistorySnoozed(liveParsed, defaultSnoozeMinutes).catch(() => undefined);
+        }
+        void syncAlarmFireNotifications();
+        if (vibrationEnabled) {
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } finally {
+        snoozePendingRef.current = false;
       }
-      if (liveParsed) {
-        await recordAlarmHistorySnoozed(liveParsed, defaultSnoozeMinutes).catch(() => undefined);
-      }
-      void syncAlarmFireNotifications();
-      if (vibrationEnabled) {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      router.replace('/alarm');
-    } finally {
-      snoozePendingRef.current = false;
-      setSnoozeBusy(false);
-    }
+    })();
   }, [alarmTitle, defaultSnoozeMinutes, liveParsed, router, vibrationEnabled]);
 
   return (
@@ -147,7 +146,7 @@ export default function AlarmRingScreen() {
         <View style={styles.actions}>
           <RingActionButton
             icon={ringIcons.snooze}
-            label={snoozeBusy ? 'Scheduling…' : `Snooze ${defaultSnoozeMinutes}m`}
+            label={`Snooze ${defaultSnoozeMinutes}m`}
             variant="snooze"
             onPress={() => void onSnoozePress()}
           />
@@ -165,7 +164,6 @@ export default function AlarmRingScreen() {
             : 'Ring screen opens automatically when an alarm fires while the app is open.'}
         </Text>
       </View>
-      <FullScreenLoadingOverlay visible={snoozeBusy} />
     </View>
   );
 }
