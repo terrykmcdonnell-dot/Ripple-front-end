@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { alarmThemes, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { isAlarmPaletteDark, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type WidgetSmallCardProps = {
   headerIcon: string;
@@ -18,7 +18,7 @@ type WidgetSmallCardProps = {
 };
 
 function createStyles(alarmTheme: AlarmThemePalette) {
-  const glass = alarmTheme === alarmThemes.dark;
+  const glass = isAlarmPaletteDark(alarmTheme);
   return StyleSheet.create({
     card: {
       width: 155,

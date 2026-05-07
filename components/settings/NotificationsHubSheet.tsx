@@ -1,8 +1,9 @@
 import * as Haptics from 'expo-haptics';
+import { useMemo } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Linking } from 'react-native';
 
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import {
   formatSnoozeMinutesLabel,
   formatVolumePercentLabel,
@@ -35,6 +36,8 @@ export function NotificationsHubSheet({
   onPressVolume,
   onToggleVibration,
 }: NotificationsHubSheetProps) {
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createNotificationsHubStyles(palette), [palette]);
   const rowTap = () => void Haptics.selectionAsync();
 
   return (
@@ -136,107 +139,109 @@ export function NotificationsHubSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalDismiss: {
-    flex: 1,
-    width: '100%',
-  },
-  sheet: {
-    backgroundColor: alarmTheme.surface,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: alarmTheme.border,
-    maxHeight: '88%',
-  },
-  sheetTitle: {
-    color: alarmTheme.text,
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  sheetHint: {
-    color: alarmTheme.muted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  scroll: {
-    flexGrow: 0,
-  },
-  scrollContent: {
-    paddingBottom: 8,
-  },
-  optionList: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    marginBottom: 12,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: alarmTheme.surface2,
-    gap: 12,
-  },
-  optionBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: alarmTheme.border,
-  },
-  rowMain: {
-    flex: 1,
-    minWidth: 0,
-  },
-  rowTitle: {
-    color: alarmTheme.text,
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 3,
-  },
-  rowValue: {
-    color: alarmTheme.muted,
-    fontSize: 13,
-  },
-  chevron: {
-    color: alarmTheme.muted,
-    fontSize: 18,
-    fontWeight: '300',
-  },
-  systemLink: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 4,
-  },
-  systemLinkText: {
-    color: alarmTheme.accentBright,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  cancelBtn: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-  },
-  cancelText: {
-    color: alarmTheme.muted,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function createNotificationsHubStyles(t: AlarmThemePalette) {
+  return StyleSheet.create({
+    modalRoot: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalDismiss: {
+      flex: 1,
+      width: '100%',
+    },
+    sheet: {
+      backgroundColor: t.surface,
+      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      borderWidth: 1,
+      borderBottomWidth: 0,
+      borderColor: t.border,
+      maxHeight: '88%',
+    },
+    sheetTitle: {
+      color: t.text,
+      fontSize: 17,
+      fontWeight: '700',
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+    sheetHint: {
+      color: t.muted,
+      fontSize: 12,
+      textAlign: 'center',
+      marginBottom: 14,
+    },
+    scroll: {
+      flexGrow: 0,
+    },
+    scrollContent: {
+      paddingBottom: 8,
+    },
+    optionList: {
+      borderRadius: 14,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: t.border,
+      marginBottom: 12,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: t.surface2,
+      gap: 12,
+    },
+    optionBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+    },
+    rowMain: {
+      flex: 1,
+      minWidth: 0,
+    },
+    rowTitle: {
+      color: t.text,
+      fontSize: 15,
+      fontWeight: '600',
+      marginBottom: 3,
+    },
+    rowValue: {
+      color: t.muted,
+      fontSize: 13,
+    },
+    chevron: {
+      color: t.muted,
+      fontSize: 18,
+      fontWeight: '300',
+    },
+    systemLink: {
+      alignItems: 'center',
+      paddingVertical: 12,
+      marginBottom: 4,
+    },
+    systemLinkText: {
+      color: t.accentBright,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    cancelBtn: {
+      alignItems: 'center',
+      paddingVertical: 14,
+      borderRadius: 14,
+      backgroundColor: t.surface2,
+      borderWidth: 1,
+      borderColor: t.border,
+    },
+    cancelText: {
+      color: t.muted,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+}

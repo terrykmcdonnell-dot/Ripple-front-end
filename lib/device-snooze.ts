@@ -34,11 +34,11 @@ async function ensureAndroidSnoozeChannelForAlarmPrefs(
   soundId: AlarmSoundId,
   vibrationEnabled: boolean,
 ): Promise<string> {
-  const channelId = `ripple-snooze-${soundId}-${vibrationEnabled ? 'vib' : 'still'}`;
+  const channelId = `ripple-snooze-v2-${soundId}-${vibrationEnabled ? 'vib' : 'still'}`;
   const soundFile = bundledNotificationSoundFilename(soundId);
   await setNotificationChannelAsync(channelId, {
     name: 'Alarm snooze',
-    importance: AndroidImportance.HIGH,
+    importance: AndroidImportance.MAX,
     enableVibrate: vibrationEnabled,
     ...(vibrationEnabled ? { vibrationPattern: [...SNOOZE_VIBRATION_PATTERN] } : {}),
     sound: soundFile,
@@ -131,7 +131,7 @@ export async function scheduleSnoozeNotification(params: {
         title: `Snooze · ${titleBase}`,
         body: `Scheduled for ${minutes} minute${minutes === 1 ? '' : 's'} from now`,
         sound: soundFile,
-        priority: AndroidNotificationPriority.HIGH,
+        priority: AndroidNotificationPriority.MAX,
         data: { type: 'ripple-snooze', soundId, vibrationEnabled },
         ...(Platform.OS === 'android' && vibrationEnabled
           ? { vibrate: [...SNOOZE_VIBRATION_PATTERN] }
@@ -141,6 +141,11 @@ export async function scheduleSnoozeNotification(params: {
               android: {
                 channelId: androidChannelId,
               },
+            }
+          : {}),
+        ...(Platform.OS === 'ios'
+          ? {
+              interruptionLevel: 'timeSensitive' as const,
             }
           : {}),
       },

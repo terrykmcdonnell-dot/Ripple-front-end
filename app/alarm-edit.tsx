@@ -21,7 +21,7 @@ import { DangerActionButton } from '@/components/alarms-create/DangerActionButto
 import { IntervalControl } from '@/components/alarms-create/IntervalControl';
 import { SectionField } from '@/components/alarms-create/SectionField';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
@@ -69,6 +69,9 @@ export default function AlarmEditScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createAlarmEditStyles(palette), [palette]);
 
   const applyAlarmFieldsToForm = useCallback(
     (payload: {
@@ -298,7 +301,7 @@ export default function AlarmEditScreen() {
                 value={label}
                 onChangeText={setLabel}
                 placeholder="Alarm label"
-                placeholderTextColor={alarmTheme.muted}
+                placeholderTextColor={palette.muted}
                 style={styles.input}
               />
             </SectionField>
@@ -388,7 +391,8 @@ export default function AlarmEditScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createAlarmEditStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: alarmTheme.bg,
@@ -585,3 +589,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+}

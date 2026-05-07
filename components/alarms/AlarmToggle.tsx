@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { useAlarmTheme } from '@/components/alarms/theme';
 
 type AlarmToggleProps = {
   enabled: boolean;
@@ -10,6 +10,7 @@ type AlarmToggleProps = {
 };
 
 export function AlarmToggle({ enabled, onColor, onPress, disabled }: AlarmToggleProps) {
+  const accentTheme = useAlarmTheme();
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -20,7 +21,7 @@ export function AlarmToggle({ enabled, onColor, onPress, disabled }: AlarmToggle
       style={[
         styles.track,
         {
-          backgroundColor: enabled ? (onColor ?? alarmTheme.accent) : alarmTheme.surface3,
+          backgroundColor: enabled ? (onColor ?? accentTheme.accent) : accentTheme.surface3,
           opacity: disabled ? 0.55 : 1,
         },
       ]}>

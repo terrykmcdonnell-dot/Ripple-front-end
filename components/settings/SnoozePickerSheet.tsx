@@ -1,7 +1,8 @@
 import * as Haptics from 'expo-haptics';
+import { useMemo } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { formatSnoozeMinutesLabel } from '@/lib/settings-preferences';
 
 type SnoozePickerSheetProps = {
@@ -10,6 +11,9 @@ type SnoozePickerSheetProps = {
   options: readonly number[];
   selectedMinutes: number;
   onSelectMinutes: (minutes: number) => void;
+  sheetTitle?: string;
+  sheetHint?: string;
+  formatOptionLabel?: (minutes: number) => string;
 };
 
 export function SnoozePickerSheet({
@@ -18,7 +22,13 @@ export function SnoozePickerSheet({
   options,
   selectedMinutes,
   onSelectMinutes,
+  sheetTitle = 'Default Snooze',
+  sheetHint = 'Used when you snooze an alarm',
+  formatOptionLabel = formatSnoozeMinutesLabel,
 }: SnoozePickerSheetProps) {
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createSnoozePickerStyles(palette), [palette]);
+
   const pick = (minutes: number) => {
     void Haptics.selectionAsync();
     onSelectMinutes(minutes);
@@ -35,8 +45,8 @@ export function SnoozePickerSheet({
       <View style={styles.modalRoot}>
         <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
         <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Default Snooze</Text>
-          <Text style={styles.sheetHint}>Used when you snooze an alarm</Text>
+          <Text style={styles.sheetTitle}>{sheetTitle}</Text>
+          <Text style={styles.sheetHint}>{sheetHint}</Text>
           <View style={styles.optionList}>
             {options.map((m, index) => {
               const active = m === selectedMinutes;
@@ -49,7 +59,7 @@ export function SnoozePickerSheet({
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}>
                   <Text style={[styles.optionLabel, active ? styles.optionLabelActive : null]}>
-                    {formatSnoozeMinutesLabel(m)}
+                    {formatOptionLabel(m)}
                   </Text>
                   {active ? <Text style={styles.check}>✓</Text> : null}
                 </Pressable>
@@ -65,84 +75,86 @@ export function SnoozePickerSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalDismiss: {
-    flex: 1,
-    width: '100%',
-  },
-  sheet: {
-    backgroundColor: alarmTheme.surface,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: alarmTheme.border,
-  },
-  sheetTitle: {
-    color: alarmTheme.text,
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  sheetHint: {
-    color: alarmTheme.muted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  optionList: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    marginBottom: 12,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: alarmTheme.surface2,
-    borderBottomWidth: 1,
-    borderBottomColor: alarmTheme.border,
-  },
-  optionRowLast: {
-    borderBottomWidth: 0,
-  },
-  optionLabel: {
-    color: alarmTheme.text,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  optionLabelActive: {
-    color: alarmTheme.accentBright,
-  },
-  check: {
-    color: alarmTheme.accentBright,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  cancelBtn: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-  },
-  cancelText: {
-    color: alarmTheme.muted,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function createSnoozePickerStyles(t: AlarmThemePalette) {
+  return StyleSheet.create({
+    modalRoot: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalDismiss: {
+      flex: 1,
+      width: '100%',
+    },
+    sheet: {
+      backgroundColor: t.surface,
+      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      borderWidth: 1,
+      borderBottomWidth: 0,
+      borderColor: t.border,
+    },
+    sheetTitle: {
+      color: t.text,
+      fontSize: 17,
+      fontWeight: '700',
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+    sheetHint: {
+      color: t.muted,
+      fontSize: 12,
+      textAlign: 'center',
+      marginBottom: 14,
+    },
+    optionList: {
+      borderRadius: 14,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: t.border,
+      marginBottom: 12,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: t.surface2,
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+    },
+    optionRowLast: {
+      borderBottomWidth: 0,
+    },
+    optionLabel: {
+      color: t.text,
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    optionLabelActive: {
+      color: t.accentBright,
+    },
+    check: {
+      color: t.accentBright,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    cancelBtn: {
+      alignItems: 'center',
+      paddingVertical: 14,
+      borderRadius: 14,
+      backgroundColor: t.surface2,
+      borderWidth: 1,
+      borderColor: t.border,
+    },
+    cancelText: {
+      color: t.muted,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+}

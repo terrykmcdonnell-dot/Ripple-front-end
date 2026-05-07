@@ -1,5 +1,5 @@
 import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
-import { alarmTheme, type AlarmTone } from '@/components/alarms/theme';
+import { alarmThemes, type AlarmThemePalette, type AlarmTone } from '@/components/alarms/theme';
 
 /** Parsed row from GET /api/alarm/ (handles snake_case or camelCase from the API). */
 export type AlarmListItem = {
@@ -215,13 +215,16 @@ function iconForCategoryKey(key: CategoryIconKey | 'unknown'): string {
 }
 
 /** When the alarm row is toggled ON, stripe / icon chip colors follow category. */
-function toneWhenEnabledForCategoryKey(key: CategoryIconKey | 'unknown'): {
+function toneWhenEnabledForCategoryKey(
+  key: CategoryIconKey | 'unknown',
+  palette: AlarmThemePalette,
+): {
   tone: AlarmTone;
   toggleOnColor?: string;
 } {
   switch (key) {
     case 'plants':
-      return { tone: 'green', toggleOnColor: alarmTheme.green };
+      return { tone: 'green', toggleOnColor: palette.green };
     case 'maintenance':
       return { tone: 'amber' };
     case 'pets':
@@ -241,7 +244,11 @@ function toneWhenEnabledForCategoryKey(key: CategoryIconKey | 'unknown'): {
  * Keeps category emoji consistent with alarm-create chips (`createCategoryIcons`).
  * Disabled rows still show that category’s icon; only stripe / chip tone uses `off`.
  */
-export function presentationForAlarmCategory(category: string, enabled: boolean): CategoryPresentation {
+export function presentationForAlarmCategory(
+  category: string,
+  enabled: boolean,
+  palette: AlarmThemePalette = alarmThemes.dark,
+): CategoryPresentation {
   const key = resolveCategoryIconKey(category);
   const icon = iconForCategoryKey(key);
 
@@ -249,6 +256,6 @@ export function presentationForAlarmCategory(category: string, enabled: boolean)
     return { icon, tone: 'off' };
   }
 
-  const { tone, toggleOnColor } = toneWhenEnabledForCategoryKey(key);
+  const { tone, toggleOnColor } = toneWhenEnabledForCategoryKey(key, palette);
   return { icon, tone, toggleOnColor };
 }

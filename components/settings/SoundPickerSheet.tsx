@@ -1,7 +1,8 @@
 import * as Haptics from 'expo-haptics';
+import { useMemo } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 export type SoundPickerOption = { id: string; label: string };
 
@@ -24,6 +25,9 @@ export function SoundPickerSheet({
   sheetTitle = 'Default Sound',
   sheetHint = 'Used for new alarms',
 }: SoundPickerSheetProps) {
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createSoundPickerStyles(palette), [palette]);
+
   const pick = (id: string) => {
     void Haptics.selectionAsync();
     onSelectSoundId(id);
@@ -68,84 +72,86 @@ export function SoundPickerSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalDismiss: {
-    flex: 1,
-    width: '100%',
-  },
-  sheet: {
-    backgroundColor: alarmTheme.surface,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: alarmTheme.border,
-  },
-  sheetTitle: {
-    color: alarmTheme.text,
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  sheetHint: {
-    color: alarmTheme.muted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  optionList: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-    marginBottom: 12,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: alarmTheme.surface2,
-    borderBottomWidth: 1,
-    borderBottomColor: alarmTheme.border,
-  },
-  optionRowLast: {
-    borderBottomWidth: 0,
-  },
-  optionLabel: {
-    color: alarmTheme.text,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  optionLabelActive: {
-    color: alarmTheme.accentBright,
-  },
-  check: {
-    color: alarmTheme.accentBright,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  cancelBtn: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: alarmTheme.surface2,
-    borderWidth: 1,
-    borderColor: alarmTheme.border,
-  },
-  cancelText: {
-    color: alarmTheme.muted,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function createSoundPickerStyles(t: AlarmThemePalette) {
+  return StyleSheet.create({
+    modalRoot: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalDismiss: {
+      flex: 1,
+      width: '100%',
+    },
+    sheet: {
+      backgroundColor: t.surface,
+      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      borderWidth: 1,
+      borderBottomWidth: 0,
+      borderColor: t.border,
+    },
+    sheetTitle: {
+      color: t.text,
+      fontSize: 17,
+      fontWeight: '700',
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+    sheetHint: {
+      color: t.muted,
+      fontSize: 12,
+      textAlign: 'center',
+      marginBottom: 14,
+    },
+    optionList: {
+      borderRadius: 14,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: t.border,
+      marginBottom: 12,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: t.surface2,
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+    },
+    optionRowLast: {
+      borderBottomWidth: 0,
+    },
+    optionLabel: {
+      color: t.text,
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    optionLabelActive: {
+      color: t.accentBright,
+    },
+    check: {
+      color: t.accentBright,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    cancelBtn: {
+      alignItems: 'center',
+      paddingVertical: 14,
+      borderRadius: 14,
+      backgroundColor: t.surface2,
+      borderWidth: 1,
+      borderColor: t.border,
+    },
+    cancelText: {
+      color: t.muted,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+}

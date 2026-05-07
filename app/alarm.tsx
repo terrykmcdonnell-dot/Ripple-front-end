@@ -16,7 +16,7 @@ import { navIcons } from '@/assets/icons/alarm-icons';
 import { AlarmCard } from '@/components/alarms/AlarmCard';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { RichWordText } from '@/components/alarms/RichWordText';
-import { alarmTheme } from '@/components/alarms/theme';
+import { isAlarmPaletteDark, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -127,6 +127,9 @@ export default function AlarmScreen() {
 
   const nextWords = useMemo(() => nextAlarmWords(alarms, now), [alarms, now]);
 
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createAlarmStyles(palette), [palette]);
+
   const loadAlarms = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
     if (!silent) {
@@ -218,7 +221,7 @@ export default function AlarmScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isAlarmPaletteDark(palette) ? 'light-content' : 'dark-content'} />
 
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
@@ -247,8 +250,8 @@ export default function AlarmScreen() {
       <RichWordText
         style={styles.nextAlarm}
         words={[
-          { text: nextWords.muted, color: alarmTheme.muted },
-          { text: nextWords.accent, color: alarmTheme.accentBright },
+          { text: nextWords.muted, color: palette.muted },
+          { text: nextWords.accent, color: palette.accentBright },
         ]}
       />
 
@@ -260,8 +263,8 @@ export default function AlarmScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={alarmTheme.accent}
-            colors={[alarmTheme.accent]}
+            tintColor={palette.accent}
+            colors={[palette.accent]}
           />
         }>
         {listError && !refreshing ? (
@@ -276,6 +279,7 @@ export default function AlarmScreen() {
           const { icon, tone, toggleOnColor } = presentationForAlarmCategory(
             alarm.category,
             alarm.isEnabled,
+            palette,
           );
           return (
             <AlarmCard
@@ -316,7 +320,8 @@ export default function AlarmScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createAlarmStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: alarmTheme.bg,
@@ -422,3 +427,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+}

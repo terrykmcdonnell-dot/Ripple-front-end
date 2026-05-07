@@ -1,5 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,7 +10,7 @@ import { SectionField } from '@/components/alarms-create/SectionField';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { SoundRow } from '@/components/alarms-create/SoundRow';
 import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { fetchAlarms, createAlarm } from '@/lib/alarm-api';
@@ -50,6 +50,9 @@ export default function AlarmCreateScreen() {
   const [selectedSoundId, setSelectedSoundId] = useState<AlarmSoundId>('gentle-rise');
   const [soundPickerOpen, setSoundPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createAlarmCreateStyles(palette), [palette]);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +163,7 @@ export default function AlarmCreateScreen() {
             value={label}
             onChangeText={setLabel}
             placeholder="e.g. Take medication"
-            placeholderTextColor={alarmTheme.muted}
+            placeholderTextColor={palette.muted}
             style={styles.input}
           />
         </SectionField>
@@ -222,7 +225,8 @@ export default function AlarmCreateScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createAlarmCreateStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: alarmTheme.bg,
@@ -325,3 +329,4 @@ const styles = StyleSheet.create({
     gap: 7,
   },
 });
+}

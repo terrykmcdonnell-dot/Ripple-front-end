@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { alarmThemes, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { isAlarmPaletteDark, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type WidgetAlarm = {
   emoji: string;
@@ -16,7 +16,7 @@ type WidgetMediumCardProps = {
 };
 
 function createStyles(alarmTheme: AlarmThemePalette) {
-  const glass = alarmTheme === alarmThemes.dark;
+  const glass = isAlarmPaletteDark(alarmTheme);
   return StyleSheet.create({
     card: {
       width: '100%',

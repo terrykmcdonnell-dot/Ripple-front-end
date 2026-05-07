@@ -168,6 +168,19 @@ const UPCOMING_REMINDER_LEAD_MINUTES_KEY = 'ripple_upcoming_reminder_lead_minute
 
 const DEFAULT_UPCOMING_LEAD_MINUTES = 60;
 
+/** Presets for Settings → how early upcoming reminders fire */
+export const DEFAULT_UPCOMING_LEAD_OPTIONS_MINUTES = [15, 30, 45, 60, 90, 120] as const;
+
+function snapUpcomingLeadToNearestPreset(minutes: number): number {
+  const presets = DEFAULT_UPCOMING_LEAD_OPTIONS_MINUTES;
+  if (presets.includes(minutes as (typeof presets)[number])) {
+    return minutes;
+  }
+  return presets.reduce((best, p) =>
+    Math.abs(p - minutes) < Math.abs(best - minutes) ? p : best,
+  presets[0]);
+}
+
 export async function loadUpcomingReminderLeadMinutes(): Promise<number> {
   try {
     const raw = await AsyncStorage.getItem(UPCOMING_REMINDER_LEAD_MINUTES_KEY);
@@ -178,7 +191,7 @@ export async function loadUpcomingReminderLeadMinutes(): Promise<number> {
     if (!Number.isFinite(parsed) || parsed < 1 || parsed > 24 * 60) {
       return DEFAULT_UPCOMING_LEAD_MINUTES;
     }
-    return parsed;
+    return snapUpcomingLeadToNearestPreset(parsed);
   } catch {
     return DEFAULT_UPCOMING_LEAD_MINUTES;
   }
@@ -231,6 +244,8 @@ export type AppThemePreference = (typeof APP_THEME_OPTIONS)[number];
 
 const DEFAULT_APP_THEME: AppThemePreference = 'Dark';
 
+export { DEFAULT_APP_THEME };
+
 function normalizeAppTheme(raw: string | null): AppThemePreference {
   if (!raw) {
     return DEFAULT_APP_THEME;
@@ -250,4 +265,26 @@ export async function loadAppThemePreference(): Promise<AppThemePreference> {
 
 export async function saveAppThemePreference(theme: AppThemePreference): Promise<void> {
   await AsyncStorage.setItem(APP_THEME_KEY, theme);
+  bumpAppThemeGeneration();
+}
+
+let appThemeGeneration = 0;
+const appThemeListeners = new Set<() => void>();
+
+function bumpAppThemeGeneration(): void {
+  appThemeGeneration += 1;
+  for (const fn of appThemeListeners) {
+    fn();
+  }
+}
+
+export function subscribeAppThemeGeneration(onStoreChange: () => void): () => void {
+  appThemeListeners.add(onStoreChange);
+  return () => {
+    appThemeListeners.delete(onStoreChange);
+  };
+}
+
+export function getAppThemeGeneration(): number {
+  return appThemeGeneration;
 }

@@ -5,14 +5,14 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { settingsIcons } from '@/assets/icons/settings-icons';
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { NotificationsHubSheet } from '@/components/settings/NotificationsHubSheet';
 import { NotificationsMasterRow } from '@/components/settings/NotificationsMasterRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
@@ -32,6 +32,7 @@ import {
   type AppThemePreference,
   DEFAULT_ALARM_SOUND_OPTIONS,
   DEFAULT_SNOOZE_OPTIONS_MINUTES,
+  DEFAULT_UPCOMING_LEAD_OPTIONS_MINUTES,
   DEFAULT_VOLUME_PERCENT_OPTIONS,
   formatSnoozeMinutesLabel,
   formatUpcomingReminderLeadLabel,
@@ -51,6 +52,7 @@ import {
   saveDefaultVolumePercent,
   saveNotificationsMasterEnabled,
   saveUpcomingReminderEnabled,
+  saveUpcomingReminderLeadMinutes,
 } from '@/lib/settings-preferences';
 import {
   SETTINGS_ABOUT_ICON_AMBER,
@@ -62,7 +64,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
-import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings } from '@/lib/sync-user-settings-db';
+import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings, type UserSettingsDbRow } from '@/lib/sync-user-settings-db';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { applyAlarmVolumePreferenceToDevice } from '@/lib/alarm-system-volume';
@@ -90,6 +92,18 @@ export default function SettingScreen() {
     limitsApply,
     renewalHint,
   } = useSubscriptionStatus();
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createSettingStyles(palette), [palette]);
+
+  const reportPatch = useCallback(
+    async (partial: UserSettingsDbRow) => {
+      const { error } = await patchSignedInUserSettings(partial);
+      if (error) {
+        showToast('Could not sync to your account. Your changes are saved on this device.');
+      }
+    },
+    [showToast],
+  );
   const [vibrationOn, setVibrationOn] = useState(true);
   const [upcomingOn, setUpcomingOn] = useState(true);
   const [upcomingLeadMinutes, setUpcomingLeadMinutes] = useState(60);
@@ -101,6 +115,7 @@ export default function SettingScreen() {
   const [soundPickerOpen, setSoundPickerOpen] = useState(false);
   const [defaultVolumePercent, setDefaultVolumePercent] = useState(80);
   const [volumePickerOpen, setVolumePickerOpen] = useState(false);
+  const [upcomingLeadPickerOpen, setUpcomingLeadPickerOpen] = useState(false);
   const [notificationHubOpen, setNotificationHubOpen] = useState(false);
   const [notifOsAllowed, setNotifOsAllowed] = useState(false);
   const [notifCanAskAgain, setNotifCanAskAgain] = useState(true);
@@ -138,6 +153,17 @@ export default function SettingScreen() {
         setNotificationsMasterEnabled(loadedMaster);
         setTheme(loadedTheme);
       }
+      if (!cancelled && Platform.OS !== 'web') {
+        try {
+          const p = await getPermissionsAsync();
+          if (!cancelled) {
+            setNotifOsAllowed(isOsNotificationAllowed(p));
+            setNotifCanAskAgain(p.canAskAgain !== false);
+          }
+        } catch {
+          /* expo-notifications unavailable */
+        }
+      }
     })();
     return () => {
       cancelled = true;
@@ -173,51 +199,88 @@ export default function SettingScreen() {
     }, [refreshNotificationPermissionUi]),
   );
 
-  const applyDefaultSnooze = useCallback(async (minutes: number) => {
-    setDefaultSnoozeMinutes(minutes);
-    await saveDefaultSnoozeMinutes(minutes);
-    await patchSignedInUserSettings({ defaultSnoozeDuration: minutes });
-  }, []);
+  const applyDefaultSnooze = useCallback(
+    async (minutes: number) => {
+      setDefaultSnoozeMinutes(minutes);
+      await saveDefaultSnoozeMinutes(minutes);
+      await reportPatch({ defaultSnoozeDuration: minutes });
+      showToast('Default snooze saved');
+    },
+    [reportPatch, showToast],
+  );
 
-  const applyDefaultSound = useCallback(async (id: AlarmSoundId) => {
-    setDefaultSoundId(id);
-    await saveDefaultAlarmSoundId(id);
-    await syncUpcomingReminderNotifications();
-    await syncAlarmFireNotifications();
-    if (await notificationPrefsEligibleForDbSync()) {
-      await patchSignedInUserSettings({ defaultAlarmSound: id });
-    }
-  }, []);
+  const applyDefaultSound = useCallback(
+    async (id: AlarmSoundId) => {
+      setDefaultSoundId(id);
+      await saveDefaultAlarmSoundId(id);
+      await syncUpcomingReminderNotifications();
+      await syncAlarmFireNotifications();
+      if (await notificationPrefsEligibleForDbSync()) {
+        await reportPatch({ defaultAlarmSound: id });
+      }
+      showToast('Default sound updated');
+    },
+    [reportPatch, showToast],
+  );
 
-  const applyDefaultVolume = useCallback(async (percent: number) => {
-    setDefaultVolumePercent(percent);
-    await saveDefaultVolumePercent(percent);
-    await applyAlarmVolumePreferenceToDevice(percent);
-    if (await notificationPrefsEligibleForDbSync()) {
-      await patchSignedInUserSettings({ alarmVolume: String(percent) });
-    }
-  }, []);
+  const applyDefaultVolume = useCallback(
+    async (percent: number) => {
+      setDefaultVolumePercent(percent);
+      await saveDefaultVolumePercent(percent);
+      const applied = await applyAlarmVolumePreferenceToDevice(percent);
+      if (!applied && Platform.OS !== 'web') {
+        showToast('Could not change system volume. Use device controls or system Settings. Level saved in Ripple.');
+      } else {
+        showToast('Volume preference saved');
+      }
+      if (await notificationPrefsEligibleForDbSync()) {
+        await reportPatch({ alarmVolume: String(percent) });
+      }
+    },
+    [reportPatch, showToast],
+  );
 
-  const applyVibration = useCallback(async (enabled: boolean) => {
-    setVibrationOn(enabled);
-    await saveDefaultVibrationEnabled(enabled);
-    await syncUpcomingReminderNotifications();
-    await syncAlarmFireNotifications();
-    if (await notificationPrefsEligibleForDbSync()) {
-      await patchSignedInUserSettings({ isVibrationEnabled: enabled });
-    }
-  }, []);
+  const applyVibration = useCallback(
+    async (enabled: boolean) => {
+      setVibrationOn(enabled);
+      await saveDefaultVibrationEnabled(enabled);
+      await syncUpcomingReminderNotifications();
+      await syncAlarmFireNotifications();
+      if (await notificationPrefsEligibleForDbSync()) {
+        await reportPatch({ isVibrationEnabled: enabled });
+      }
+      showToast(enabled ? 'Vibration on' : 'Vibration off');
+    },
+    [reportPatch, showToast],
+  );
 
-  const applyUpcomingReminder = useCallback(async (enabled: boolean) => {
-    setUpcomingOn(enabled);
-    await saveUpcomingReminderEnabled(enabled);
-    await syncUpcomingReminderNotifications();
-    await syncAlarmFireNotifications();
-    if (!enabled || (await notificationPrefsEligibleForDbSync())) {
-      await patchSignedInUserSettings({ isUpcomingReminderEnabled: enabled });
-    }
-    showToast(enabled ? 'Upcoming reminders on' : 'Upcoming reminders off');
-  }, []);
+  const applyUpcomingReminder = useCallback(
+    async (enabled: boolean) => {
+      setUpcomingOn(enabled);
+      await saveUpcomingReminderEnabled(enabled);
+      await syncUpcomingReminderNotifications();
+      await syncAlarmFireNotifications();
+      if (!enabled || (await notificationPrefsEligibleForDbSync())) {
+        await reportPatch({ isUpcomingReminderEnabled: enabled });
+      }
+      showToast(enabled ? 'Upcoming reminders on' : 'Upcoming reminders off');
+    },
+    [reportPatch, showToast],
+  );
+
+  const applyUpcomingLeadMinutes = useCallback(
+    async (minutes: number) => {
+      setUpcomingLeadMinutes(minutes);
+      await saveUpcomingReminderLeadMinutes(minutes);
+      await syncUpcomingReminderNotifications();
+      await syncAlarmFireNotifications();
+      if (await notificationPrefsEligibleForDbSync()) {
+        await reportPatch({ upcomingReminderLeadMinutes: minutes });
+      }
+      showToast('Reminder timing updated');
+    },
+    [reportPatch, showToast],
+  );
 
   const openSnoozeFromHub = useCallback(() => {
     setNotificationHubOpen(false);
@@ -248,7 +311,7 @@ export default function SettingScreen() {
       await saveNotificationsMasterEnabled(false);
       setNotificationsMasterEnabled(false);
       await cancelAllRippleScheduledNotifications();
-      await patchSignedInUserSettings({ areNotificationsAllowed: false });
+      await reportPatch({ areNotificationsAllowed: false });
       showToast('Notifications turned off');
       return;
     }
@@ -272,24 +335,24 @@ export default function SettingScreen() {
     setNotificationsMasterEnabled(true);
     await syncUpcomingReminderNotifications();
     await syncAlarmFireNotifications();
-    await patchSignedInUserSettings({ areNotificationsAllowed: true });
+    await reportPatch({ areNotificationsAllowed: true });
     showToast('Notifications turned on');
-  }, [notificationsEffectiveOn, refreshNotificationPermissionUi]);
+  }, [notificationsEffectiveOn, refreshNotificationPermissionUi, reportPatch, showToast]);
 
   let notificationsStatusLabel = 'Paused';
-  let notificationsStatusColor = alarmTheme.muted;
+  let notificationsStatusColor = palette.muted;
   if (Platform.OS === 'web') {
     notificationsStatusLabel = 'Mobile app only';
-    notificationsStatusColor = alarmTheme.muted;
+    notificationsStatusColor = palette.muted;
   } else if (!notifOsAllowed) {
     notificationsStatusLabel = notifCanAskAgain ? 'Tap toggle to enable' : 'Off — open Settings';
-    notificationsStatusColor = alarmTheme.red;
+    notificationsStatusColor = palette.red;
   } else if (!notificationsMasterEnabled) {
     notificationsStatusLabel = 'Paused';
-    notificationsStatusColor = alarmTheme.muted;
+    notificationsStatusColor = palette.muted;
   } else {
     notificationsStatusLabel = 'Allowed';
-    notificationsStatusColor = alarmTheme.green;
+    notificationsStatusColor = palette.green;
   }
 
   const onSignOut = async () => {
@@ -379,7 +442,7 @@ export default function SettingScreen() {
             <View style={styles.themeOptions}>
               {APP_THEME_OPTIONS.map((item) => {
                 const active = theme === item;
-                const locked = limitsApply && item !== 'Dark';
+                const locked = limitsApply && item === 'Auto';
                 return (
                   <Pressable
                     key={item}
@@ -390,14 +453,14 @@ export default function SettingScreen() {
                     ]}
                     onPress={() => {
                       if (locked) {
-                        showToast('Light and Auto themes are included with Ripple Pro.');
+                        showToast('Auto theme is included with Ripple Pro.');
                         router.push('/paywall');
                         return;
                       }
                       void (async () => {
                         setTheme(item);
                         await saveAppThemePreference(item);
-                        await patchSignedInUserSettings({ appTheme: item });
+                        await reportPatch({ appTheme: item });
                       })();
                     }}>
                     <Text
@@ -431,8 +494,15 @@ export default function SettingScreen() {
           <SettingsRow
             icon={settingsIcons.upcoming}
             title="Upcoming Reminder"
-            value={formatUpcomingReminderLeadLabel(upcomingLeadMinutes)}
+            value="Heads-up notification before an alarm rings"
             right={<AlarmToggle enabled={upcomingOn} onPress={() => void applyUpcomingReminder(!upcomingOn)} />}
+          />
+          <SettingsRow
+            icon={settingsIcons.snooze}
+            title="How early to remind"
+            value={formatUpcomingReminderLeadLabel(upcomingLeadMinutes)}
+            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
+            onPress={() => setUpcomingLeadPickerOpen(true)}
           />
           <SettingsRow
             icon={settingsIcons.notifications}
@@ -518,7 +588,7 @@ export default function SettingScreen() {
           <SettingsRow
             icon={settingsIcons.signOut}
             title={signingOut ? 'Signing out...' : 'Sign out'}
-            titleColor={alarmTheme.red}
+            titleColor={palette.red}
             onPress={() => void onSignOut()}
             noBorder
           />
@@ -562,6 +632,17 @@ export default function SettingScreen() {
         onSelectPercent={(p) => void applyDefaultVolume(p)}
       />
 
+      <SnoozePickerSheet
+        visible={upcomingLeadPickerOpen}
+        onClose={() => setUpcomingLeadPickerOpen(false)}
+        options={DEFAULT_UPCOMING_LEAD_OPTIONS_MINUTES}
+        selectedMinutes={upcomingLeadMinutes}
+        onSelectMinutes={(m) => void applyUpcomingLeadMinutes(m)}
+        sheetTitle="Upcoming reminder timing"
+        sheetHint="How long before each alarm should Ripple notify you"
+        formatOptionLabel={formatUpcomingReminderLeadLabel}
+      />
+
       <BottomNavbar
         items={[
           { icon: settingsIcons.alarms, label: 'Alarms', onPress: () => router.push('/alarm') },
@@ -575,7 +656,8 @@ export default function SettingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createSettingStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: alarmTheme.bg,
@@ -717,3 +799,4 @@ const styles = StyleSheet.create({
     color: alarmTheme.muted,
   },
 });
+}

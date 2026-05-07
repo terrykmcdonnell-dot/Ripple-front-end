@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
 import { RingPulse } from '@/components/alarm-ring/RingPulse';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { useDefaultSnoozeMinutes } from '@/hooks/use-default-snooze-minutes';
 import { useDefaultVibrationEnabled } from '@/hooks/use-default-vibration-enabled';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -89,6 +89,9 @@ export default function AlarmRingScreen() {
     });
   }, [liveParsed]);
 
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createRingStyles(palette), [palette]);
+
   const onDismissPress = useCallback(() => {
     router.replace('/alarm');
     if (liveParsed) {
@@ -130,7 +133,7 @@ export default function AlarmRingScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.content}>
+      <View style={[styles.content, { backgroundColor: palette.accentDim }]}>
         <RingPulse icon={ringIcons.alarm} />
 
         <Text style={styles.alarmLabel}>Alarm</Text>
@@ -168,7 +171,8 @@ export default function AlarmRingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createRingStyles(alarmTheme: AlarmThemePalette) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: alarmTheme.bg,
@@ -180,7 +184,6 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 32,
     paddingBottom: 40,
-    backgroundColor: 'rgba(6,182,212,0.08)',
   },
   alarmLabel: {
     color: alarmTheme.muted,
@@ -246,3 +249,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
 });
+}

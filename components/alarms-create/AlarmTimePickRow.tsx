@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { alarmThemes, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { isAlarmPaletteDark, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { clockPartsFromDate } from '@/lib/alarm-time';
 
@@ -109,7 +109,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
-  const pickerTheme = alarmTheme === alarmThemes.dark ? 'dark' : 'light';
+  const pickerTheme = isAlarmPaletteDark(alarmTheme) ? 'dark' : 'light';
 
   const { h12, minute, meridiem } = useMemo(() => clockPartsFromDate(value), [value]);
   const [iosOpen, setIosOpen] = useState(false);

@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
-import { alarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 export type NotificationsMasterRowProps = {
   icon: string;
@@ -26,6 +27,9 @@ export function NotificationsMasterRow({
   onPressHub,
   onToggle,
 }: NotificationsMasterRowProps) {
+  const palette = useAlarmTheme();
+  const styles = useMemo(() => createNotificationsMasterStyles(palette), [palette]);
+
   return (
     <View style={styles.row}>
       <Pressable style={styles.pressMain} onPress={onPressHub}>
@@ -44,58 +48,60 @@ export function NotificationsMasterRow({
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: alarmTheme.border,
-  },
-  pressMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minWidth: 0,
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: alarmTheme.surface2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  icon: {
-    fontSize: 18,
-  },
-  info: {
-    flex: 1,
-    minWidth: 0,
-  },
-  name: {
-    color: alarmTheme.text,
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  status: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  summary: {
-    color: alarmTheme.muted,
-    fontSize: 11,
-    marginTop: 3,
-  },
-  chevron: {
-    color: alarmTheme.muted,
-    fontSize: 13,
-    flexShrink: 0,
-  },
-});
+function createNotificationsMasterStyles(t: AlarmThemePalette) {
+  return StyleSheet.create({
+    row: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+    },
+    pressMain: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      minWidth: 0,
+    },
+    iconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: t.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    icon: {
+      fontSize: 18,
+    },
+    info: {
+      flex: 1,
+      minWidth: 0,
+    },
+    name: {
+      color: t.text,
+      fontSize: 13,
+      fontWeight: '500',
+      marginBottom: 2,
+    },
+    status: {
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    summary: {
+      color: t.muted,
+      fontSize: 11,
+      marginTop: 3,
+    },
+    chevron: {
+      color: t.muted,
+      fontSize: 13,
+      flexShrink: 0,
+    },
+  });
+}

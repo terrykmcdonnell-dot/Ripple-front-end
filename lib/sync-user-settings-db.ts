@@ -13,6 +13,8 @@ export type UserSettingsDbRow = {
   appTheme?: string;
   areNotificationsAllowed?: boolean;
   isUpcomingReminderEnabled?: boolean;
+  /** Minutes before alarm for upcoming reminder (optional server column). */
+  upcomingReminderLeadMinutes?: number;
 };
 
 /** Whether syncing notification-related prefs to DB makes sense (permission / gates). */
