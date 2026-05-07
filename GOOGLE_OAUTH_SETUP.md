@@ -22,6 +22,12 @@
 - **Expo Go** — use a **development build** (`expo run:android` / `expo run:ios`) so the Google Sign-In native module is linked.
 - OAuth consent screen: if the app is in **Testing**, add tester Google accounts under **OAuth consent screen → Test users**.
 
+## Troubleshooting: Google shows **400 / malformed request**
+
+1. **`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` wrong or pasted with quotes** — Must be the **Web application** client ID (`…apps.googleusercontent.com`). Strip quotes in `.env` or rely on app normalization. Rebuild the app after changing env (EAS: set secrets and rebuild).
+2. **`google-services.json` has empty `"oauth_client": []`** — In [Firebase Console](https://console.firebase.google.com) (or link your Android app in Google Cloud with package + SHA-1), regenerate and download `google-services.json`. An empty list means OAuth isn’t linked to that Android app; Sign-In can fail or behave oddly.
+3. **Supabase Auth → Google** — Use the **same Web client ID** (and client secret if required by your project) as in Google Cloud so `signInWithIdToken` verifies correctly **after** Google returns a token.
+
 ## Troubleshooting: Android `DEVELOPER_ERROR` / “Developer Error”
 
 Google Sign-In fails with **code 10** most often when:

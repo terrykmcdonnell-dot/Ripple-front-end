@@ -5,6 +5,14 @@ import { isOsNotificationAllowed } from '@/lib/notification-os-status';
 import { loadNotificationsMasterEnabled, loadUpcomingReminderEnabled } from '@/lib/settings-preferences';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * Syncs app settings to `public.users` using the authenticated Supabase session.
+ *
+ * RLS on `public.users` (see Supabase dashboard) should allow INSERT/SELECT/UPDATE only when
+ * `users.email` matches `auth.jwt() ->> 'email'`. We filter with the same lowercased email used
+ * at signup (`syncUserProfileToTable`). If no row is updated, either there is no profile row yet
+ * or the stored email does not match the JWT (policy will hide/forbid the update).
+ */
 export type UserSettingsDbRow = {
   defaultSnoozeDuration?: number;
   defaultAlarmSound?: string;
@@ -34,6 +42,14 @@ export async function notificationPrefsEligibleForDbSync(): Promise<boolean> {
 }
 
 export async function patchSignedInUserSettings(partial: UserSettingsDbRow): Promise<{ error: Error | null }> {
+  const definedEntries = Object.entries(partial as Record<string, unknown>).filter(
+    ([, v]) => v !== undefined,
+  );
+  if (definedEntries.length === 0) {
+    return { error: null };
+  }
+  const payload = Object.fromEntries(definedEntries);
+
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -42,6 +58,18 @@ export async function patchSignedInUserSettings(partial: UserSettingsDbRow): Pro
     return { error: new Error('Not signed in') };
   }
 
-  const { error } = await supabase.from('users').update(partial).eq('email', email);
-  return { error: error ? new Error(error.message) : null };
+  const { data, error } = await supabase.from('users').update(payload).eq('email', email).select('email');
+
+  if (error) {
+    return { error: new Error(error.message) };
+  }
+  if (!data?.length) {
+    return {
+      error: new Error(
+        'No user profile row updated. Ensure you finished signup (public.users row) and email matches your session (RLS).',
+      ),
+    };
+  }
+
+  return { error: null };
 }

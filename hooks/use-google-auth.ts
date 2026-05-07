@@ -7,6 +7,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import {
+  isLikelyGoogleWebClientId,
+  normalizeGoogleOAuthClientId,
+} from '@/lib/google-oauth-client';
 import { supabase } from '@/lib/supabase';
 import { syncUserProfileToTable } from '@/lib/sync-user-profile';
 
@@ -22,9 +26,9 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
 
   const googleConfig = useMemo(
     () => ({
-      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      androidClientId: normalizeGoogleOAuthClientId(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID),
+      iosClientId: normalizeGoogleOAuthClientId(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID),
+      webClientId: normalizeGoogleOAuthClientId(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID),
     }),
     [],
   );
@@ -34,25 +38,29 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
       return;
     }
     const { webClientId, iosClientId, androidClientId } = googleConfig;
-    if (__DEV__ && webClientId?.trim() && androidClientId?.trim() && webClientId.trim() === androidClientId.trim()) {
+    if (__DEV__ && webClientId && !isLikelyGoogleWebClientId(webClientId)) {
       console.warn(
-        '[Google Sign-In] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID must be the **Web application** OAuth client, not the Android client ID. Using the Android ID here causes Android DEVELOPER_ERROR (code 10). Create a separate Web client in Google Cloud and set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to that.',
+        '[Google Sign-In] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID should look like 123456-xxx.apps.googleusercontent.com (Web application client in Google Cloud).',
       );
     }
-    if (!webClientId?.trim()) {
+    if (__DEV__ && webClientId && androidClientId && webClientId === androidClientId) {
+      console.warn(
+        '[Google Sign-In] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID must be the **Web application** OAuth client, not the Android client ID. Create a separate Web client in Google Cloud.',
+      );
+    }
+    if (!webClientId) {
       return;
     }
     GoogleSignin.configure({
-      webClientId: webClientId.trim(),
-      ...(iosClientId?.trim() ? { iosClientId: iosClientId.trim() } : {}),
-      scopes: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
+      webClientId,
+      ...(Platform.OS === 'ios' && iosClientId ? { iosClientId } : {}),
       offlineAccess: false,
     });
   }, [googleConfig]);
 
   const signInWithGoogleNative = useCallback(async () => {
     const { webClientId } = googleConfig;
-    if (!webClientId?.trim()) {
+    if (!webClientId) {
       notifyAuthMessage(
         'Google Sign-In',
         'Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID. Supabase verifies the Google ID token against the Web OAuth client.',
@@ -138,7 +146,7 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
       return;
     }
 
-    if (!googleConfig.webClientId?.trim()) {
+    if (!googleConfig.webClientId) {
       notifyAuthMessage(
         'Google Sign-In',
         'Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID. Add your Web OAuth client ID from Google Cloud Console.',

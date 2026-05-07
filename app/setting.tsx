@@ -1,7 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import * as IntentLauncher from 'expo-intent-launcher';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import { Stack, useRouter } from 'expo-router';
@@ -69,17 +68,6 @@ import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { applyAlarmVolumePreferenceToDevice } from '@/lib/alarm-system-volume';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
-
-async function openAndroidPreciseAlarmSettings(): Promise<void> {
-  const pkg = Constants.expoConfig?.android?.package;
-  try {
-    await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.REQUEST_SCHEDULE_EXACT_ALARM, {
-      ...(pkg ? { extra: { 'android.provider.extra.APP_PACKAGE': pkg } } : {}),
-    });
-  } catch {
-    await Linking.openSettings();
-  }
-}
 
 export default function SettingScreen() {
   useRequireAuth();
@@ -510,17 +498,9 @@ export default function SettingScreen() {
             value="Banner style, sounds & previews — system Settings"
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
             onPress={() => void Linking.openSettings()}
+            noBorder={Platform.OS !== 'ios'}
           />
-          {Platform.OS === 'android' ? (
-            <SettingsRow
-              icon={settingsIcons.snooze}
-              title="Precise alarms (Android)"
-              value="Opens Ripple's Alarms & reminders permission — fires on time"
-              right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-              onPress={() => void openAndroidPreciseAlarmSettings()}
-              noBorder
-            />
-          ) : (
+          {Platform.OS === 'ios' ? (
             <SettingsRow
               icon={settingsIcons.snooze}
               title="Interrupt when ringing"
@@ -529,7 +509,7 @@ export default function SettingScreen() {
               onPress={() => void Linking.openSettings()}
               noBorder
             />
-          )}
+          ) : null}
         </SettingsGroup>
 
         <Text style={styles.sectionLabel}>About</Text>
