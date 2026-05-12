@@ -1,18 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
-import {
-    AndroidImportance,
-    AndroidNotificationVisibility,
-} from 'expo-notifications/build/NotificationChannelManager.types';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import {
     AndroidNotificationPriority,
     SchedulableTriggerInputTypes,
 } from 'expo-notifications/build/Notifications.types';
 import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
-import setNotificationChannelAsync from 'expo-notifications/build/setNotificationChannelAsync';
 import { Platform } from 'react-native';
 
+import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alarm-notification-channel';
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { loadDefaultAlarmSoundId, loadDefaultVibrationEnabled, loadNotificationsMasterEnabled } from '@/lib/settings-preferences';
@@ -34,15 +30,13 @@ async function ensureAndroidSnoozeChannelForAlarmPrefs(
   soundId: AlarmSoundId,
   vibrationEnabled: boolean,
 ): Promise<string> {
-  const channelId = `ripple-snooze-v2-${soundId}-${vibrationEnabled ? 'vib' : 'still'}`;
+  const channelId = `ripple_snooze_a1_${soundId}_${vibrationEnabled ? 'vib' : 'still'}`;
   const soundFile = bundledNotificationSoundFilename(soundId);
-  await setNotificationChannelAsync(channelId, {
+  await setAndroidAlarmStyleNotificationChannelAsync(channelId, {
     name: 'Alarm snooze',
-    importance: AndroidImportance.MAX,
-    enableVibrate: vibrationEnabled,
-    ...(vibrationEnabled ? { vibrationPattern: [...SNOOZE_VIBRATION_PATTERN] } : {}),
     sound: soundFile,
-    lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
+    enableVibrate: vibrationEnabled,
+    vibrationPattern: SNOOZE_VIBRATION_PATTERN,
   });
   return channelId;
 }

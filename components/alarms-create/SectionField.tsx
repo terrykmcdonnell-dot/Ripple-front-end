@@ -1,7 +1,7 @@
 import { ReactNode, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type SectionFieldProps = {
   label: string;
@@ -15,9 +15,9 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       width: '100%',
     },
     label: {
-      fontSize: 10,
+      fontSize: alarmTypography.micro,
       color: alarmTheme.muted,
-      marginBottom: 14,
+      marginBottom: 16,
       letterSpacing: 1.4,
       textTransform: 'uppercase',
       fontFamily: 'monospace',

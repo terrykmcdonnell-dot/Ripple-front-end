@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 export type NotificationsMasterRowProps = {
   icon: string;
@@ -85,22 +85,22 @@ function createNotificationsMasterStyles(t: AlarmThemePalette) {
     },
     name: {
       color: t.text,
-      fontSize: 13,
+      fontSize: alarmTypography.body,
       fontWeight: '500',
       marginBottom: 2,
     },
     status: {
-      fontSize: 11,
+      fontSize: alarmTypography.micro,
       fontWeight: '600',
     },
     summary: {
       color: t.muted,
-      fontSize: 11,
-      marginTop: 3,
+      fontSize: alarmTypography.micro,
+      marginTop: 4,
     },
     chevron: {
       color: t.muted,
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
       flexShrink: 0,
     },
   });

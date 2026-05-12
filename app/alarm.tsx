@@ -16,7 +16,7 @@ import { navIcons } from '@/assets/icons/alarm-icons';
 import { AlarmCard } from '@/components/alarms/AlarmCard';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { RichWordText } from '@/components/alarms/RichWordText';
-import { isAlarmPaletteDark, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { isAlarmPaletteDark, alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -333,16 +333,16 @@ function createAlarmStyles(alarmTheme: AlarmThemePalette) {
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingTop: 12,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 48,
+    minHeight: 52,
   },
   logo: {
     color: alarmTheme.text,
-    fontSize: 24,
+    fontSize: alarmTypography.title,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
@@ -368,14 +368,14 @@ function createAlarmStyles(alarmTheme: AlarmThemePalette) {
   },
   addButtonText: {
     color: '#ffffff',
-    fontSize: 22,
-    lineHeight: 22,
+    fontSize: alarmTypography.titleSm,
+    lineHeight: alarmTypography.titleSm,
   },
   clockWrap: {
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: 12,
     paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingBottom: 18,
   },
   heroClockRow: {
     flexDirection: 'row',
@@ -384,21 +384,21 @@ function createAlarmStyles(alarmTheme: AlarmThemePalette) {
   },
   bigClock: {
     color: alarmTheme.text,
-    fontSize: 58,
+    fontSize: alarmTypography.displayTime,
     fontWeight: '800',
-    lineHeight: 58,
+    lineHeight: alarmTypography.displayTime,
     letterSpacing: -1.2,
   },
   heroAmpm: {
     color: alarmTheme.muted,
-    fontSize: 18,
+    fontSize: alarmTypography.bodyLarge,
     fontWeight: '600',
     marginBottom: 4,
   },
   bigDate: {
     color: alarmTheme.muted,
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: alarmTypography.caption,
+    marginTop: 6,
   },
   nextAlarm: {
     textAlign: 'center',
@@ -409,8 +409,8 @@ function createAlarmStyles(alarmTheme: AlarmThemePalette) {
     paddingHorizontal: 16,
   },
   listContent: {
-    gap: 10,
-    paddingBottom: 88,
+    gap: 12,
+    paddingBottom: 94,
     flexGrow: 1,
   },
   errorText: {
@@ -424,7 +424,7 @@ function createAlarmStyles(alarmTheme: AlarmThemePalette) {
     textAlign: 'center',
     marginTop: 24,
     paddingHorizontal: 20,
-    fontSize: 14,
+    fontSize: alarmTypography.body,
   },
 });
 }

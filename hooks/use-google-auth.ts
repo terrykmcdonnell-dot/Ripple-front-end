@@ -12,7 +12,7 @@ import {
   normalizeGoogleOAuthClientId,
 } from '@/lib/google-oauth-client';
 import { supabase } from '@/lib/supabase';
-import { syncUserProfileToTable } from '@/lib/sync-user-profile';
+import { deriveProfileNameFromAuthUser, syncUserProfileToTable } from '@/lib/sync-user-profile';
 
 type UseGoogleAuthOptions = {
   /** Upsert `public.users` after a successful Google session (OAuth users use an empty password). */
@@ -105,15 +105,9 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
 
       if (syncUsersTable && data.user?.email) {
         const email = data.user.email.trim().toLowerCase();
-        const meta = data.user.user_metadata as Record<string, unknown> | undefined;
-        const nameFromMeta =
-          (typeof meta?.full_name === 'string' && meta.full_name) ||
-          (typeof meta?.name === 'string' && meta.name) ||
-          email.split('@')[0] ||
-          'User';
 
         const { error: profileError } = await syncUserProfileToTable({
-          name: nameFromMeta,
+          name: deriveProfileNameFromAuthUser(data.user),
           email,
           password: '',
         });

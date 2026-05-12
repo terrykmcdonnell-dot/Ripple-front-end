@@ -22,11 +22,16 @@ import { IntervalControl } from '@/components/alarms-create/IntervalControl';
 import { SectionField } from '@/components/alarms-create/SectionField';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
-import { categoryIdToChipKey, coerceAlarmUnit } from '@/lib/alarm-format';
+import { categoryIdToChipKey, coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
 import { takeStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
+import {
+  computeScheduledAtAfterSkipNext,
+  getNextOccurrenceForAlarmSchedule,
+} from '@/lib/alarm-skip-next';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
@@ -69,8 +74,11 @@ export default function AlarmEditScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [skipConfirmVisible, setSkipConfirmVisible] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
 
   const palette = useAlarmTheme();
+  const { showToast } = useAppToast();
   const styles = useMemo(() => createAlarmEditStyles(palette), [palette]);
 
   const applyAlarmFieldsToForm = useCallback(
@@ -94,13 +102,37 @@ export default function AlarmEditScreen() {
     [],
   );
 
+  const skipScheduleFromForm = useMemo(
+    () => ({
+      scheduledAt: alarmTime.toISOString(),
+      interval: interval > 0 ? interval : 1,
+      unit,
+    }),
+    [alarmTime, interval, unit],
+  );
+
+  const nextSkippableFireAt = useMemo(() => {
+    if (!alarmEnabled) {
+      return null;
+    }
+    return getNextOccurrenceForAlarmSchedule(skipScheduleFromForm, new Date());
+  }, [alarmEnabled, skipScheduleFromForm]);
+
+  const skipModalTimeLabel = useMemo(() => {
+    if (!nextSkippableFireAt) {
+      return '';
+    }
+    const { time, ampm } = formatScheduledLocalParts(nextSkippableFireAt.toISOString());
+    return `${time} ${ampm}`;
+  }, [nextSkippableFireAt]);
+
   const handleSave = useCallback(async () => {
     const labelValue = label.trim();
     if (!labelValue) {
       notifyAuthMessage('Edit Alarm', 'Enter a label for this alarm.');
       return;
     }
-    if (!alarmIdOk) {
+    if (!alarmIdOk || isSkipping) {
       return;
     }
 
@@ -131,6 +163,7 @@ export default function AlarmEditScreen() {
     alarmTime,
     category,
     interval,
+    isSkipping,
     label,
     router,
     unit,
@@ -156,12 +189,57 @@ export default function AlarmEditScreen() {
   }, [alarmIdOk, alarmIdParsed, router]);
 
   const promptDeleteAlarm = useCallback(() => {
-    if (!alarmIdOk || isDeleting || isSaving) {
+    if (!alarmIdOk || isDeleting || isSaving || isSkipping) {
       return;
     }
     Keyboard.dismiss();
     setDeleteConfirmVisible(true);
-  }, [alarmIdOk, isDeleting, isSaving]);
+  }, [alarmIdOk, isDeleting, isSaving, isSkipping]);
+
+  const promptSkipNext = useCallback(() => {
+    if (!alarmIdOk || isDeleting || isSaving || isSkipping || !alarmEnabled || nextSkippableFireAt == null) {
+      return;
+    }
+    Keyboard.dismiss();
+    setSkipConfirmVisible(true);
+  }, [alarmEnabled, alarmIdOk, isDeleting, isSaving, isSkipping, nextSkippableFireAt]);
+
+  const handleConfirmSkipNext = useCallback(async () => {
+    if (!alarmIdOk) {
+      return;
+    }
+    const baseline = {
+      scheduledAt: alarmTime.toISOString(),
+      interval: interval > 0 ? interval : 1,
+      unit,
+    };
+    const now = new Date();
+    const newIso = computeScheduledAtAfterSkipNext(baseline, now);
+    if (newIso == null) {
+      setSkipConfirmVisible(false);
+      showToast('There is no upcoming occurrence to skip.');
+      return;
+    }
+
+    setIsSkipping(true);
+    try {
+      await patchAlarm(alarmIdParsed, {
+        scheduled_at: newIso,
+        interval: interval > 0 ? interval : 1,
+        unit,
+      });
+      setSkipConfirmVisible(false);
+      setAlarmTime(new Date(newIso));
+      showToast('Skipped the next occurrence.');
+      void Promise.all([syncUpcomingReminderNotifications(), syncAlarmFireNotifications()]).catch(
+        () => undefined,
+      );
+    } catch (e) {
+      notifyAuthError('Edit Alarm', e);
+    } finally {
+      setIsSkipping(false);
+    }
+  }, [alarmIdOk, alarmIdParsed, alarmTime, interval, showToast, unit]);
 
   const loadAlarmFromApi = useCallback(async () => {
     if (!alarmIdOk) {
@@ -258,11 +336,12 @@ export default function AlarmEditScreen() {
               accessibilityRole="button"
               accessibilityLabel="Save alarm"
               hitSlop={HEADER_NAV_HIT_SLOP}
-              disabled={isSaving || isDeleting || loading || error != null || !alarmIdOk}
+              disabled={isSaving || isDeleting || isSkipping || loading || error != null || !alarmIdOk}
               style={({ pressed }) => [
                 styles.saveBtn,
-                (isSaving || isDeleting || loading || error != null || !alarmIdOk) && styles.saveBtnDisabled,
-                !(isSaving || isDeleting || loading || error != null || !alarmIdOk) &&
+                (isSaving || isDeleting || isSkipping || loading || error != null || !alarmIdOk) &&
+                  styles.saveBtnDisabled,
+                !(isSaving || isDeleting || isSkipping || loading || error != null || !alarmIdOk) &&
                   pressed &&
                   styles.headerBtnPressed,
               ]}
@@ -341,18 +420,65 @@ export default function AlarmEditScreen() {
             </SectionField>
 
             <View style={styles.dangerZone}>
-              <DangerActionButton icon={editActionIcons.skip} label="Skip Next Occurrence" variant="skip" />
+              <DangerActionButton
+                icon={editActionIcons.skip}
+                label="Skip Next Occurrence"
+                variant="skip"
+                disabled={
+                  isSkipping ||
+                  isSaving ||
+                  isDeleting ||
+                  !alarmEnabled ||
+                  nextSkippableFireAt == null
+                }
+                onPress={promptSkipNext}
+              />
               <DangerActionButton
                 icon={editActionIcons.delete}
                 label="Delete Alarm"
                 variant="delete"
-                disabled={isDeleting || isSaving}
+                disabled={isDeleting || isSaving || isSkipping}
                 onPress={promptDeleteAlarm}
               />
             </View>
           </ScrollView>
         </>
       )}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={skipConfirmVisible}
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+        onRequestClose={() => !isSkipping && setSkipConfirmVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Skip next occurrence?</Text>
+            <Text style={styles.modalBody}>
+              The next ring for &quot;{label.trim() || 'this alarm'}&quot; is scheduled for{' '}
+              <Text style={styles.modalBodyEmphasis}>{skipModalTimeLabel}</Text>. It will not fire; later
+              repeats stay on the same schedule.
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                disabled={isSkipping}
+                onPress={() => !isSkipping && setSkipConfirmVisible(false)}>
+                <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                disabled={isSkipping}
+                onPress={() => void handleConfirmSkipNext()}>
+                {isSkipping ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Skip</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <Modal
         transparent
         animationType="fade"
@@ -386,7 +512,7 @@ export default function AlarmEditScreen() {
           </View>
         </View>
       </Modal>
-      <FullScreenLoadingOverlay visible={loading || isSaving || isDeleting} />
+      <FullScreenLoadingOverlay visible={loading || isSaving || isDeleting || isSkipping} />
     </View>
   );
 }
@@ -556,6 +682,10 @@ function createAlarmEditStyles(alarmTheme: AlarmThemePalette) {
     lineHeight: 20,
     marginBottom: 20,
   },
+  modalBodyEmphasis: {
+    color: alarmTheme.text,
+    fontWeight: '600',
+  },
   modalActions: {
     flexDirection: 'row',
     gap: 10,
@@ -584,6 +714,14 @@ function createAlarmEditStyles(alarmTheme: AlarmThemePalette) {
     backgroundColor: '#dc2626',
   },
   modalBtnDangerText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalBtnPrimary: {
+    backgroundColor: alarmTheme.accent,
+  },
+  modalBtnPrimaryText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',

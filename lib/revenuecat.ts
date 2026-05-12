@@ -11,12 +11,12 @@ let configured = false;
 
 export function getRevenueCatApiKey(): string {
   const shared = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY?.trim() ?? '';
-  // if (Platform.OS === 'ios') {
-  //   return process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS?.trim() ?? shared;
-  // }
-  // if (Platform.OS === 'android') {
-  //   return process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID?.trim() ?? shared;
-  // }
+  if (Platform.OS === 'ios') {
+    return process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS?.trim() || shared;
+  }
+  if (Platform.OS === 'android') {
+    return process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID?.trim() || shared;
+  }
   return shared;
 }
 
@@ -32,7 +32,9 @@ export function configureRevenueCat(): void {
   }
   const apiKey = getRevenueCatApiKey();
   if (!apiKey) {
-    console.warn('[RevenueCat] Set EXPO_PUBLIC_REVENUECAT_API_KEY in .env');
+    console.warn(
+      '[RevenueCat] Set EXPO_PUBLIC_REVENUECAT_API_KEY_IOS / EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID (or EXPO_PUBLIC_REVENUECAT_API_KEY fallback) in .env',
+    );
     return;
   }
   if (__DEV__) {

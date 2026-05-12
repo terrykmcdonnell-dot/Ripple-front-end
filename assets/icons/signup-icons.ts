@@ -4,7 +4,5 @@ export const signUpIcons = {
   user: '👤',
   email: '✉️',
   check: '✓',
-  apple: '🍎',
-  google: '🔵',
   arrow: '→',
 } as const;

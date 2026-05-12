@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type SegmentButtonProps = {
   label: string;
@@ -23,12 +23,12 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       justifyContent: 'center',
     },
     regular: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
     },
     compact: {
-      paddingHorizontal: 9,
-      paddingVertical: 5,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
     },
     square: {
       borderRadius: 10,
@@ -40,7 +40,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       flex: 1,
     },
     text: {
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       color: alarmTheme.muted,
       fontWeight: '500',
     },

@@ -12,6 +12,7 @@ import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { isValidEmail, sanitizeEmailInput } from '@/lib/auth-validation';
+import { deriveProfileNameFromAuthUser, syncUserProfileToTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
 
 function createStyles(alarmTheme: AlarmThemePalette) {
@@ -188,16 +189,39 @@ export default function SignInScreen() {
     setEmailError('');
 
     setSignInLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signData, error } = await supabase.auth.signInWithPassword({
       email: emailValue,
+      password,
+    });
+
+    if (error) {
+      setSignInLoading(false);
+      notifyAuthError('Sign In', error);
+      return;
+    }
+
+    const user = signData.user;
+    if (!user?.email) {
+      setSignInLoading(false);
+      notifyAuthMessage('Sign In', 'Sign-in did not return an email.');
+      await supabase.auth.signOut();
+      return;
+    }
+
+    const syncedEmail = user.email.trim().toLowerCase();
+    const { error: profileError } = await syncUserProfileToTable({
+      name: deriveProfileNameFromAuthUser(user),
+      email: syncedEmail,
       password,
     });
     setSignInLoading(false);
 
-    if (error) {
-      notifyAuthError('Sign In', error);
+    if (profileError) {
+      notifyAuthError('Sign In', profileError);
+      await supabase.auth.signOut();
       return;
     }
+
     router.replace('/alarm');
   };
 
@@ -281,9 +305,9 @@ export default function SignInScreen() {
         </View>
 
         <View style={styles.socialRow}>
-          <SocialAuthButton icon={signInIcons.apple} label="Apple" />
+          <SocialAuthButton provider="apple" label="Apple" />
           <SocialAuthButton
-            icon={signInIcons.google}
+            provider="google"
             label={googleLoading ? 'Google...' : 'Google'}
             onPress={onGooglePress}
           />

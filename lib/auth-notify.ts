@@ -3,6 +3,21 @@ import { Alert, type AlertButton } from 'react-native';
 import { formatAuthErrorMessage } from '@/lib/auth-validation';
 import { isExpiredJwtOrSessionError, refreshOrSignOutOnExpiredSession } from '@/lib/auth-session-errors';
 
+/** Set by `AppToastProvider` so auth UX uses in-app toasts instead of system `Alert`. */
+let authToastShow: ((message: string) => void) | null = null;
+
+export function setAuthToastHandler(handler: ((message: string) => void) | null) {
+  authToastShow = handler;
+}
+
+function formatAuthToast(title: string, message: string): string {
+  const m = message.trim();
+  if (!m) {
+    return title;
+  }
+  return `${title} — ${m}`;
+}
+
 type ErrorLike = {
   message?: string;
   code?: string;
@@ -43,12 +58,20 @@ export function notifyAuthError(title: string, error: unknown) {
     return;
   }
   const text = getAuthErrorDisplayText(error);
+  if (authToastShow) {
+    authToastShow(formatAuthToast(title, text));
+    return;
+  }
   Alert.alert(title, text);
 }
 
 export function notifyAuthMessage(title: string, message: string, buttons?: AlertButton[]) {
   if (buttons?.length) {
     Alert.alert(title, message, buttons);
+    return;
+  }
+  if (authToastShow) {
+    authToastShow(formatAuthToast(title, message));
     return;
   }
   Alert.alert(title, message);

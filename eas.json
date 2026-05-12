@@ -15,10 +15,7 @@
       "android": {
         "buildType": "apk"
       },
-      "developmentClient": false,
-      "env": {
-    "EXPO_BUNDLER_BUNDLE": "true"
-      }
+      "developmentClient": false
     },
     "production": {
       "autoIncrement": true,

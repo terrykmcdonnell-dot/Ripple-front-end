@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { formatVolumePercentLabel } from '@/lib/settings-preferences';
 
 type VolumePickerSheetProps = {
@@ -42,7 +42,7 @@ export function VolumePickerSheet({
           <Text style={styles.sheetTitle}>Volume preference</Text>
           <Text style={styles.sheetHint}>
             {Platform.OS === 'android'
-              ? 'Choosing a level updates notification volume only (not media or ringtone). Saved for your account. Applied only when you pick here — not when opening the app.'
+              ? 'Choosing a level updates alarm volume (rings and snoozes use the alarm stream — more likely to be heard when notification sounds are muted). Saved for your account. Applied only when you pick here — not when opening the app.'
               : Platform.OS === 'ios'
                 ? 'Choosing a level adjusts system volume used for alerts and similar sounds. Saved for your account. Applied only when you pick here — not when opening the app.'
                 : 'Saved for your account.'}
@@ -89,8 +89,8 @@ function createVolumePickerStyles(t: AlarmThemePalette) {
     sheet: {
       backgroundColor: t.surface,
       paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-      paddingHorizontal: 20,
-      paddingTop: 20,
+      paddingHorizontal: 22,
+      paddingTop: 22,
       borderTopLeftRadius: 18,
       borderTopRightRadius: 18,
       borderWidth: 1,
@@ -99,16 +99,17 @@ function createVolumePickerStyles(t: AlarmThemePalette) {
     },
     sheetTitle: {
       color: t.text,
-      fontSize: 17,
+      fontSize: alarmTypography.bodyLarge,
       fontWeight: '700',
-      marginBottom: 4,
+      marginBottom: 6,
       textAlign: 'center',
     },
     sheetHint: {
       color: t.muted,
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       textAlign: 'center',
-      marginBottom: 14,
+      marginBottom: 16,
+      lineHeight: alarmTypography.caption + 6,
     },
     optionList: {
       borderRadius: 14,
@@ -121,8 +122,8 @@ function createVolumePickerStyles(t: AlarmThemePalette) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 14,
-      paddingHorizontal: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
       backgroundColor: t.surface2,
       borderBottomWidth: 1,
       borderBottomColor: t.border,
@@ -132,7 +133,7 @@ function createVolumePickerStyles(t: AlarmThemePalette) {
     },
     optionLabel: {
       color: t.text,
-      fontSize: 16,
+      fontSize: alarmTypography.body,
       fontWeight: '500',
     },
     optionLabelActive: {
@@ -140,12 +141,12 @@ function createVolumePickerStyles(t: AlarmThemePalette) {
     },
     check: {
       color: t.accentBright,
-      fontSize: 18,
+      fontSize: alarmTypography.bodyLarge,
       fontWeight: '700',
     },
     cancelBtn: {
       alignItems: 'center',
-      paddingVertical: 14,
+      paddingVertical: 16,
       borderRadius: 14,
       backgroundColor: t.surface2,
       borderWidth: 1,
@@ -153,7 +154,7 @@ function createVolumePickerStyles(t: AlarmThemePalette) {
     },
     cancelText: {
       color: t.muted,
-      fontSize: 16,
+      fontSize: alarmTypography.body,
       fontWeight: '600',
     },
   });

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type TemplateAlarm = {
   emoji: string;
@@ -31,8 +31,8 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       borderRadius: 16,
-      padding: 16,
-      marginBottom: 10,
+      padding: 18,
+      marginBottom: 12,
     },
     header: {
       flexDirection: 'row',
@@ -48,10 +48,10 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       justifyContent: 'center',
       flexShrink: 0,
     },
-    icon: { fontSize: 22 },
+    icon: { fontSize: alarmTypography.titleSm },
     headerInfo: { flex: 1 },
-    title: { color: alarmTheme.text, fontSize: 15, fontWeight: '700', marginBottom: 3 },
-    desc: { color: alarmTheme.muted, fontSize: 11, lineHeight: 16.5 },
+    title: { color: alarmTheme.text, fontSize: alarmTypography.body, fontWeight: '700', marginBottom: 4 },
+    desc: { color: alarmTheme.muted, fontSize: alarmTypography.micro, lineHeight: alarmTypography.micro * 1.45 },
     alarmList: { gap: 5, marginBottom: 12 },
     alarmRow: {
       flexDirection: 'row',
@@ -59,19 +59,19 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       gap: 8,
       backgroundColor: alarmTheme.surface2,
       borderRadius: 8,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
     },
-    alarmEmoji: { fontSize: 13 },
-    alarmName: { flex: 1, color: alarmTheme.text, fontSize: 11 },
+    alarmEmoji: { fontSize: alarmTypography.caption },
+    alarmName: { flex: 1, color: alarmTheme.text, fontSize: alarmTypography.micro },
     alarmInterval: { color: alarmTheme.accentBright, fontSize: 10, fontFamily: 'monospace' },
     footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    count: { color: alarmTheme.muted, fontSize: 11, fontFamily: 'monospace' },
+    count: { color: alarmTheme.muted, fontSize: alarmTypography.micro, fontFamily: 'monospace' },
     installBtn: {
       borderWidth: 1,
       borderRadius: 10,
-      paddingVertical: 7,
-      paddingHorizontal: 16,
+      paddingVertical: 9,
+      paddingHorizontal: 18,
     },
     defaultBtn: {
       backgroundColor: alarmTheme.accentDim,
@@ -85,7 +85,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       backgroundColor: alarmTheme.surface3,
       borderColor: alarmTheme.border,
     },
-    installText: { fontSize: 12, fontWeight: '600' },
+    installText: { fontSize: alarmTypography.caption, fontWeight: '600' },
     defaultText: { color: alarmTheme.accentBright },
     greenText: { color: alarmTheme.green },
     installedText: { color: alarmTheme.muted },

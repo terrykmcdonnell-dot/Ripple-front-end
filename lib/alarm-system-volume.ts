@@ -5,7 +5,7 @@ import { setVolume } from 'react-native-volume-manager';
  * Applies the user's alarm volume preference to OS-level controls when they
  * explicitly choose a level in Settings — not on app cold start.
  *
- * Android: notification stream (matches typical notification-channel alarm playback).
+ * Android: **alarm** stream (matches alarm-fire / snooze channels using USAGE_ALARM).
  * iOS: uses MPVolumeView under the hood — affects system/output volume (no separate
  * notification-only slider like Android).
  */
@@ -17,7 +17,7 @@ export async function applyAlarmVolumePreferenceToDevice(percent: number): Promi
   try {
     if (Platform.OS === 'android') {
       await setVolume(value, {
-        type: 'notification',
+        type: 'alarm',
         playSound: false,
         showUI: false,
       });

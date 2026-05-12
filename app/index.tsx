@@ -1,35 +1,17 @@
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { replaceWithSignInIfNeeded } from '@/lib/auth-sign-in-redirect';
 import { supabase } from '@/lib/supabase';
 
 export default function Index() {
   const router = useRouter();
+  const pathname = usePathname();
   const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-
-    const routeBySession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!mounted) {
-          return;
-        }
-
-        router.replace(session ? '/alarm' : '/signin');
-      } finally {
-        if (mounted) {
-          setBootstrapping(false);
-        }
-      }
-    };
-
-    void routeBySession();
 
     const {
       data: { subscription },
@@ -37,14 +19,19 @@ export default function Index() {
       if (!mounted) {
         return;
       }
-      router.replace(session ? '/alarm' : '/signin');
+      if (session) {
+        router.replace('/alarm');
+      } else {
+        replaceWithSignInIfNeeded(pathname);
+      }
+      setBootstrapping(false);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, pathname]);
 
   return <FullScreenLoadingOverlay visible={bootstrapping} />;
 }

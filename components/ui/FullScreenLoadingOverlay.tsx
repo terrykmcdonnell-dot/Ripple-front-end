@@ -1,6 +1,6 @@
 import { ActivityIndicator, Modal, Platform, StyleSheet, Text, View } from 'react-native';
 
-import { useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
 
 export type FullScreenLoadingOverlayProps = {
   visible: boolean;
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   message: {
-    fontSize: 13,
+    fontSize: alarmTypography.caption,
     textAlign: 'center',
     fontFamily: 'monospace',
   },

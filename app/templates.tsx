@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { templatesIcons } from '@/assets/icons/templates-icons';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { TemplateCard } from '@/components/templates/TemplateCard';
 import { TemplateCategoryTabs } from '@/components/templates/TemplateCategoryTabs';
 import { useAppToast } from '@/components/ui/AppToastProvider';
@@ -56,16 +56,16 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     header: {
       paddingHorizontal: 24,
-      paddingTop: 10,
-      paddingBottom: 14,
+      paddingTop: 12,
+      paddingBottom: 16,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      minHeight: 48,
+      minHeight: 52,
     },
     title: {
       color: alarmTheme.text,
-      fontSize: 24,
+      fontSize: alarmTypography.title,
       fontWeight: '800',
       letterSpacing: -0.4,
     },
@@ -76,29 +76,29 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       borderRadius: 12,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
     },
     searchIcon: {
-      fontSize: 14,
+      fontSize: alarmTypography.body,
       color: alarmTheme.muted,
     },
     searchInput: {
       flex: 1,
-      fontSize: 13,
+      fontSize: alarmTypography.body,
       color: alarmTheme.text,
       paddingVertical: 0,
-      minHeight: 20,
+      minHeight: 22,
     },
     scroll: {
       flex: 1,
       paddingHorizontal: 16,
     },
     scrollContent: {
-      paddingBottom: 88,
+      paddingBottom: 94,
     },
     emptySearch: {
       paddingVertical: 28,
@@ -106,10 +106,10 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       alignItems: 'center',
     },
     emptySearchText: {
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
       color: alarmTheme.muted,
       textAlign: 'center',
-      lineHeight: 20,
+      lineHeight: alarmTypography.caption + 8,
     },
   });
 }

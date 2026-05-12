@@ -54,7 +54,8 @@ export async function cancelUpcomingReminderNotifications(): Promise<void> {
   await cancelStoredUpcomingNotifications();
 }
 
-function advanceOccurrence(from: Date, interval: number, unitRaw: string): Date {
+/** Moves one repeat step from `from` (shared by fire + reminder schedulers). */
+export function advanceAlarmOccurrence(from: Date, interval: number, unitRaw: string): Date {
   const unit = coerceAlarmUnit(unitRaw);
   const n = Math.max(1, interval);
   const d = new Date(from.getTime());
@@ -86,7 +87,7 @@ export function nextCanonicalAlarmFire(alarm: AlarmListItem, from: Date): Date |
   const horizonEnd = from.getTime() + 730 * 24 * 60 * 60 * 1000;
   let guard = 0;
   while (t.getTime() < from.getTime() && guard++ < 10000 && t.getTime() < horizonEnd) {
-    const next = advanceOccurrence(t, alarm.interval, alarm.unit);
+    const next = advanceAlarmOccurrence(t, alarm.interval, alarm.unit);
     if (next.getTime() <= t.getTime()) {
       return null;
     }
@@ -109,7 +110,7 @@ function nextReminderSlot(
     if (reminderAt.getTime() > from.getTime() + MIN_ALARM_SCHEDULE_LEAD_MS) {
       return { reminderAt, fireAt: fire };
     }
-    const next = advanceOccurrence(fire, alarm.interval, alarm.unit);
+    const next = advanceAlarmOccurrence(fire, alarm.interval, alarm.unit);
     if (next.getTime() <= fire.getTime()) {
       break;
     }

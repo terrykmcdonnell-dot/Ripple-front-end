@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, TextStyle } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type WordChunk = {
   text: string;
@@ -18,7 +18,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
     base: {
       color: alarmTheme.muted,
-      fontSize: 11,
+      fontSize: alarmTypography.micro,
       fontFamily: 'monospace',
     },
   });

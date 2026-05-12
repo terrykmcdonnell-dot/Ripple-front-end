@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { settingsIcons } from '@/assets/icons/settings-icons';
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
 import { NotificationsHubSheet } from '@/components/settings/NotificationsHubSheet';
 import { NotificationsMasterRow } from '@/components/settings/NotificationsMasterRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
@@ -67,6 +67,8 @@ import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings, type Use
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { applyAlarmVolumePreferenceToDevice } from '@/lib/alarm-system-volume';
+import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
+import { openAndroidNotificationPolicyAccessSettings } from '@/lib/open-android-notification-policy-access-settings';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 
 export default function SettingScreen() {
@@ -355,7 +357,7 @@ export default function SettingScreen() {
       notifyAuthError('Sign out', error);
       return;
     }
-    router.replace('/signin');
+    /** Navigation: `useRequireAuth` + `replaceWithSignInIfNeeded` (deduped). */
   };
 
   return (
@@ -498,8 +500,31 @@ export default function SettingScreen() {
             value="Banner style, sounds & previews — system Settings"
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
             onPress={() => void Linking.openSettings()}
-            noBorder={Platform.OS !== 'ios'}
+            noBorder={
+              Platform.OS === 'ios' ||
+              (Platform.OS === 'android' && Number(Platform.Version) >= 34)
+            }
           />
+          {Platform.OS === 'android' && Number(Platform.Version) >= 34 ? (
+            <SettingsRow
+              icon={settingsIcons.snooze}
+              title="Lock screen alarm takeover"
+              value="Android 14+ — allow full-screen alarms for Ripple"
+              right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
+              onPress={() => void openAndroidFullScreenAlarmPermissionSettings()}
+              noBorder={false}
+            />
+          ) : null}
+          {Platform.OS === 'android' ? (
+            <SettingsRow
+              icon={settingsIcons.notifications}
+              title="Alarms & Do Not Disturb"
+              value="Allow Ripple to ring during DND (opens system access list)"
+              right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
+              onPress={() => void openAndroidNotificationPolicyAccessSettings()}
+              noBorder
+            />
+          ) : null}
           {Platform.OS === 'ios' ? (
             <SettingsRow
               icon={settingsIcons.snooze}
@@ -649,14 +674,14 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 14,
-    minHeight: 48,
+    paddingTop: 12,
+    paddingBottom: 16,
+    minHeight: 52,
     justifyContent: 'center',
   },
   pageTitle: {
     color: alarmTheme.text,
-    fontSize: 24,
+    fontSize: alarmTypography.title,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
@@ -665,14 +690,14 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
     paddingHorizontal: 16,
   },
   scrollContent: {
-    paddingBottom: 88,
+    paddingBottom: 94,
   },
   proBanner: {
     borderWidth: 1,
     borderColor: 'rgba(6,182,212,0.3)',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
+    padding: 18,
+    marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -681,50 +706,50 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
     borderColor: 'rgba(52,211,153,0.45)',
   },
   proIcon: {
-    fontSize: 24,
+    fontSize: alarmTypography.titleSm,
   },
   proInfo: {
     flex: 1,
   },
   proTitle: {
     color: alarmTheme.text,
-    fontSize: 14,
+    fontSize: alarmTypography.body,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   proSub: {
     color: alarmTheme.muted,
-    fontSize: 11,
+    fontSize: alarmTypography.micro,
   },
   proBtn: {
     backgroundColor: alarmTheme.accent,
     borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
   },
   proBtnText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: alarmTypography.caption,
     fontWeight: '600',
   },
   sectionLabel: {
     color: alarmTheme.muted,
-    fontSize: 10,
+    fontSize: alarmTypography.micro,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     fontFamily: 'monospace',
-    marginTop: 14,
+    marginTop: 16,
     marginHorizontal: 4,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   chevron: {
     color: alarmTheme.muted,
-    fontSize: 13,
+    fontSize: alarmTypography.caption,
   },
   themeRow: {
     width: '100%',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingHorizontal: 18,
+    paddingVertical: 15,
     gap: 8,
   },
   themeHeading: {
@@ -733,19 +758,19 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
     gap: 12,
   },
   themeIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     backgroundColor: alarmTheme.surface2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   themeIcon: {
-    fontSize: 18,
+    fontSize: alarmTypography.titleSm,
   },
   themeLabel: {
     color: alarmTheme.text,
-    fontSize: 13,
+    fontSize: alarmTypography.body,
     fontWeight: '500',
   },
   themeOptions: {
@@ -758,7 +783,7 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
     borderWidth: 1,
     borderColor: alarmTheme.border,
     backgroundColor: alarmTheme.surface2,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   themeOptionActive: {
@@ -770,7 +795,7 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
   },
   themeOptionText: {
     color: alarmTheme.muted,
-    fontSize: 12,
+    fontSize: alarmTypography.caption,
   },
   themeOptionTextActive: {
     color: alarmTheme.accentBright,

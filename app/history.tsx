@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
 import { historyIcons } from '@/assets/icons/history-icons';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { type AlarmThemePalette, alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
 import { ComplianceBanner } from '@/components/history/ComplianceBanner';
 import { HistoryFilterTabs } from '@/components/history/HistoryFilterTabs';
 import { HistoryItemRow } from '@/components/history/HistoryItemRow';
@@ -46,27 +46,27 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     header: {
       paddingHorizontal: 24,
-      paddingTop: 10,
-      paddingBottom: 14,
+      paddingTop: 12,
+      paddingBottom: 16,
       flexDirection: 'row',
       alignItems: 'center',
-      minHeight: 48,
+      minHeight: 52,
     },
-    title: { color: alarmTheme.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.4 },
+    title: { color: alarmTheme.text, fontSize: alarmTypography.title, fontWeight: '800', letterSpacing: -0.4 },
     list: { flex: 1, paddingHorizontal: 16 },
-    listContent: { paddingBottom: 88, flexGrow: 1 },
+    listContent: { paddingBottom: 94, flexGrow: 1 },
     group: { marginBottom: 16 },
     groupLabel: {
       color: alarmTheme.muted,
-      fontSize: 10,
-      marginBottom: 8,
+      fontSize: alarmTypography.micro,
+      marginBottom: 10,
       letterSpacing: 1.4,
       textTransform: 'uppercase',
       fontFamily: 'monospace',
     },
     empty: {
       color: alarmTheme.muted,
-      fontSize: 14,
+      fontSize: alarmTypography.body,
       textAlign: 'center',
       paddingTop: 28,
       paddingHorizontal: 24,

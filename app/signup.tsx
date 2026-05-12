@@ -192,8 +192,7 @@ export default function SignUpScreen() {
         notifyAuthError('Sign Up', profileError);
         return;
       }
-      await supabase.auth.signOut();
-      router.replace('/signin');
+      router.replace('/alarm');
       return;
     }
 
@@ -283,9 +282,9 @@ export default function SignUpScreen() {
         </View>
 
         <View style={styles.socialRow}>
-          <SocialAuthButton icon={signUpIcons.apple} label="Apple" />
+          <SocialAuthButton provider="apple" label="Apple" />
           <SocialAuthButton
-            icon={signUpIcons.google}
+            provider="google"
             label={googleLoading ? 'Google...' : 'Google'}
             onPress={onGooglePress}
           />

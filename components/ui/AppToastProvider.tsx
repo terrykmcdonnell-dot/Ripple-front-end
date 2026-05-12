@@ -11,10 +11,11 @@ import {
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { setAuthToastHandler } from '@/lib/auth-notify';
 
 /** Matches typical scroll `paddingBottom` above `BottomNavbar`. */
-const TOAST_ABOVE_TAB_BAR = 88;
+const TOAST_ABOVE_TAB_BAR = 94;
 
 type ToastContextValue = {
   showToast: (message: string) => void;
@@ -99,7 +100,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
           return;
         }
         runDismissAnimation(session);
-      }, 2600);
+      }, msg.length > 120 ? 5200 : 3800);
     },
     [opacity, runDismissAnimation, translateY],
   );
@@ -116,12 +117,14 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
   }, [message, runDismissAnimation]);
 
   useEffect(() => {
+    setAuthToastHandler(showToast);
     return () => {
+      setAuthToastHandler(null);
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current);
       }
     };
-  }, []);
+  }, [showToast]);
 
   const ctxValue = useMemo(() => ({ showToast }), [showToast]);
 
@@ -175,8 +178,8 @@ function createToastStyles(theme: AlarmThemePalette) {
       borderColor: theme.border,
       borderLeftWidth: 3,
       borderLeftColor: theme.accent,
-      paddingVertical: 14,
-      paddingHorizontal: 18,
+      paddingVertical: 16,
+      paddingHorizontal: 20,
       shadowColor: theme.accent,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.28,
@@ -188,10 +191,10 @@ function createToastStyles(theme: AlarmThemePalette) {
     },
     text: {
       color: theme.text,
-      fontSize: 14,
+      fontSize: alarmTypography.body,
       fontWeight: '600',
       textAlign: 'center',
-      lineHeight: 20,
+      lineHeight: alarmTypography.body + 6,
     },
   });
 }

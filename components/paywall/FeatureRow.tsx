@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { paywallIcons } from '@/assets/icons/paywall-icons';
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type FeatureRowProps = {
   text: string;
@@ -19,8 +19,8 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       borderRadius: 12,
-      paddingVertical: 11,
-      paddingHorizontal: 14,
+      paddingVertical: 13,
+      paddingHorizontal: 16,
     },
     checkWrap: {
       width: 24,
@@ -33,12 +33,12 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     check: {
       color: alarmTheme.green,
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       fontWeight: '700',
     },
     text: {
       color: alarmTheme.text,
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
       flex: 1,
     },
   });

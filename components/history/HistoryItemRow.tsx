@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type RowStatus = 'dismissed' | 'snoozed' | 'missed';
 
@@ -43,43 +43,43 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       borderRadius: 12,
-      paddingVertical: 11,
-      paddingHorizontal: 14,
+      paddingVertical: 13,
+      paddingHorizontal: 16,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
       marginBottom: 6,
     },
     iconWrap: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
+      width: 38,
+      height: 38,
+      borderRadius: 11,
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
     },
     icon: {
-      fontSize: 18,
+      fontSize: alarmTypography.titleSm,
     },
     info: {
       flex: 1,
     },
     name: {
       color: alarmTheme.text,
-      fontSize: 13,
+      fontSize: alarmTypography.body,
       fontWeight: '500',
-      marginBottom: 2,
+      marginBottom: 3,
     },
     time: {
       color: alarmTheme.muted,
-      fontSize: 11,
+      fontSize: alarmTypography.caption,
       fontFamily: 'monospace',
     },
     badge: {
-      fontSize: 10,
+      fontSize: alarmTypography.micro,
       borderRadius: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
       fontFamily: 'monospace',
       overflow: 'hidden',
     },

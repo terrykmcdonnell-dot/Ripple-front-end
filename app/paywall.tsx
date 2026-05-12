@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import { paywallIcons } from '@/assets/icons/paywall-icons';
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FeatureRow } from '@/components/paywall/FeatureRow';
 import { PricingPlan, PricingToggle } from '@/components/paywall/PricingToggle';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
@@ -60,7 +60,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     closeText: {
       color: alarmTheme.muted,
-      fontSize: 14,
+      fontSize: alarmTypography.body,
     },
     glowBg: {
       position: 'absolute',
@@ -83,7 +83,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     contentContainer: {
       paddingTop: 54,
       paddingHorizontal: 24,
-      paddingBottom: 32,
+      paddingBottom: 36,
     },
     proIconWrap: {
       alignItems: 'center',
@@ -104,7 +104,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       elevation: 5,
     },
     proIcon: {
-      fontSize: 32,
+      fontSize: alarmTypography.titleLg,
     },
     limitBox: {
       backgroundColor: alarmTheme.redDim,
@@ -118,7 +118,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     limitText: {
       color: alarmTheme.red,
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
     },
     subscribedBox: {
       backgroundColor: alarmTheme.greenDim,
@@ -132,26 +132,26 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     subscribedText: {
       color: alarmTheme.green,
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       fontWeight: '700',
     },
     headline: {
       color: alarmTheme.text,
-      fontSize: 26,
+      fontSize: alarmTypography.title,
       fontWeight: '800',
       textAlign: 'center',
       letterSpacing: -0.5,
-      marginBottom: 6,
-      lineHeight: 30,
+      marginBottom: 8,
+      lineHeight: alarmTypography.title + 4,
     },
     headlineAccent: {
       color: alarmTheme.accentBright,
     },
     sub: {
       color: alarmTheme.muted,
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
       textAlign: 'center',
-      lineHeight: 21,
+      lineHeight: alarmTypography.caption + 8,
       marginBottom: 24,
     },
     features: {
@@ -161,7 +161,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     ctaBtn: {
       width: '100%',
       borderRadius: 14,
-      paddingVertical: 16,
+      paddingVertical: 18,
       alignItems: 'center',
       marginBottom: 10,
       shadowColor: alarmTheme.accent,
@@ -175,30 +175,30 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     ctaText: {
       color: '#ffffff',
-      fontSize: 16,
+      fontSize: alarmTypography.body,
       fontWeight: '700',
     },
     trialNote: {
       color: alarmTheme.muted,
-      fontSize: 11,
+      fontSize: alarmTypography.micro,
       textAlign: 'center',
       fontFamily: 'monospace',
       marginBottom: 8,
     },
     restore: {
       color: alarmTheme.accentBright,
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       textAlign: 'center',
-      paddingVertical: 8,
+      paddingVertical: 10,
     },
     restoreMuted: {
       color: alarmTheme.muted,
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       textAlign: 'center',
     },
     cancelSubscriptionLink: {
       color: alarmTheme.red,
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
       fontWeight: '700',
       textAlign: 'center',
       paddingVertical: 12,
@@ -213,14 +213,14 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     noticeTitle: {
       color: alarmTheme.text,
-      fontSize: 16,
+      fontSize: alarmTypography.body,
       fontWeight: '700',
-      marginBottom: 8,
+      marginBottom: 10,
     },
     noticeBody: {
       color: alarmTheme.muted,
-      fontSize: 13,
-      lineHeight: 20,
+      fontSize: alarmTypography.caption,
+      lineHeight: alarmTypography.caption + 8,
     },
     errorBox: {
       marginBottom: 16,
@@ -232,12 +232,12 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     errorText: {
       color: alarmTheme.red,
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
       marginBottom: 8,
     },
     retryText: {
       color: alarmTheme.accentBright,
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
       fontWeight: '600',
     },
     loadingRow: {
@@ -249,7 +249,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     loadingLabel: {
       color: alarmTheme.muted,
-      fontSize: 13,
+      fontSize: alarmTypography.caption,
     },
   });
 }
@@ -370,7 +370,9 @@ export default function PaywallScreen() {
       return;
     }
     if (!getRevenueCatApiKey()) {
-      setLoadError('Missing RevenueCat API key. Add EXPO_PUBLIC_REVENUECAT_API_KEY to .env and restart Expo.');
+      setLoadError(
+        'Missing RevenueCat API key. Add EXPO_PUBLIC_REVENUECAT_API_KEY_IOS and EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID (or EXPO_PUBLIC_REVENUECAT_API_KEY) to .env and restart.',
+      );
       setLoadingOfferings(false);
       setMonthlyPkg(undefined);
       setAnnualPkg(undefined);
@@ -551,16 +553,16 @@ export default function PaywallScreen() {
           <View style={{ marginBottom: 16 }}>
             <Text style={[styles.sub, { marginBottom: renewalHint ? 8 : 24 }]}>{titleLine}</Text>
             {renewalHint ? (
-              <Text style={[styles.sub, { fontSize: 12, lineHeight: 18, marginBottom: 0 }]}>{renewalHint}</Text>
+              <Text style={[styles.sub, { fontSize: alarmTypography.caption, lineHeight: alarmTypography.caption + 6, marginBottom: 0 }]}>{renewalHint}</Text>
             ) : null}
           </View>
 
-          <Text style={[styles.sub, { fontSize: 12, marginBottom: 12 }]}>
+          <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>
             Switch between monthly and annual anytime — Apple / Google may prorate or schedule the change for your next
             renewal.
           </Text>
 
-          <Text style={[styles.sub, { fontSize: 12, marginBottom: 12 }]}>Included with your plan:</Text>
+          <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>Included with your plan:</Text>
 
           <View style={[styles.features, { marginBottom: 16 }]}>
             <FeatureRow text="Unlimited alarms — no cap, ever" />

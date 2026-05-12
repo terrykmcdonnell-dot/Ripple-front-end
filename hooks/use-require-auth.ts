@@ -1,35 +1,32 @@
-import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { usePathname } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
+import { replaceWithSignInIfNeeded, isGuestAuthFlowPathname } from '@/lib/auth-sign-in-redirect';
 import { supabase } from '@/lib/supabase';
 
 /** Redirect to `/signin` when there is no Supabase session (protected app routes). */
 export function useRequireAuth() {
-  const router = useRouter();
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   useEffect(() => {
     let mounted = true;
-
-    void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (mounted && !session) {
-        router.replace('/signin');
-      }
-    })();
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted && !session) {
-        router.replace('/signin');
+      if (!mounted || session) {
+        return;
       }
+      if (isGuestAuthFlowPathname(pathnameRef.current)) {
+        return;
+      }
+      replaceWithSignInIfNeeded(pathnameRef.current);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [pathname]);
 }

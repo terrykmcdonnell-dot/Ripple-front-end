@@ -1,16 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
-import {
-  AndroidImportance,
-  AndroidNotificationVisibility,
-} from 'expo-notifications/build/NotificationChannelManager.types';
 import { getPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import {
   AndroidNotificationPriority,
   SchedulableTriggerInputTypes,
 } from 'expo-notifications/build/Notifications.types';
 import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
-import setNotificationChannelAsync from 'expo-notifications/build/setNotificationChannelAsync';
 import { Platform } from 'react-native';
 
 import { fetchAlarms } from '@/lib/alarm-api';
@@ -34,6 +29,7 @@ import {
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
 import { nextCanonicalAlarmFire } from '@/lib/upcoming-reminder-scheduler';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alarm-notification-channel';
 
 const STORAGE_IDS_KEY = 'ripple_alarm_fire_scheduled_notification_ids';
 
@@ -56,16 +52,17 @@ export async function cancelAlarmFireNotifications(): Promise<void> {
   await cancelStoredAlarmFireNotifications();
 }
 
+/**
+ * `a1` = alarm usage + bypass DND channel revision (Android caches channel audio attrs at creation).
+ */
 async function ensureAndroidAlarmFireChannel(soundId: AlarmSoundId, vibrationEnabled: boolean): Promise<string> {
-  const channelId = `ripple_alarm_fire_${soundId}_${vibrationEnabled ? 'vib' : 'still'}`;
+  const channelId = `ripple_alarm_fire_a1_${soundId}_${vibrationEnabled ? 'vib' : 'still'}`;
   const soundFile = bundledNotificationSoundFilename(soundId);
-  await setNotificationChannelAsync(channelId, {
+  await setAndroidAlarmStyleNotificationChannelAsync(channelId, {
     name: 'Alarm alerts',
-    importance: AndroidImportance.MAX,
-    enableVibrate: vibrationEnabled,
-    ...(vibrationEnabled ? { vibrationPattern: [...FIRE_VIBRATION_PATTERN] } : {}),
     sound: soundFile,
-    lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
+    enableVibrate: vibrationEnabled,
+    vibrationPattern: FIRE_VIBRATION_PATTERN,
   });
   return channelId;
 }
@@ -73,6 +70,11 @@ async function ensureAndroidAlarmFireChannel(soundId: AlarmSoundId, vibrationEna
 /**
  * Schedules the **next** occurrence per enabled alarm via the OS (AlarmManager / UNUserNotificationCenter).
  * No JS background loop — the system wakes the device at the requested time.
+ *
+ * **Android:** Alarm channels use **USAGE_ALARM**, **enforceAudibility**, and **bypassDnd** so rings
+ * follow the **alarm** volume stream and can surface through Do Not Disturb where the OS allows — not a
+ * guarantee over every OEM / “total silence” mode. **iOS:** hardware mute / Focus still limit audibility;
+ * `timeSensitive` is already used.
  */
 export async function syncAlarmFireNotifications(alarms?: AlarmListItem[]): Promise<void> {
   if (Platform.OS === 'web') {

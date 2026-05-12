@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type Category = { key: string; label: string };
 
@@ -19,7 +19,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     container: {
       paddingLeft: 16,
-      paddingBottom: 14,
+      paddingBottom: 16,
       gap: 8,
       alignItems: 'center',
     },
@@ -28,17 +28,17 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       borderRadius: 20,
-      paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
     },
     activeTab: {
       backgroundColor: alarmTheme.accentDim,
       borderColor: alarmTheme.accent,
     },
     tabText: {
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       color: alarmTheme.muted,
-      lineHeight: 14,
+      lineHeight: alarmTypography.caption + 2,
     },
     activeTabText: {
       color: alarmTheme.accentBright,

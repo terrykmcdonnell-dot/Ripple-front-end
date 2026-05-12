@@ -1,7 +1,7 @@
 import { ReactNode, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type SettingsRowProps = {
   icon: string;
@@ -22,9 +22,9 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       width: '100%',
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
+      gap: 14,
+      paddingHorizontal: 18,
+      paddingVertical: 15,
       borderBottomWidth: 1,
       borderBottomColor: alarmTheme.border,
     },
@@ -32,29 +32,29 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderBottomWidth: 0,
     },
     iconWrap: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
+      width: 38,
+      height: 38,
+      borderRadius: 11,
       backgroundColor: alarmTheme.surface2,
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
     },
     icon: {
-      fontSize: 18,
+      fontSize: alarmTypography.titleSm,
     },
     info: {
       flex: 1,
     },
     name: {
       color: alarmTheme.text,
-      fontSize: 13,
+      fontSize: alarmTypography.body,
       fontWeight: '500',
-      marginBottom: 1,
+      marginBottom: 2,
     },
     value: {
       color: alarmTheme.muted,
-      fontSize: 11,
+      fontSize: alarmTypography.caption,
     },
   });
 }

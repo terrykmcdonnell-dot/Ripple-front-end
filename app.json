@@ -63,6 +63,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/with-android-alarm-activity",
       "expo-router",
       [
         "expo-splash-screen",
@@ -111,11 +112,10 @@
       }
     },
     "owner": "terrykm",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
-      "url": "https://u.expo.dev/7073624f-7686-47a1-b177-cac58f1b04d6"
+      "url": "https://u.expo.dev/7073624f-7686-47a1-b177-cac58f1b04d6",
+      "enabled": false
     }
   }
 }

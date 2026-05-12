@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 export type SoundPickerOption = { id: string; label: string };
 
@@ -86,8 +86,8 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     sheet: {
       backgroundColor: t.surface,
       paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-      paddingHorizontal: 20,
-      paddingTop: 20,
+      paddingHorizontal: 22,
+      paddingTop: 22,
       borderTopLeftRadius: 18,
       borderTopRightRadius: 18,
       borderWidth: 1,
@@ -96,16 +96,17 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     },
     sheetTitle: {
       color: t.text,
-      fontSize: 17,
+      fontSize: alarmTypography.bodyLarge,
       fontWeight: '700',
-      marginBottom: 4,
+      marginBottom: 6,
       textAlign: 'center',
     },
     sheetHint: {
       color: t.muted,
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       textAlign: 'center',
-      marginBottom: 14,
+      marginBottom: 16,
+      lineHeight: alarmTypography.caption + 6,
     },
     optionList: {
       borderRadius: 14,
@@ -118,8 +119,8 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 14,
-      paddingHorizontal: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
       backgroundColor: t.surface2,
       borderBottomWidth: 1,
       borderBottomColor: t.border,
@@ -129,7 +130,7 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     },
     optionLabel: {
       color: t.text,
-      fontSize: 16,
+      fontSize: alarmTypography.body,
       fontWeight: '500',
     },
     optionLabelActive: {
@@ -137,12 +138,12 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     },
     check: {
       color: t.accentBright,
-      fontSize: 18,
+      fontSize: alarmTypography.bodyLarge,
       fontWeight: '700',
     },
     cancelBtn: {
       alignItems: 'center',
-      paddingVertical: 14,
+      paddingVertical: 16,
       borderRadius: 14,
       backgroundColor: t.surface2,
       borderWidth: 1,
@@ -150,7 +151,7 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     },
     cancelText: {
       color: t.muted,
-      fontSize: 16,
+      fontSize: alarmTypography.body,
       fontWeight: '600',
     },
   });

@@ -115,6 +115,28 @@ export function isAlarmPaletteDark(palette: AlarmThemePalette): boolean {
   return palette.bg === alarmThemes.dark.bg;
 }
 
+/** Typography scale (dp) — biased toward comfortable reading (not ultra-compact). */
+export const alarmTypography = {
+  /** Fine print, tab labels */
+  micro: 12,
+  /** Secondary lines, nav hints */
+  caption: 14,
+  /** Primary body / list rows */
+  body: 16,
+  /** Emphasized body, sheet titles */
+  bodyLarge: 18,
+  /** Card titles, settings row titles */
+  titleSm: 22,
+  /** Primary time on alarm cards / list rows */
+  timeRow: 28,
+  /** Screen titles */
+  title: 28,
+  /** Large headers */
+  titleLg: 34,
+  /** Hero clock */
+  displayTime: 60,
+} as const;
+
 type AlarmThemeContextValue = {
   palette: AlarmThemePalette;
   preference: AppThemePreference;

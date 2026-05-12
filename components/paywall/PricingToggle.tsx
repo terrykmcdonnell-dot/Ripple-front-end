@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 export type PricingPlan = 'annual' | 'monthly';
 
@@ -33,7 +33,8 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     option: {
       flex: 1,
       borderRadius: 9,
-      padding: 9,
+      paddingVertical: 11,
+      paddingHorizontal: 10,
       alignItems: 'center',
     },
     optionActive: {
@@ -45,13 +46,13 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       elevation: 3,
     },
     name: {
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       fontWeight: '600',
       color: alarmTheme.text,
     },
     price: {
-      marginTop: 2,
-      fontSize: 11,
+      marginTop: 4,
+      fontSize: alarmTypography.micro,
       color: alarmTheme.muted,
     },
     activeText: {
@@ -60,7 +61,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     saveBadge: {
       color: alarmTheme.green,
       backgroundColor: alarmTheme.greenDim,
-      fontSize: 9,
+      fontSize: 10,
       fontFamily: 'monospace',
       paddingHorizontal: 6,
       paddingVertical: 1,

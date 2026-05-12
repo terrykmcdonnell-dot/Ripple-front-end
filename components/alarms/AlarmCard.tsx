@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
-import { type AlarmThemePalette, type AlarmTone, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, type AlarmTone, useAlarmTheme } from '@/components/alarms/theme';
 
 type AlarmCardProps = {
   icon: string;
@@ -47,9 +47,9 @@ function createStyles(t: AlarmThemePalette) {
       borderColor: t.border,
       borderWidth: 1,
       borderRadius: 18,
-      paddingVertical: 14,
-      paddingRight: 16,
-      paddingLeft: 16,
+      paddingVertical: 16,
+      paddingRight: 18,
+      paddingLeft: 18,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
@@ -78,7 +78,7 @@ function createStyles(t: AlarmThemePalette) {
       flexShrink: 0,
     },
     iconText: {
-      fontSize: 19,
+      fontSize: alarmTypography.titleSm,
     },
     info: {
       flex: 1,
@@ -90,31 +90,31 @@ function createStyles(t: AlarmThemePalette) {
       marginBottom: 2,
     },
     time: {
-      fontSize: 24,
+      fontSize: alarmTypography.timeRow,
       fontWeight: '700',
-      lineHeight: 24,
+      lineHeight: alarmTypography.timeRow,
     },
     ampm: {
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       fontWeight: '500',
       color: t.muted,
     },
     label: {
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       color: t.muted,
       marginBottom: 4,
     },
     tag: {
       alignSelf: 'flex-start',
-      fontSize: 12,
+      fontSize: alarmTypography.caption,
       color: t.muted,
       fontFamily: 'monospace',
       borderRadius: 8,
       backgroundColor: t.surface2,
       borderWidth: 1,
       borderColor: t.border,
-      paddingVertical: 4,
-      paddingHorizontal: 9,
+      paddingVertical: 5,
+      paddingHorizontal: 10,
       overflow: 'hidden',
     },
   });

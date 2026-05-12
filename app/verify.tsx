@@ -7,6 +7,7 @@ import { verifyIcons } from '@/assets/icons/verify-icons';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { OtpVerificationCode } from '@/components/verify/OtpVerificationCode';
+import { VerifyEnvelopeHero } from '@/components/verify/VerifyEnvelopeHero';
 import { VerifyHelpNote } from '@/components/verify/VerifyHelpNote';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
@@ -71,49 +72,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     topLogoAccent: {
       color: alarmTheme.accentBright,
-    },
-    envelopeWrap: {
-      width: 100,
-      height: 100,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 28,
-    },
-    envRing: {
-      position: 'absolute',
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      borderWidth: 1,
-      borderColor: alarmTheme.accentBannerBorder,
-    },
-    envRing1: {
-      transform: [{ scale: 1 }],
-      opacity: 0.62,
-    },
-    envRing2: {
-      transform: [{ scale: 1.32 }],
-      opacity: 0.34,
-    },
-    envRing3: {
-      transform: [{ scale: 1.62 }],
-      opacity: 0.18,
-    },
-    envCircle: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: alarmTheme.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: alarmTheme.accent,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.35,
-      shadowRadius: 24,
-      elevation: 4,
-    },
-    envEmoji: {
-      fontSize: 30,
     },
     title: {
       color: alarmTheme.text,
@@ -295,8 +253,7 @@ export default function VerifyScreen() {
       }
 
       await clearPendingSignUp();
-      await supabase.auth.signOut();
-      router.replace('/signin');
+      router.replace('/alarm');
     } finally {
       setVerifyLoading(false);
     }
@@ -348,14 +305,7 @@ export default function VerifyScreen() {
           </Text>
         </View>
 
-        <View style={styles.envelopeWrap}>
-          <View style={[styles.envRing, styles.envRing1]} />
-          <View style={[styles.envRing, styles.envRing2]} />
-          <View style={[styles.envRing, styles.envRing3]} />
-          <View style={styles.envCircle}>
-            <Text style={styles.envEmoji}>{verifyIcons.envelope}</Text>
-          </View>
-        </View>
+        <VerifyEnvelopeHero accent={alarmTheme.accent} accentBannerBorder={alarmTheme.accentBannerBorder} />
 
         <Text style={styles.title}>Check your email</Text>
         <Text style={styles.subtitle}>We sent a 6-digit code to</Text>

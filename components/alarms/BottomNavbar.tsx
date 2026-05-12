@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type NavItem = {
   icon: string;
@@ -21,15 +21,15 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       bottom: 0,
       left: 0,
       right: 0,
-      height: 74,
+      height: 80,
       backgroundColor: alarmTheme.navBarBg,
       borderTopWidth: 1,
       borderTopColor: alarmTheme.border,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-around',
-      paddingHorizontal: 8,
-      paddingBottom: 14,
+      paddingHorizontal: 10,
+      paddingBottom: 15,
     },
     item: {
       flex: 1,
@@ -38,11 +38,11 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       gap: 4,
     },
     icon: {
-      fontSize: 20,
+      fontSize: alarmTypography.titleSm,
       color: alarmTheme.muted,
     },
     label: {
-      fontSize: 10,
+      fontSize: alarmTypography.micro,
       color: alarmTheme.muted,
       fontFamily: 'monospace',
     },

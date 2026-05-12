@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
 type ComplianceBannerProps = {
   percent: number;
@@ -18,8 +18,8 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       borderRadius: 14,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
@@ -36,7 +36,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       flexShrink: 0,
     },
     percent: {
-      fontSize: 15,
+      fontSize: alarmTypography.body,
       fontWeight: '800',
       color: alarmTheme.accentBright,
     },
@@ -45,13 +45,13 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     title: {
       color: alarmTheme.text,
-      fontSize: 14,
+      fontSize: alarmTypography.body,
       fontWeight: '600',
-      marginBottom: 2,
+      marginBottom: 4,
     },
     sub: {
       color: alarmTheme.muted,
-      fontSize: 11,
+      fontSize: alarmTypography.micro,
     },
     bar: {
       height: 4,
