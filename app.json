@@ -10,6 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.terrykm.ripplealarm",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -64,6 +65,7 @@
     },
     "plugins": [
       "./plugins/with-android-alarm-activity",
+      "expo-apple-authentication",
       "expo-router",
       [
         "expo-splash-screen",

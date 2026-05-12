@@ -8,6 +8,7 @@ import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme
 import { SignInField } from '@/components/signin/SignInField';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { SocialAuthButton } from '@/components/signin/SocialAuthButton';
+import { useAppleAuthWithSupabase } from '@/hooks/use-apple-auth';
 import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
@@ -168,6 +169,7 @@ export default function SignInScreen() {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
+  const { appleLoading, onApplePress } = useAppleAuthWithSupabase();
   const { googleLoading, onGooglePress } = useGoogleAuthWithSupabase();
   const [showPassword, setShowPassword] = useState(true);
   const [email, setEmail] = useState('');
@@ -305,7 +307,11 @@ export default function SignInScreen() {
         </View>
 
         <View style={styles.socialRow}>
-          <SocialAuthButton provider="apple" label="Apple" />
+          <SocialAuthButton
+            provider="apple"
+            label={appleLoading ? 'Apple…' : 'Apple'}
+            onPress={onApplePress}
+          />
           <SocialAuthButton
             provider="google"
             label={googleLoading ? 'Google...' : 'Google'}
@@ -320,7 +326,7 @@ export default function SignInScreen() {
           </Text>
         </Text>
       </ScrollView>
-      <FullScreenLoadingOverlay visible={signInLoading || googleLoading} />
+      <FullScreenLoadingOverlay visible={signInLoading || googleLoading || appleLoading} />
     </View>
   );
 }

@@ -12,6 +12,7 @@ import { TermsAgreement } from '@/components/signup/TermsAgreement';
 import { TopBrandRow } from '@/components/signup/TopBrandRow';
 import { ValueBanner } from '@/components/signup/ValueBanner';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { useAppleAuthWithSupabase } from '@/hooks/use-apple-auth';
 import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
@@ -116,6 +117,7 @@ export default function SignUpScreen() {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
+  const { appleLoading, onApplePress: startAppleOAuth } = useAppleAuthWithSupabase();
   const { googleLoading, onGooglePress: startGoogleOAuth } = useGoogleAuthWithSupabase();
 
   const onGooglePress = () => {
@@ -124,6 +126,14 @@ export default function SignUpScreen() {
       return;
     }
     startGoogleOAuth();
+  };
+
+  const onApplePress = () => {
+    if (!termsChecked) {
+      notifyAuthMessage('Sign Up', 'Agree to the terms and privacy policy to continue.');
+      return;
+    }
+    startAppleOAuth();
   };
   const [showPassword, setShowPassword] = useState(true);
   const [termsChecked, setTermsChecked] = useState(true);
@@ -282,7 +292,11 @@ export default function SignUpScreen() {
         </View>
 
         <View style={styles.socialRow}>
-          <SocialAuthButton provider="apple" label="Apple" />
+          <SocialAuthButton
+            provider="apple"
+            label={appleLoading ? 'Apple…' : 'Apple'}
+            onPress={onApplePress}
+          />
           <SocialAuthButton
             provider="google"
             label={googleLoading ? 'Google...' : 'Google'}
@@ -297,7 +311,7 @@ export default function SignUpScreen() {
           </Text>
         </Text>
       </ScrollView>
-      <FullScreenLoadingOverlay visible={isSubmitting || googleLoading} />
+      <FullScreenLoadingOverlay visible={isSubmitting || googleLoading || appleLoading} />
     </View>
   );
 }
