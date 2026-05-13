@@ -109,7 +109,17 @@ export default function SettingScreen() {
   const [notificationHubOpen, setNotificationHubOpen] = useState(false);
   const [notifOsAllowed, setNotifOsAllowed] = useState(false);
   const [notifCanAskAgain, setNotifCanAskAgain] = useState(true);
-  const [notificationsMasterEnabled, setNotificationsMasterEnabled] = useState(true);
+  const notificationsMasterEnabled = true;
+
+  const themeIcon = useMemo(() => {
+    if (theme === 'Light') {
+      return '☀️';
+    }
+    if (theme === 'Dark') {
+      return '🌙';
+    }
+    return '🌓';
+  }, [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,7 +131,6 @@ export default function SettingScreen() {
         loadedVibration,
         loadedUpcoming,
         loadedLead,
-        loadedMaster,
         loadedTheme,
       ] = await Promise.all([
         loadDefaultSnoozeMinutes(),
@@ -130,7 +139,6 @@ export default function SettingScreen() {
         loadDefaultVibrationEnabled(),
         loadUpcomingReminderEnabled(),
         loadUpcomingReminderLeadMinutes(),
-        loadNotificationsMasterEnabled(),
         loadAppThemePreference(),
       ]);
       if (!cancelled) {
@@ -140,7 +148,6 @@ export default function SettingScreen() {
         setVibrationOn(loadedVibration);
         setUpcomingOn(loadedUpcoming);
         setUpcomingLeadMinutes(loadedLead);
-        setNotificationsMasterEnabled(loadedMaster);
         setTheme(loadedTheme);
       }
       if (!cancelled && Platform.OS !== 'web') {
@@ -173,11 +180,9 @@ export default function SettingScreen() {
     useCallback(() => {
       let active = true;
       void (async () => {
-        const master = await loadNotificationsMasterEnabled();
         if (!active) {
           return;
         }
-        setNotificationsMasterEnabled(master);
         invalidateSubscriptionCache();
         if (Platform.OS !== 'web') {
           await refreshNotificationPermissionUi();
@@ -288,46 +293,38 @@ export default function SettingScreen() {
   }, []);
 
   const notificationsEffectiveOn =
-    Platform.OS !== 'web' && notifOsAllowed && notificationsMasterEnabled;
+    Platform.OS !== 'web' && notifOsAllowed;
 
-  const onNotificationsMasterToggle = useCallback(async () => {
+  const onPressNotificationsHub = useCallback(async () => {
     if (Platform.OS === 'web') {
-      showToast('Notification toggles are available in the Ripple mobile app.');
-      return;
-    }
-    await Haptics.selectionAsync();
-
-    if (notificationsEffectiveOn) {
-      await saveNotificationsMasterEnabled(false);
-      setNotificationsMasterEnabled(false);
-      await cancelAllRippleScheduledNotifications();
-      await reportPatch({ areNotificationsAllowed: false });
-      showToast('Notifications turned off');
+      showToast('Notification settings are available in the Ripple mobile app.');
       return;
     }
 
-    let p = await getPermissionsAsync();
-    let allowed = isOsNotificationAllowed(p);
-    if (!allowed && p.canAskAgain !== false) {
-      const req = await requestPermissionsAsync({
-        ios: { allowAlert: true, allowBadge: true, allowSound: true },
-      });
-      allowed = isOsNotificationAllowed(req);
-      await refreshNotificationPermissionUi();
-    }
-    if (!allowed) {
-      await Linking.openSettings();
-      showToast('Allow notifications in Settings to turn Ripple alerts on.');
-      return;
+    if (!notifOsAllowed) {
+      try {
+        const p = await getPermissionsAsync();
+        if (!isOsNotificationAllowed(p) && p.canAskAgain !== false) {
+          await requestPermissionsAsync({
+            ios: { allowAlert: true, allowBadge: true, allowSound: true },
+          });
+        }
+      } catch {
+        /* expo-notifications unavailable */
+      } finally {
+        await refreshNotificationPermissionUi();
+      }
+
+      const after = await getPermissionsAsync();
+      if (!isOsNotificationAllowed(after)) {
+        await Linking.openSettings();
+        showToast('Allow notifications in Settings to enable Ripple alerts.');
+        return;
+      }
     }
 
-    await saveNotificationsMasterEnabled(true);
-    setNotificationsMasterEnabled(true);
-    await syncUpcomingReminderNotifications();
-    await syncAlarmFireNotifications();
-    await reportPatch({ areNotificationsAllowed: true });
-    showToast('Notifications turned on');
-  }, [notificationsEffectiveOn, refreshNotificationPermissionUi, reportPatch, showToast]);
+    setNotificationHubOpen(true);
+  }, [notifOsAllowed, refreshNotificationPermissionUi, showToast]);
 
   let notificationsStatusLabel = 'Paused';
   let notificationsStatusColor = palette.muted;
@@ -335,11 +332,8 @@ export default function SettingScreen() {
     notificationsStatusLabel = 'Mobile app only';
     notificationsStatusColor = palette.muted;
   } else if (!notifOsAllowed) {
-    notificationsStatusLabel = notifCanAskAgain ? 'Tap toggle to enable' : 'Off — open Settings';
+    notificationsStatusLabel = notifCanAskAgain ? 'Tap to enable' : 'Off — open Settings';
     notificationsStatusColor = palette.red;
-  } else if (!notificationsMasterEnabled) {
-    notificationsStatusLabel = 'Paused';
-    notificationsStatusColor = palette.muted;
   } else {
     notificationsStatusLabel = 'Allowed';
     notificationsStatusColor = palette.green;
@@ -425,7 +419,7 @@ export default function SettingScreen() {
           <View style={styles.themeRow}>
             <View style={styles.themeHeading}>
               <View style={styles.themeIconWrap}>
-                <Text style={styles.themeIcon}>{settingsIcons.theme}</Text>
+                  <Text style={styles.themeIcon}>{themeIcon}</Text>
               </View>
               <Text style={styles.themeLabel}>Theme</Text>
             </View>
@@ -476,10 +470,10 @@ export default function SettingScreen() {
             statusLabel={notificationsStatusLabel}
             statusColor={notificationsStatusColor}
             summaryLine={`${formatSnoozeMinutesLabel(defaultSnoozeMinutes)} · ${formatVolumePercentLabel(defaultVolumePercent)}`}
-            toggleEnabled={notificationsEffectiveOn}
-            showToggle={Platform.OS !== 'web'}
-            onPressHub={() => setNotificationHubOpen(true)}
-            onToggle={() => void onNotificationsMasterToggle()}
+            toggleEnabled={notificationsMasterEnabled}
+            showToggle={false}
+            onPressHub={() => void onPressNotificationsHub()}
+            onToggle={() => {}}
           />
           <SettingsRow
             icon={settingsIcons.upcoming}

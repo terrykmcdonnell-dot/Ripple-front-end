@@ -101,6 +101,14 @@ function nextAlarmWords(alarms: AlarmListItem[], now: Date): { muted: string; ac
   };
 }
 
+function nextFireSortKey(alarm: AlarmListItem, now: Date): number {
+  if (!alarm.isEnabled) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const fireAt = nextCanonicalAlarmFire(alarm, now);
+  return fireAt ? fireAt.getTime() : Number.POSITIVE_INFINITY;
+}
+
 export default function AlarmScreen() {
   useRequireAuth();
   const router = useRouter();
@@ -126,6 +134,26 @@ export default function AlarmScreen() {
   const heroDate = useMemo(() => formatDeviceWeekdayLong(now), [now]);
 
   const nextWords = useMemo(() => nextAlarmWords(alarms, now), [alarms, now]);
+
+  const sortedAlarms = useMemo(() => {
+    return [...alarms].sort((a, b) => {
+      const aKey = nextFireSortKey(a, now);
+      const bKey = nextFireSortKey(b, now);
+      if (aKey !== bKey) {
+        return aKey - bKey;
+      }
+      // Tie-breakers for stable-ish ordering.
+      if (a.isEnabled !== b.isEnabled) {
+        return a.isEnabled ? -1 : 1;
+      }
+      const aSched = new Date(a.scheduledAt).getTime();
+      const bSched = new Date(b.scheduledAt).getTime();
+      if (aSched !== bSched) {
+        return aSched - bSched;
+      }
+      return a.id - b.id;
+    });
+  }, [alarms, now]);
 
   const palette = useAlarmTheme();
   const styles = useMemo(() => createAlarmStyles(palette), [palette]);
@@ -273,7 +301,7 @@ export default function AlarmScreen() {
         {alarms.length === 0 && !listError ? (
           <Text style={styles.emptyText}>No alarms yet. Tap + to create one.</Text>
         ) : null}
-        {alarms.map((alarm) => {
+        {sortedAlarms.map((alarm) => {
           const { time, ampm } = formatScheduledLocalParts(alarm.scheduledAt);
           const tagText = formatRepeatEveryTag(alarm.interval, alarm.unit);
           const { icon, tone, toggleOnColor } = presentationForAlarmCategory(
