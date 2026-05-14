@@ -1,4 +1,4 @@
-import { rippleApiBaseUrl, rippleApiFetch } from '@/lib/alarm-api';
+import { rippleApiBaseUrl } from '@/lib/alarm-api';
 
 export type AlarmHistoryStatus = 'missed' | 'dismissed' | 'snoozed';
 
@@ -17,7 +17,7 @@ export type AlarmHistoryApiRow = {
 export async function fetchAlarmHistory(userId: number): Promise<AlarmHistoryApiRow[]> {
   const qs = new URLSearchParams({ user_id: String(userId), limit: '500' });
   const url = `${rippleApiBaseUrl()}/api/alarm-history/?${qs.toString()}`;
-  const res = await rippleApiFetch(url, {
+  const res = await fetch(url, {
     method: 'GET',
     headers: { Accept: 'application/json' },
   });
@@ -54,7 +54,7 @@ export async function upsertAlarmHistory(body: {
   snooze_minutes?: number | null;
 }): Promise<void> {
   const url = `${rippleApiBaseUrl()}/api/alarm-history/`;
-  const res = await rippleApiFetch(url, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       Accept: 'application/json',

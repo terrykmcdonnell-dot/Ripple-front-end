@@ -620,6 +620,7 @@ export default function SettingScreen() {
         onClose={() => setSoundPickerOpen(false)}
         options={DEFAULT_ALARM_SOUND_OPTIONS}
         selectedId={defaultSoundId}
+        sheetHint="Preview plays when this opens and when you tap a sound. Tap OK to save as your default."
         onSelectSoundId={(id) => void applyDefaultSound(id as AlarmSoundId)}
       />
 

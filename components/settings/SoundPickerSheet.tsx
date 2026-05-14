@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
@@ -12,6 +12,7 @@ type SoundPickerSheetProps = {
   onClose: () => void;
   options: readonly SoundPickerOption[];
   selectedId: string;
+  /** Called only after the user taps OK with a staged choice that differs from the value when the sheet opened. */
   onSelectSoundId: (id: string) => void;
   sheetTitle?: string;
   sheetHint?: string;
@@ -24,21 +25,41 @@ export function SoundPickerSheet({
   selectedId,
   onSelectSoundId,
   sheetTitle = 'Default Sound',
-  sheetHint = 'Tap a sound to preview, then it is selected.',
+  sheetHint = 'Sounds preview when you open this sheet and when you tap a row. Tap OK to apply.',
 }: SoundPickerSheetProps) {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createSoundPickerStyles(palette), [palette]);
 
+  const [pendingId, setPendingId] = useState(selectedId);
+  const committedOnOpenRef = useRef(selectedId);
+
   useEffect(() => {
     if (!visible) {
       void stopAlarmSoundPreview();
+      return;
     }
-  }, [visible]);
+    committedOnOpenRef.current = selectedId;
+    setPendingId(selectedId);
+    void previewAlarmSoundId(selectedId);
+  }, [visible, selectedId]);
 
-  const pick = async (id: string) => {
+  const dismiss = () => {
+    void stopAlarmSoundPreview();
+    onClose();
+  };
+
+  const onRowPress = async (id: string) => {
     void Haptics.selectionAsync();
+    setPendingId(id);
     await previewAlarmSoundId(id);
-    onSelectSoundId(id);
+  };
+
+  const onConfirm = () => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    void stopAlarmSoundPreview();
+    if (pendingId !== committedOnOpenRef.current) {
+      onSelectSoundId(pendingId);
+    }
     onClose();
   };
 
@@ -48,21 +69,21 @@ export function SoundPickerSheet({
       transparent
       animationType="slide"
       presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-      onRequestClose={onClose}>
+      onRequestClose={dismiss}>
       <View style={styles.modalRoot}>
-        <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
+        <Pressable style={styles.modalDismiss} onPress={dismiss} accessibilityRole="button" accessibilityLabel="Dismiss" />
         <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>{sheetTitle}</Text>
           <Text style={styles.sheetHint}>{sheetHint}</Text>
           <View style={styles.optionList}>
             {options.map((opt, index) => {
-              const active = opt.id === selectedId;
+              const active = opt.id === pendingId;
               const noBorder = index === options.length - 1;
               return (
                 <Pressable
                   key={opt.id}
                   style={[styles.optionRow, noBorder ? styles.optionRowLast : null]}
-                  onPress={() => void pick(opt.id)}
+                  onPress={() => void onRowPress(opt.id)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}>
                   <Text style={[styles.optionLabel, active ? styles.optionLabelActive : null]}>{opt.label}</Text>
@@ -71,7 +92,10 @@ export function SoundPickerSheet({
               );
             })}
           </View>
-          <Pressable style={styles.cancelBtn} onPress={onClose} accessibilityRole="button">
+          <Pressable style={styles.okBtn} onPress={onConfirm} accessibilityRole="button">
+            <Text style={styles.okText}>OK</Text>
+          </Pressable>
+          <Pressable style={styles.cancelBtn} onPress={dismiss} accessibilityRole="button">
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
         </View>
@@ -147,6 +171,20 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     check: {
       color: t.accentBright,
       fontSize: alarmTypography.bodyLarge,
+      fontWeight: '700',
+    },
+    okBtn: {
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderRadius: 14,
+      backgroundColor: t.accent,
+      borderWidth: 1,
+      borderColor: t.accent,
+      marginBottom: 10,
+    },
+    okText: {
+      color: '#ffffff',
+      fontSize: alarmTypography.body,
       fontWeight: '700',
     },
     cancelBtn: {

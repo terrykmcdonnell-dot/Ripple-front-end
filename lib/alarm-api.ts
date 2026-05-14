@@ -1,4 +1,42 @@
+import { Platform } from 'react-native';
+
 import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
+
+const RIPPLE_FETCH_TIMEOUT_MS = 25_000;
+
+async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), RIPPLE_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err: unknown) {
+    const base = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ?? '';
+    const msg = err instanceof Error ? err.message : String(err);
+    const isAbort =
+      err instanceof Error &&
+      (err.name === 'AbortError' || msg === 'Aborted' || msg.toLowerCase().includes('aborted'));
+    if (isAbort) {
+      throw new Error(
+        `Ripple API timed out after ${RIPPLE_FETCH_TIMEOUT_MS / 1000}s. Check ${base || 'EXPO_PUBLIC_API_BASE_URL'} is reachable on this network.`,
+      );
+    }
+    if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
+      let detail =
+        'Could not reach the Ripple API (no response). Check Wi‑Fi/cellular, VPN, firewall, and that the server is running.';
+      if (Platform.OS !== 'web' && /localhost|127\.0\.0\.1/i.test(base)) {
+        detail +=
+          ' On a physical phone, localhost is the phone itself — use your PC’s LAN IP (e.g. http://192.168.1.10:8000). On Android emulator, try http://10.0.2.2:8000 for the host machine.';
+      } else if (Platform.OS === 'android' && /^http:/i.test(base)) {
+        detail +=
+          ' Plain HTTP on Android may be blocked in release builds; prefer HTTPS or a dev client debug build with cleartext allowed.';
+      }
+      throw new Error(`${detail} (${msg})`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export type CreateAlarmPayload = {
   user_id: number;
@@ -20,31 +58,6 @@ export function rippleApiBaseUrl(): string {
     );
   }
   return base.replace(/\/$/, '');
-}
-
-function rippleApiHostLabel(): string {
-  try {
-    return new URL(rippleApiBaseUrl()).host;
-  } catch {
-    return rippleApiBaseUrl();
-  }
-}
-
-/** Wraps `fetch` so TLS/DNS/firewall failures surface with the configured API host. */
-export async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
-  try {
-    return await fetch(url, init);
-  } catch (err) {
-    const raw = err instanceof Error ? err.message : String(err);
-    const host = rippleApiHostLabel();
-    const detail =
-      /network request failed/i.test(raw) || !raw.trim()
-        ? 'The device could not open a connection (DNS, TLS certificate, firewall, or no HTTPS reverse proxy).'
-        : raw;
-    throw new Error(
-      `Ripple API is unreachable (${host}). ${detail} Use a public HTTPS URL that proxies to the FastAPI process (see backend README).`,
-    );
-  }
 }
 
 /** POST /api/alarm/ — body matches backend OpenAPI (user_id is `public.users.id`). */
