@@ -1,10 +1,13 @@
 import Constants from 'expo-constants';
 import { Linking, Platform } from 'react-native';
 
-/** Legal / policy rows — icon tile tint */
+/** Marketing site URL: set `EXPO_PUBLIC_RIPPLE_MARKETING_WEBSITE_URL` in `.env` (required at runtime for Settings → Ripple website). */
+export function getMarketingWebsiteUrl(): string {
+  return process.env.EXPO_PUBLIC_RIPPLE_MARKETING_WEBSITE_URL?.trim() ?? '';
+}
+
+/** About rows — icon tile tint (e.g. website link) */
 export const SETTINGS_ABOUT_ICON_BLUE = '#2563eb';
-/** Feedback — icon tile tint */
-export const SETTINGS_ABOUT_ICON_GREEN = '#16a34a';
 /** Rate / social — icon tile tint */
 export const SETTINGS_ABOUT_ICON_AMBER = '#d97706';
 

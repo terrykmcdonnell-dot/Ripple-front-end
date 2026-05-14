@@ -56,7 +56,7 @@ import {
 import {
   SETTINGS_ABOUT_ICON_AMBER,
   SETTINGS_ABOUT_ICON_BLUE,
-  SETTINGS_ABOUT_ICON_GREEN,
+  getMarketingWebsiteUrl,
   openConfiguredUrl,
   openStoreReviewFlow,
 } from '@/lib/settings-about-links';
@@ -534,39 +534,15 @@ export default function SettingScreen() {
         <Text style={styles.sectionLabel}>About</Text>
         <SettingsGroup>
           <SettingsRow
-            icon={settingsIcons.privacy}
+            icon={settingsIcons.website}
             iconBackgroundColor={SETTINGS_ABOUT_ICON_BLUE}
-            title="Privacy Policy"
-            value="How we handle your data"
+            title="Ripple website"
+            value="Features, pricing, privacy & contact"
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
             onPress={() =>
-              void openConfiguredUrl(process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL, () =>
-                showToast('Add EXPO_PUBLIC_PRIVACY_POLICY_URL in .env with your policy URL.'),
-              )
-            }
-          />
-          <SettingsRow
-            icon={settingsIcons.terms}
-            iconBackgroundColor={SETTINGS_ABOUT_ICON_BLUE}
-            title="Terms of Service"
-            value="Rules for using Ripple"
-            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-            onPress={() =>
-              void openConfiguredUrl(process.env.EXPO_PUBLIC_TERMS_OF_SERVICE_URL, () =>
-                showToast('Add EXPO_PUBLIC_TERMS_OF_SERVICE_URL in .env with your terms URL.'),
-              )
-            }
-          />
-          <SettingsRow
-            icon={settingsIcons.feedback}
-            iconBackgroundColor={SETTINGS_ABOUT_ICON_GREEN}
-            title="Send Feedback"
-            value="Share ideas or report a problem"
-            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-            onPress={() =>
-              void openConfiguredUrl(process.env.EXPO_PUBLIC_FEEDBACK_URL, () =>
+              void openConfiguredUrl(getMarketingWebsiteUrl(), () =>
                 showToast(
-                  'Add EXPO_PUBLIC_FEEDBACK_URL in .env (https form or mailto:support@yourdomain.com).',
+                  'Set EXPO_PUBLIC_RIPPLE_MARKETING_WEBSITE_URL in .env (e.g. https://ripplealarm.com/) or check the URL.',
                 ),
               )
             }
@@ -575,7 +551,7 @@ export default function SettingScreen() {
             icon={settingsIcons.rating}
             iconBackgroundColor={SETTINGS_ABOUT_ICON_AMBER}
             title="Rate Ripple"
-            value="Leave a review on the App Store or Play Store"
+            value="Reviews help others find interval alarms"
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
             onPress={() => openStoreReviewFlow(showToast)}
           />

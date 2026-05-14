@@ -6,9 +6,9 @@ import { alarmTypography, type AlarmThemePalette, type AlarmTone, useAlarmTheme 
 
 type AlarmCardProps = {
   icon: string;
-  time: string;
-  ampm: string;
   label: string;
+  /** Next ring time/date (or Off / no ring), shown in small type under the title. */
+  nextFireText: string;
   tagText: string;
   active: boolean;
   tone: AlarmTone;
@@ -59,7 +59,7 @@ function createStyles(t: AlarmThemePalette) {
       flex: 1,
       minWidth: 0,
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: 12,
     },
     stripe: {
@@ -76,6 +76,7 @@ function createStyles(t: AlarmThemePalette) {
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
+      marginTop: 2,
     },
     iconText: {
       fontSize: alarmTypography.titleSm,
@@ -83,26 +84,18 @@ function createStyles(t: AlarmThemePalette) {
     info: {
       flex: 1,
     },
-    timeRow: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      gap: 6,
-      marginBottom: 2,
-    },
-    time: {
-      fontSize: alarmTypography.timeRow,
+    title: {
+      fontSize: alarmTypography.bodyLarge,
       fontWeight: '700',
-      lineHeight: alarmTypography.timeRow,
-    },
-    ampm: {
-      fontSize: alarmTypography.caption,
-      fontWeight: '500',
-      color: t.muted,
-    },
-    label: {
-      fontSize: alarmTypography.caption,
-      color: t.muted,
       marginBottom: 4,
+      lineHeight: alarmTypography.bodyLarge + 4,
+    },
+    nextFire: {
+      fontSize: alarmTypography.caption,
+      color: t.muted,
+      fontWeight: '500',
+      marginBottom: 6,
+      lineHeight: alarmTypography.caption + 4,
     },
     tag: {
       alignSelf: 'flex-start',
@@ -122,9 +115,8 @@ function createStyles(t: AlarmThemePalette) {
 
 export function AlarmCard({
   icon,
-  time,
-  ampm,
   label,
+  nextFireText,
   tagText,
   active,
   tone,
@@ -146,11 +138,12 @@ export function AlarmCard({
           <Text style={styles.iconText}>{icon}</Text>
         </View>
         <View style={styles.info}>
-          <View style={styles.timeRow}>
-            <Text style={[styles.time, { color: active ? theme.text : theme.muted }]}>{time}</Text>
-            <Text style={styles.ampm}>{ampm}</Text>
-          </View>
-          <Text style={styles.label}>{label}</Text>
+          <Text style={[styles.title, { color: active ? theme.text : theme.muted }]} numberOfLines={2}>
+            {label}
+          </Text>
+          <Text style={styles.nextFire} numberOfLines={2}>
+            {nextFireText}
+          </Text>
           <Text style={styles.tag}>{tagText}</Text>
         </View>
       </Pressable>

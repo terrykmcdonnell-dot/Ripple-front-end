@@ -67,6 +67,32 @@ function sameLocalCalendarDay(a: Date, b: Date): boolean {
   );
 }
 
+/** Compact next-ring line for each list card (uses same schedule math as notifications). */
+function formatNextFireSubtitle(alarm: AlarmListItem, now: Date): string {
+  if (!alarm.isEnabled) {
+    return 'Off';
+  }
+  const fireAt = nextCanonicalAlarmFire(alarm, now);
+  if (!fireAt) {
+    return 'No upcoming ring';
+  }
+  const { time, ampm } = formatScheduledLocalParts(fireAt.toISOString());
+  if (sameLocalCalendarDay(fireAt, now)) {
+    return `Next · Today · ${time} ${ampm}`;
+  }
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (sameLocalCalendarDay(fireAt, tomorrow)) {
+    return `Next · Tomorrow · ${time} ${ampm}`;
+  }
+  const dateStr = fireAt.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+  return `Next · ${dateStr} · ${time} ${ampm}`;
+}
+
 /** Uses the same next-fire math as OS scheduling (`nextCanonicalAlarmFire`), not raw `scheduledAt`. */
 function nextAlarmWords(alarms: AlarmListItem[], now: Date): { muted: string; accent: string } {
   const enabled = alarms.filter((a) => a.isEnabled);
@@ -302,7 +328,7 @@ export default function AlarmScreen() {
           <Text style={styles.emptyText}>No alarms yet. Tap + to create one.</Text>
         ) : null}
         {sortedAlarms.map((alarm) => {
-          const { time, ampm } = formatScheduledLocalParts(alarm.scheduledAt);
+          const nextFireText = formatNextFireSubtitle(alarm, now);
           const tagText = formatRepeatEveryTag(alarm.interval, alarm.unit);
           const { icon, tone, toggleOnColor } = presentationForAlarmCategory(
             alarm.category,
@@ -313,9 +339,8 @@ export default function AlarmScreen() {
             <AlarmCard
               key={`alarm-${alarm.id}`}
               icon={icon}
-              time={time}
-              ampm={ampm}
               label={alarm.label || 'Alarm'}
+              nextFireText={nextFireText}
               tagText={tagText}
               active={alarm.isEnabled}
               tone={tone}

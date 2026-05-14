@@ -121,12 +121,42 @@ function encodeWav(samples) {
   return buf;
 }
 
+/** Soft piano-ish note: many decaying partials + fast attack (not a pure sine). */
+function softPiano() {
+  const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
+  const samples = new Int16Array(n);
+  const fundamental = 261.63; // C4
+  const harmonics = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const weights = [1, 0.52, 0.34, 0.24, 0.17, 0.12, 0.09, 0.065, 0.05, 0.04, 0.032, 0.025];
+  const attack = Math.floor(SAMPLE_RATE * 0.004);
+  const decayTau = SAMPLE_RATE * 0.95;
+  const dt = 1 / SAMPLE_RATE;
+
+  for (let i = 0; i < n; i++) {
+    const t = i * dt;
+    const attackEnv = i < attack ? i / attack : 1;
+    const decayEnv = Math.exp(-i / decayTau);
+    const env = attackEnv * decayEnv;
+
+    let sum = 0;
+    for (let h = 0; h < harmonics.length; h++) {
+      const k = harmonics[h];
+      const inharm = 1 + 0.00012 * k * k;
+      const f = fundamental * k * inharm;
+      sum += weights[h] * Math.sin(2 * Math.PI * f * t);
+    }
+    const v = 0.2 * env * sum;
+    samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
+  }
+  return samples;
+}
+
 const GENERATORS = {
   gentle_rise: () => encodeWav(gentleTone(392, 2)),
   morning_glow: () => encodeWav(gentleTone(523.25, 3)),
   classic_bell: () => encodeWav(bellMix()),
   digital_beep: () => encodeWav(digitalBeep()),
-  soft_piano: () => encodeWav(gentleTone(349.23, 2, 0.42)),
+  soft_piano: () => encodeWav(softPiano()),
   nature_birds: () => encodeWav(chirpBirds()),
 };
 

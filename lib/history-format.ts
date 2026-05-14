@@ -28,8 +28,9 @@ function localDayKey(iso: string): string {
   return `${y}-${m}-${day}`;
 }
 
-function formatMonthDay(d: Date): string {
-  return `${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'long' })}`;
+function formatMonthDayYear(d: Date): string {
+  const month = d.toLocaleDateString(undefined, { month: 'long' });
+  return `${d.getDate()} ${month} ${d.getFullYear()}`;
 }
 
 export function groupDayHeading(dayKey: string, referenceNow: Date): string {
@@ -43,13 +44,21 @@ export function groupDayHeading(dayKey: string, referenceNow: Date): string {
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
   if (dayStart.getTime() === todayStart.getTime()) {
-    return `Today - ${formatMonthDay(dayStart)}`;
+    return `Today - ${formatMonthDayYear(dayStart)}`;
   }
   if (dayStart.getTime() === yesterdayStart.getTime()) {
-    return `Yesterday - ${formatMonthDay(dayStart)}`;
+    return `Yesterday - ${formatMonthDayYear(dayStart)}`;
   }
   const weekday = dayStart.toLocaleDateString(undefined, { weekday: 'short' });
-  return `${weekday} - ${formatMonthDay(dayStart)}`;
+  return `${weekday} - ${formatMonthDayYear(dayStart)}`;
+}
+
+function formatShortLocalDateWithYear(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return '';
+  }
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatHistoryTimeLine(row: AlarmHistoryApiRow): string {
@@ -64,7 +73,12 @@ function formatHistoryTimeLine(row: AlarmHistoryApiRow): string {
   }
   const actionIso = row.action_at ?? row.scheduled_fire_at;
   const ap = formatScheduledLocalParts(actionIso);
-  return `${fireLabel} - dismissed at ${ap.time} ${ap.ampm}`;
+  const timePart = `${ap.time} ${ap.ampm}`;
+  const sameLocalDay = localDayKey(row.scheduled_fire_at) === localDayKey(actionIso);
+  const datePrefix = formatShortLocalDateWithYear(actionIso);
+  const actionPart =
+    sameLocalDay || !datePrefix ? timePart : `${datePrefix} ${timePart}`;
+  return `${fireLabel} - dismissed at ${actionPart}`;
 }
 
 export function mapAlarmHistoryRow(row: AlarmHistoryApiRow): HistoryRowUi {
