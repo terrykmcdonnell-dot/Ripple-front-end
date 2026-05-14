@@ -17,6 +17,12 @@
       },
       "developmentClient": false
     },
+    "ios-simulator": {
+      "developmentClient": true,
+      "ios": {
+        "simulator": true
+      }
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production"

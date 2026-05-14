@@ -18,6 +18,7 @@ import {
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import {
+  coerceAlarmSoundId,
   loadDefaultAlarmSoundId,
   loadDefaultVibrationEnabled,
   loadNotificationsMasterEnabled,
@@ -114,17 +115,27 @@ export async function syncAlarmFireNotifications(alarms?: AlarmListItem[]): Prom
     return;
   }
 
-  const soundId = await loadDefaultAlarmSoundId();
+  const defaultSoundId = await loadDefaultAlarmSoundId();
   const vibrationEnabled = await loadDefaultVibrationEnabled();
-  const soundFile = bundledNotificationSoundFilename(soundId);
-
-  const androidChannelId =
-    Platform.OS === 'android' ? await ensureAndroidAlarmFireChannel(soundId, vibrationEnabled) : '';
+  const androidChannelIdsBySound = new Map<string, string>();
 
   const now = new Date();
   const scheduledIds: string[] = [];
 
   for (const alarm of rows.filter((a) => a.isEnabled)) {
+    const soundId = coerceAlarmSoundId(alarm.sound) ?? defaultSoundId;
+    const soundFile = bundledNotificationSoundFilename(soundId);
+    let androidChannelId = '';
+    if (Platform.OS === 'android') {
+      const existing = androidChannelIdsBySound.get(soundId);
+      if (existing) {
+        androidChannelId = existing;
+      } else {
+        androidChannelId = await ensureAndroidAlarmFireChannel(soundId, vibrationEnabled);
+        androidChannelIdsBySound.set(soundId, androidChannelId);
+      }
+    }
+
     const fireAtRaw = nextCanonicalAlarmFire(alarm, now);
     if (!fireAtRaw || fireAtRaw.getTime() <= now.getTime() + MIN_ALARM_SCHEDULE_LEAD_MS) {
       continue;

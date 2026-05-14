@@ -1,8 +1,9 @@
 import * as Haptics from 'expo-haptics';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { previewAlarmSoundId, stopAlarmSoundPreview } from '@/lib/preview-alarm-sound';
 
 export type SoundPickerOption = { id: string; label: string };
 
@@ -23,13 +24,20 @@ export function SoundPickerSheet({
   selectedId,
   onSelectSoundId,
   sheetTitle = 'Default Sound',
-  sheetHint = 'Used for new alarms',
+  sheetHint = 'Tap a sound to preview, then it is selected.',
 }: SoundPickerSheetProps) {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createSoundPickerStyles(palette), [palette]);
 
-  const pick = (id: string) => {
+  useEffect(() => {
+    if (!visible) {
+      void stopAlarmSoundPreview();
+    }
+  }, [visible]);
+
+  const pick = async (id: string) => {
     void Haptics.selectionAsync();
+    await previewAlarmSoundId(id);
     onSelectSoundId(id);
     onClose();
   };
@@ -54,7 +62,7 @@ export function SoundPickerSheet({
                 <Pressable
                   key={opt.id}
                   style={[styles.optionRow, noBorder ? styles.optionRowLast : null]}
-                  onPress={() => pick(opt.id)}
+                  onPress={() => void pick(opt.id)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}>
                   <Text style={[styles.optionLabel, active ? styles.optionLabelActive : null]}>{opt.label}</Text>

@@ -22,10 +22,35 @@ export function rippleApiBaseUrl(): string {
   return base.replace(/\/$/, '');
 }
 
+function rippleApiHostLabel(): string {
+  try {
+    return new URL(rippleApiBaseUrl()).host;
+  } catch {
+    return rippleApiBaseUrl();
+  }
+}
+
+/** Wraps `fetch` so TLS/DNS/firewall failures surface with the configured API host. */
+export async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    const host = rippleApiHostLabel();
+    const detail =
+      /network request failed/i.test(raw) || !raw.trim()
+        ? 'The device could not open a connection (DNS, TLS certificate, firewall, or no HTTPS reverse proxy).'
+        : raw;
+    throw new Error(
+      `Ripple API is unreachable (${host}). ${detail} Use a public HTTPS URL that proxies to the FastAPI process (see backend README).`,
+    );
+  }
+}
+
 /** POST /api/alarm/ — body matches backend OpenAPI (user_id is `public.users.id`). */
 export async function createAlarm(payload: CreateAlarmPayload): Promise<void> {
   const url = `${rippleApiBaseUrl()}/api/alarm/`;
-  const res = await fetch(url, {
+  const res = await rippleApiFetch(url, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -61,7 +86,7 @@ export type AlarmPatchPayload = {
 /** PATCH /api/alarm/{alarm_id}/ — partial update (alarm list toggle or edit-screen save). */
 export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Promise<void> {
   const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
-  const res = await fetch(url, {
+  const res = await rippleApiFetch(url, {
     method: 'PATCH',
     headers: {
       Accept: 'application/json',
@@ -84,7 +109,7 @@ export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Prom
 /** DELETE /api/alarm/{alarm_id}/ — remove alarm row on backend. */
 export async function deleteAlarm(alarmId: number): Promise<void> {
   const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
-  const res = await fetch(url, {
+  const res = await rippleApiFetch(url, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },
   });
@@ -104,7 +129,7 @@ export async function deleteAlarm(alarmId: number): Promise<void> {
 export async function fetchAlarms(userId: number): Promise<AlarmListItem[]> {
   const qs = new URLSearchParams({ user_id: String(userId) });
   const url = `${rippleApiBaseUrl()}/api/alarm/?${qs.toString()}`;
-  const res = await fetch(url, {
+  const res = await rippleApiFetch(url, {
     method: 'GET',
     headers: { Accept: 'application/json' },
   });
@@ -147,6 +172,7 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
   unit: string;
   /** Pass-through for {@link categoryIdToChipKey} (`string` label or FK `number`). */
   categoryId: string | number;
+  sound?: string;
   isEnabled: boolean;
 } | null> {
   const rows = await fetchAlarms(userId);
@@ -160,6 +186,7 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
     interval: row.interval,
     unit: row.unit,
     categoryId: row.category,
+    sound: row.sound,
     isEnabled: row.isEnabled,
   };
 }

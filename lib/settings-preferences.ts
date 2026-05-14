@@ -63,12 +63,38 @@ export function labelForAlarmSoundId(id: string): string {
   return found?.label ?? DEFAULT_ALARM_SOUND_OPTIONS[0].label;
 }
 
-function normalizeSoundId(raw: string | null): AlarmSoundId {
+/** Parses DB/user-facing sound text into an internal sound id. */
+export function coerceAlarmSoundId(raw: string | null | undefined): AlarmSoundId {
   if (!raw) {
     return DEFAULT_SOUND_ID;
   }
-  const match = DEFAULT_ALARM_SOUND_OPTIONS.find((o) => o.id === raw);
-  return match?.id ?? DEFAULT_SOUND_ID;
+  const normalized = raw.trim().toLowerCase();
+  if (!normalized) {
+    return DEFAULT_SOUND_ID;
+  }
+
+  const byId = DEFAULT_ALARM_SOUND_OPTIONS.find((o) => o.id.toLowerCase() === normalized);
+  if (byId) {
+    return byId.id;
+  }
+
+  const byLabel = DEFAULT_ALARM_SOUND_OPTIONS.find((o) => o.label.toLowerCase() === normalized);
+  if (byLabel) {
+    return byLabel.id;
+  }
+
+  // Legacy/alternative API values: "morning glow", "Morning_Glow", etc.
+  const compact = normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const byCompact = DEFAULT_ALARM_SOUND_OPTIONS.find((o) => o.id === compact);
+  if (byCompact) {
+    return byCompact.id;
+  }
+
+  return DEFAULT_SOUND_ID;
+}
+
+function normalizeSoundId(raw: string | null): AlarmSoundId {
+  return coerceAlarmSoundId(raw);
 }
 
 export async function loadDefaultAlarmSoundId(): Promise<AlarmSoundId> {

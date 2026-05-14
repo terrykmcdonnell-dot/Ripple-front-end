@@ -14,14 +14,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
+import { createCategoryIcons, createSoundIcon } from '@/assets/icons/alarm-create-icons';
 import { editActionIcons } from '@/assets/icons/alarm-edit-icons';
 import { AlarmTimePickRow } from '@/components/alarms-create/AlarmTimePickRow';
 import { DangerActionButton } from '@/components/alarms-create/DangerActionButton';
 import { IntervalControl } from '@/components/alarms-create/IntervalControl';
 import { SectionField } from '@/components/alarms-create/SectionField';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
+import { SoundRow } from '@/components/alarms-create/SoundRow';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -38,6 +40,12 @@ import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import {
+  type AlarmSoundId,
+  coerceAlarmSoundId,
+  DEFAULT_ALARM_SOUND_OPTIONS,
+  labelForAlarmSoundId,
+} from '@/lib/settings-preferences';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 const categories = [
@@ -68,6 +76,8 @@ export default function AlarmEditScreen() {
   const [unit, setUnit] = useState<(typeof units)[number]>('Days');
   const [category, setCategory] = useState<(typeof categories)[number]['key']>('health');
   const [alarmEnabled, setAlarmEnabled] = useState(true);
+  const [selectedSoundId, setSelectedSoundId] = useState<AlarmSoundId>('gentle-rise');
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +98,7 @@ export default function AlarmEditScreen() {
       interval: number;
       unit: string;
       categoryRef: unknown;
+      sound?: string;
       isEnabled?: boolean;
     }) => {
       const d = new Date(payload.scheduledAt);
@@ -96,6 +107,7 @@ export default function AlarmEditScreen() {
       setInterval(payload.interval > 0 ? payload.interval : 1);
       setUnit(coerceAlarmUnit(payload.unit));
       setCategory(categoryIdToChipKey(payload.categoryRef));
+      setSelectedSoundId(coerceAlarmSoundId(payload.sound));
       setAlarmEnabled(typeof payload.isEnabled === 'boolean' ? payload.isEnabled : true);
       setError(null);
     },
@@ -126,6 +138,8 @@ export default function AlarmEditScreen() {
     return `${time} ${ampm}`;
   }, [nextSkippableFireAt]);
 
+  const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);
+
   const handleSave = useCallback(async () => {
     const labelValue = label.trim();
     if (!labelValue) {
@@ -145,6 +159,7 @@ export default function AlarmEditScreen() {
         interval,
         unit,
         category: categoryLabel,
+        sound: selectedSoundLabel,
         is_enabled: alarmEnabled,
       });
       router.replace('/alarm');
@@ -165,6 +180,7 @@ export default function AlarmEditScreen() {
     interval,
     isSkipping,
     label,
+    selectedSoundLabel,
     router,
     unit,
   ]);
@@ -275,6 +291,7 @@ export default function AlarmEditScreen() {
         interval: alarm.interval,
         unit: alarm.unit,
         categoryRef: alarm.categoryId,
+        sound: alarm.sound,
         isEnabled: alarm.isEnabled,
       });
     } catch (e) {
@@ -301,6 +318,7 @@ export default function AlarmEditScreen() {
         interval: stashed.interval,
         unit: stashed.unit,
         categoryRef: stashed.category,
+        sound: stashed.sound,
         isEnabled: stashed.isEnabled,
       });
       setLoading(false);
@@ -419,6 +437,14 @@ export default function AlarmEditScreen() {
               </View>
             </SectionField>
 
+            <SectionField label="Sound">
+              <SoundRow
+                icon={createSoundIcon}
+                title={selectedSoundLabel}
+                onPress={() => setSoundPickerOpen(true)}
+              />
+            </SectionField>
+
             <View style={styles.dangerZone}>
               <DangerActionButton
                 icon={editActionIcons.skip}
@@ -444,6 +470,15 @@ export default function AlarmEditScreen() {
           </ScrollView>
         </>
       )}
+      <SoundPickerSheet
+        visible={soundPickerOpen}
+        onClose={() => setSoundPickerOpen(false)}
+        options={DEFAULT_ALARM_SOUND_OPTIONS}
+        selectedId={selectedSoundId}
+        sheetTitle="Alarm sound"
+        sheetHint="Tap to preview · plays when this alarm fires"
+        onSelectSoundId={(id) => setSelectedSoundId(id as AlarmSoundId)}
+      />
       <Modal
         transparent
         animationType="fade"

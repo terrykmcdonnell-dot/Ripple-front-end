@@ -217,7 +217,7 @@ export default function AlarmCreateScreen() {
         options={DEFAULT_ALARM_SOUND_OPTIONS}
         selectedId={selectedSoundId}
         sheetTitle="Alarm sound"
-        sheetHint="Plays when this alarm fires"
+        sheetHint="Tap to preview · plays when this alarm fires"
         onSelectSoundId={(id) => setSelectedSoundId(id as AlarmSoundId)}
       />
       <FullScreenLoadingOverlay visible={isSaving} />

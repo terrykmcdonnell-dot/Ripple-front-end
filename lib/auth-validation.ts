@@ -95,6 +95,9 @@ export function formatAuthErrorMessage(message: string, meta?: AuthErrorMeta) {
   if (lower.includes('otp') || code === 'otp_disabled') {
     return 'That code is not valid. Check the email and try again.';
   }
+  if (lower.includes('ripple api is unreachable')) {
+    return message;
+  }
   if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to connect')) {
     return 'Network problem. Check your connection and try again.';
   }
