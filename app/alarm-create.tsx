@@ -157,7 +157,12 @@ export default function AlarmCreateScreen() {
 
       <AlarmTimePickRow value={alarmTime} onChange={setAlarmTime} />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}>
         <SectionField label="Label">
           <TextInput
             value={label}
@@ -165,6 +170,8 @@ export default function AlarmCreateScreen() {
             placeholder="e.g. Take medication"
             placeholderTextColor={palette.muted}
             style={styles.input}
+            editable={!isSaving}
+            returnKeyType="done"
           />
         </SectionField>
 

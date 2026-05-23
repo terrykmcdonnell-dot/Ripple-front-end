@@ -32,6 +32,7 @@ import { ADD_ALARM_HIT_SLOP } from '@/lib/header-hit-slop';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { stashAlarmForEdit } from '@/lib/alarm-navigation-cache';
+import { promptAndroidFullScreenAlarmPermissionIfNeeded } from '@/lib/android-alarm-full-screen-setup';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import {
   nextCanonicalAlarmFire,
@@ -209,7 +210,9 @@ export default function AlarmScreen() {
       setAlarms(rows);
       setListError(null);
       void syncUpcomingReminderNotifications(rows);
-      void syncAlarmFireNotifications(rows);
+      void syncAlarmFireNotifications(rows).then(() => {
+        void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load alarms.';
       setListError(msg);
@@ -220,7 +223,7 @@ export default function AlarmScreen() {
       setInitialLoad(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [showToast]);
 
   useFocusEffect(
     useCallback(() => {

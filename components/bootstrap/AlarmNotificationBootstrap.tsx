@@ -4,8 +4,6 @@ import { Platform } from 'react-native';
 import {
   addNotificationReceivedListener,
   addNotificationResponseReceivedListener,
-  clearLastNotificationResponseAsync,
-  getLastNotificationResponseAsync,
 } from 'expo-notifications/build/NotificationsEmitter';
 import registerTaskAsync from 'expo-notifications/build/registerTaskAsync';
 import setNotificationCategoryAsync from 'expo-notifications/build/setNotificationCategoryAsync';
@@ -17,6 +15,7 @@ import {
   ALARM_NOTIFICATION_ACTION_SNOOZE,
 } from '@/lib/alarm-notification-constants';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
+import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
 import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/alarm-notification-response';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
 import { recordAlarmHistoryMissed } from '@/lib/alarm-history-sync';
@@ -55,13 +54,8 @@ export function AlarmNotificationBootstrap() {
       await registerTaskAsync(RIPPLE_ALARM_HISTORY_BG_TASK).catch(() => undefined);
 
       try {
-        const last = await getLastNotificationResponseAsync();
-        if (!cancelled && last) {
-          const raw = last.notification.request.content.data as Record<string, unknown> | undefined;
-          if (raw?.type === ALARM_FIRE_DATA_TYPE) {
-            await handleAlarmFireNotificationResponse(last);
-            await clearLastNotificationResponseAsync();
-          }
+        if (!cancelled) {
+          await consumeInitialAlarmFireResponse();
         }
       } catch {
         /* native module unavailable */

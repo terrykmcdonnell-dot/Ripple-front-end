@@ -29,6 +29,17 @@ function NotificationPresentationBootstrap() {
         const data = notification.request.content.data as Record<string, unknown> | undefined;
         const isAlarmFire = data?.type === ALARM_FIRE_DATA_TYPE;
         if (isAlarmFire) {
+          // iOS foreground: ring UI via received listener — suppress duplicate banner.
+          // Android: must present an alert so the notification (and full-screen intent) is posted;
+          // suppressing banner/list prevents background lock-screen takeover.
+          if (Platform.OS === 'android') {
+            return {
+              shouldShowBanner: true,
+              shouldShowList: true,
+              shouldPlaySound: true,
+              shouldSetBadge: false,
+            };
+          }
           return {
             shouldShowBanner: false,
             shouldShowList: false,

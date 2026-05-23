@@ -56,7 +56,8 @@
       "permissions": [
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM",
-        "android.permission.USE_FULL_SCREEN_INTENT"
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.WAKE_LOCK"
       ]
     },
     "web": {
@@ -65,6 +66,8 @@
     },
     "plugins": [
       "./plugins/with-android-alarm-activity",
+      "./plugins/with-android-alarm-ring-launch-activity",
+      "./plugins/with-android-alarm-full-screen-intent",
       "expo-apple-authentication",
       "expo-router",
       [

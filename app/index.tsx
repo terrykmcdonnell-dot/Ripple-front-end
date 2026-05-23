@@ -2,6 +2,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
 import { replaceWithSignInIfNeeded } from '@/lib/auth-sign-in-redirect';
 import { supabase } from '@/lib/supabase';
 
@@ -16,15 +17,22 @@ export default function Index() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) {
-        return;
-      }
-      if (session) {
-        router.replace('/alarm');
-      } else {
-        replaceWithSignInIfNeeded(pathname);
-      }
-      setBootstrapping(false);
+      void (async () => {
+        if (!mounted) {
+          return;
+        }
+        if (session) {
+          const openedFromAlarm = await consumeInitialAlarmFireResponse();
+          if (!openedFromAlarm) {
+            router.replace('/alarm');
+          }
+        } else {
+          replaceWithSignInIfNeeded(pathname);
+        }
+        if (mounted) {
+          setBootstrapping(false);
+        }
+      })();
     });
 
     return () => {

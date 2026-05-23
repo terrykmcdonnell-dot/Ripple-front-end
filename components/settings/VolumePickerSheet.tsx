@@ -1,8 +1,9 @@
 import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { AppModal } from '@/components/ui/AppModal';
 import { formatVolumePercentLabel } from '@/lib/settings-preferences';
 
 type VolumePickerSheetProps = {
@@ -30,7 +31,7 @@ export function VolumePickerSheet({
   };
 
   return (
-    <Modal
+    <AppModal
       visible={visible}
       transparent
       animationType="slide"
@@ -71,7 +72,7 @@ export function VolumePickerSheet({
           </Pressable>
         </View>
       </View>
-    </Modal>
+    </AppModal>
   );
 }
 

@@ -1,9 +1,10 @@
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { isAlarmPaletteDark, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { AppModal } from '@/components/ui/AppModal';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
 import { clockPartsFromDate } from '@/lib/alarm-time';
 
@@ -229,8 +230,8 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
 
       <Text style={styles.hint}>{Platform.OS === 'web' ? 'Use arrows to adjust · tap AM/PM' : 'Tap time to open picker'}</Text>
 
-      {Platform.OS === 'ios' ? (
-        <Modal visible={iosOpen} animationType="slide" transparent presentationStyle="overFullScreen">
+      {Platform.OS === 'ios' && iosOpen ? (
+        <AppModal visible animationType="slide" transparent presentationStyle="overFullScreen">
           <View style={styles.modalRoot}>
             <Pressable style={styles.modalDismiss} onPress={() => setIosOpen(false)} />
             <View style={styles.iosSheet}>
@@ -249,7 +250,7 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
               />
             </View>
           </View>
-        </Modal>
+        </AppModal>
       ) : null}
     </View>
   );

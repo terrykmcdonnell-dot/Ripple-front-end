@@ -1,8 +1,10 @@
 package com.terrykm.ripplealarm
 import expo.modules.splashscreen.SplashScreenManager
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -21,6 +23,50 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+    applyAlarmLaunchWindowFlags(intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    applyAlarmLaunchWindowFlags(intent)
+  }
+
+  /**
+   * When opened from an alarm full-screen intent or notification tap, show over the lock screen.
+   */
+  private fun applyAlarmLaunchWindowFlags(intent: Intent?) {
+    if (!isAlarmNotificationLaunch(intent)) {
+      return
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    } else {
+      @Suppress("DEPRECATION")
+      window.addFlags(
+        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+      )
+    }
+  }
+
+  private fun isAlarmNotificationLaunch(intent: Intent?): Boolean {
+    if (intent == null) {
+      return false
+    }
+    val extras = intent.extras ?: return false
+    if (extras.getBoolean("rippleAlarmFullScreen", false)) {
+      return true
+    }
+    if (extras.containsKey("notificationResponse") || extras.containsKey("textInputNotificationResponse")) {
+      return true
+    }
+    if (extras.containsKey("notification")) {
+      return true
+    }
+    return intent.action == "expo.modules.notifications.NOTIFICATION_EVENT"
   }
 
   /**

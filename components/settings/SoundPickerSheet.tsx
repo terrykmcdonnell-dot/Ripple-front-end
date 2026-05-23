@@ -1,8 +1,9 @@
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { AppModal } from '@/components/ui/AppModal';
 import { previewAlarmSoundId, stopAlarmSoundPreview } from '@/lib/preview-alarm-sound';
 
 export type SoundPickerOption = { id: string; label: string };
@@ -64,7 +65,7 @@ export function SoundPickerSheet({
   };
 
   return (
-    <Modal
+    <AppModal
       visible={visible}
       transparent
       animationType="slide"
@@ -100,7 +101,7 @@ export function SoundPickerSheet({
           </Pressable>
         </View>
       </View>
-    </Modal>
+    </AppModal>
   );
 }
 

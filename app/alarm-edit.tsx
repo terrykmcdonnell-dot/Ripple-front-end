@@ -3,7 +3,6 @@ import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -25,6 +24,7 @@ import { SoundRow } from '@/components/alarms-create/SoundRow';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
 import { useAppToast } from '@/components/ui/AppToastProvider';
+import { AppModal } from '@/components/ui/AppModal';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
@@ -400,6 +400,8 @@ export default function AlarmEditScreen() {
                 placeholder="Alarm label"
                 placeholderTextColor={palette.muted}
                 style={styles.input}
+                editable={!isSaving && !isDeleting && !isSkipping}
+                returnKeyType="done"
               />
             </SectionField>
 
@@ -479,7 +481,7 @@ export default function AlarmEditScreen() {
         sheetHint="Preview plays when this opens and when you tap a sound. Tap OK to use it for this alarm."
         onSelectSoundId={(id) => setSelectedSoundId(id as AlarmSoundId)}
       />
-      <Modal
+      <AppModal
         transparent
         animationType="fade"
         visible={skipConfirmVisible}
@@ -513,8 +515,8 @@ export default function AlarmEditScreen() {
             </View>
           </View>
         </View>
-      </Modal>
-      <Modal
+      </AppModal>
+      <AppModal
         transparent
         animationType="fade"
         visible={deleteConfirmVisible}
@@ -546,8 +548,8 @@ export default function AlarmEditScreen() {
             </View>
           </View>
         </View>
-      </Modal>
-      <FullScreenLoadingOverlay visible={loading || isSaving || isDeleting || isSkipping} />
+      </AppModal>
+      <FullScreenLoadingOverlay visible={isSaving || isDeleting || isSkipping} />
     </View>
   );
 }

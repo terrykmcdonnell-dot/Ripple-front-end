@@ -1,5 +1,6 @@
-import { ActivityIndicator, Modal, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
+import { AppModal } from '@/components/ui/AppModal';
 import { alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
 
 export type FullScreenLoadingOverlayProps = {
@@ -24,6 +25,10 @@ export function FullScreenLoadingOverlay({
 }: FullScreenLoadingOverlayProps) {
   const t = useAlarmTheme();
 
+  if (!visible) {
+    return null;
+  }
+
   const backdrop = (
     <View style={[StyleSheet.absoluteFillObject, { backgroundColor: t.bg, opacity: 0.96 }]} />
   );
@@ -39,9 +44,6 @@ export function FullScreenLoadingOverlay({
   );
 
   if (variant === 'embedded') {
-    if (!visible) {
-      return null;
-    }
     return (
       <View
         collapsable={false}
@@ -54,8 +56,8 @@ export function FullScreenLoadingOverlay({
   }
 
   return (
-    <Modal
-      visible={visible}
+    <AppModal
+      visible
       transparent
       animationType="fade"
       statusBarTranslucent={Platform.OS === 'android'}>
@@ -63,7 +65,7 @@ export function FullScreenLoadingOverlay({
         {backdrop}
         {spinnerBlock}
       </View>
-    </Modal>
+    </AppModal>
   );
 }
 

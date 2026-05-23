@@ -1,9 +1,10 @@
 import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Linking } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, Linking } from 'react-native';
 
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { AppModal } from '@/components/ui/AppModal';
 import {
   formatSnoozeMinutesLabel,
   formatVolumePercentLabel,
@@ -41,7 +42,7 @@ export function NotificationsHubSheet({
   const rowTap = () => void Haptics.selectionAsync();
 
   return (
-    <Modal
+    <AppModal
       visible={visible}
       transparent
       animationType="slide"
@@ -135,7 +136,7 @@ export function NotificationsHubSheet({
           </Pressable>
         </View>
       </View>
-    </Modal>
+    </AppModal>
   );
 }
 

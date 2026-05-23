@@ -1,61 +1,45 @@
 /**
- * Patches expo-notifications so alarm-fire notifications use Android's full-screen intent
- * (lock-screen takeover → opens app to ring UI) when category matches ripple_alarm_fire.
+ * Patches expo-notifications so alarm-fire notifications use Android full-screen intents
+ * targeting MainActivity (lock-screen takeover → ring UI).
  *
  * Idempotent — safe on every postinstall.
  */
 const fs = require('fs');
 const path = require('path');
 
+const { BLOCK_V4, MARKER_V4, OLD_BLOCK_REGEX } = require('./expo-notifications-alarm-fsi-patch-block');
+
 const RELATIVE =
   'node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt';
 
-const MARKER = 'notificationContent.categoryId == "ripple_alarm_fire"';
+const INSERT_NEEDLE = `    )
 
-const BLOCK = `    if (notificationContent.categoryId == "ripple_alarm_fire") {
-      builder.setCategory(NotificationCompat.CATEGORY_ALARM)
-      builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        builder.setColorized(true)
-      }
-      builder.setFullScreenIntent(
-        createNotificationResponseIntent(
-          context,
-          notification,
-          defaultAction
-        ),
-        true
-      )
-    }
-`;
+    if (notificationContent.containsImage()) {`;
 
-function main() {
-  const root = path.join(__dirname, '..');
-  const file = path.join(root, ...RELATIVE.split('/'));
+function applyFullScreenIntentPatch(projectRoot) {
+  const file = path.join(projectRoot, ...RELATIVE.split('/'));
   if (!fs.existsSync(file)) {
     console.warn('[patch-expo-fsi] expo-notifications builder not found; skip.');
     return;
   }
   let s = fs.readFileSync(file, 'utf8');
-  if (s.includes(MARKER)) {
+  if (s.includes(MARKER_V4)) {
     return;
   }
-  const needle = `    )
-
-    if (notificationContent.containsImage()) {`;
-  if (!s.includes(needle)) {
-    console.error(
-      '[patch-expo-fsi] Insertion point missing (expo-notifications version mismatch?).',
-    );
+  if (OLD_BLOCK_REGEX.test(s)) {
+    s = s.replace(OLD_BLOCK_REGEX, '');
+  }
+  if (!s.includes(INSERT_NEEDLE)) {
+    console.error('[patch-expo-fsi] Insertion point missing (expo-notifications version mismatch?).');
     process.exit(1);
   }
   const replacement = `    )
 
-${BLOCK}
+${BLOCK_V4}
     if (notificationContent.containsImage()) {`;
-  s = s.replace(needle, replacement);
+  s = s.replace(INSERT_NEEDLE, replacement);
   fs.writeFileSync(file, s, 'utf8');
-  console.log('[patch-expo-fsi] Applied alarm full-screen intent patch.');
+  console.log('[patch-expo-fsi] Applied alarm full-screen intent patch (v4).');
 }
 
-main();
+applyFullScreenIntentPatch(path.join(__dirname, '..'));

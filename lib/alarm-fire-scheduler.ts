@@ -54,10 +54,11 @@ export async function cancelAlarmFireNotifications(): Promise<void> {
 }
 
 /**
- * `a1` = alarm usage + bypass DND channel revision (Android caches channel audio attrs at creation).
+ * `a2` = fresh channel revision for full-screen alarm takeover.
+ * Android caches channel importance/audio attrs forever once created, so bump this when alarm behavior changes.
  */
 async function ensureAndroidAlarmFireChannel(soundId: AlarmSoundId, vibrationEnabled: boolean): Promise<string> {
-  const channelId = `ripple_alarm_fire_a1_${soundId}_${vibrationEnabled ? 'vib' : 'still'}`;
+  const channelId = `ripple_alarm_fire_a2_${soundId}_${vibrationEnabled ? 'vib' : 'still'}`;
   const soundFile = bundledNotificationSoundFilename(soundId);
   await setAndroidAlarmStyleNotificationChannelAsync(channelId, {
     name: 'Alarm alerts',
