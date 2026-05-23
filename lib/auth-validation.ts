@@ -98,7 +98,11 @@ export function formatAuthErrorMessage(message: string, meta?: AuthErrorMeta) {
   if (lower.includes('ripple api is unreachable') || lower.includes('could not reach the ripple api')) {
     return message;
   }
-  if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to connect')) {
+  if (
+    lower.includes('network request failed') ||
+    lower === 'failed to fetch' ||
+    lower.includes('failed to fetch')
+  ) {
     return 'Network problem. Check your connection and try again.';
   }
   if (meta?.status === 500 || lower.includes('internal server error') || lower.includes('service unavailable')) {

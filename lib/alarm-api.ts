@@ -53,7 +53,8 @@ async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response
         `Ripple API timed out after ${RIPPLE_FETCH_TIMEOUT_MS / 1000}s. Check ${base || 'EXPO_PUBLIC_API_BASE_URL'} is reachable on this network.`,
       );
     }
-    if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
+    const lowerMsg = msg.toLowerCase();
+    if (lowerMsg.includes('network request failed') || lowerMsg.includes('failed to fetch')) {
       let detail =
         'Could not reach the Ripple API (no response). Check Wi‑Fi/cellular, VPN, firewall, and that the server is running.';
       if (Platform.OS !== 'web' && /localhost|127\.0\.0\.1/i.test(base)) {
@@ -129,9 +130,9 @@ export type AlarmPatchPayload = {
   is_enabled?: boolean;
 };
 
-/** PATCH /api/alarm/{alarm_id}/ — partial update (alarm list toggle or edit-screen save). */
+/** PATCH /api/alarm/{alarm_id} — no trailing slash (nginx 307 on `/id/` breaks iOS PATCH). */
 export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Promise<void> {
-  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
+  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}`;
   const res = await rippleApiFetch(url, {
     method: 'PATCH',
     headers: {
@@ -149,12 +150,13 @@ export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Prom
   } catch {
     /* ignore */
   }
-  throw new Error(formatRippleApiErrorBody(res.status, detail) || `Could not update alarm (${res.status}).`);
+  const text = formatRippleApiErrorBody(res.status, detail) || `Could not update alarm (${res.status}).`;
+  throw new Error(`Alarm update failed (${res.status}): ${text}`);
 }
 
-/** DELETE /api/alarm/{alarm_id}/ — remove alarm row on backend. */
+/** DELETE /api/alarm/{alarm_id} — no trailing slash (same nginx/iOS PATCH issue). */
 export async function deleteAlarm(alarmId: number): Promise<void> {
-  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
+  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}`;
   const res = await rippleApiFetch(url, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },

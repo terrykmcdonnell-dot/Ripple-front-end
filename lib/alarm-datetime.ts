@@ -1,6 +1,12 @@
+import { clockPartsFromDate } from '@/lib/alarm-time';
+
 /**
- * Parse alarm timestamps from the Ripple API / Supabase.
- * iOS JavaScriptCore rejects several formats that Android/V8 accepts (e.g. space instead of `T`).
+ * Parse alarm timestamps from the Ripple API / Supabase (`timestamptz`).
+ * Sample: `2026-04-30 20:40:00+00`
+ *
+ * iOS JavaScriptCore is stricter than Android/V8:
+ * - `2026-04-30T20:40:00+00` is invalid (offset needs `:00`)
+ * - blind space→`T` replacement breaks valid Postgres strings
  */
 export function parseAlarmScheduledAt(raw: string): Date {
   const s = raw.trim();
@@ -8,19 +14,9 @@ export function parseAlarmScheduledAt(raw: string): Date {
     return new Date(NaN);
   }
 
-  let d = new Date(s);
-  if (!Number.isNaN(d.getTime())) {
-    return d;
-  }
-
-  const withT = s.includes(' ') && !s.includes('T') ? s.replace(' ', 'T') : s;
-  d = new Date(withT);
-  if (!Number.isNaN(d.getTime())) {
-    return d;
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(withT) && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(withT)) {
-    d = new Date(`${withT}Z`);
+  const candidates = [s, normalizePostgresTimestamptz(s)];
+  for (const candidate of candidates) {
+    const d = new Date(candidate);
     if (!Number.isNaN(d.getTime())) {
       return d;
     }
@@ -29,12 +25,36 @@ export function parseAlarmScheduledAt(raw: string): Date {
   return new Date(NaN);
 }
 
-/** ISO-8601 UTC string for POST/PATCH `scheduled_at`. */
+/** `+00` / `+0530` → `+00:00` / `+05:30`; space date → `T` only when needed. */
+function normalizePostgresTimestamptz(s: string): string {
+  let t = s.trim();
+  if (t.includes(' ') && !t.includes('T')) {
+    t = t.replace(' ', 'T');
+  }
+  if (/[+-]\d{2}$/.test(t)) {
+    t = `${t}:00`;
+  } else if (/[+-]\d{4}$/.test(t)) {
+    t = `${t.slice(0, -2)}:${t.slice(-2)}`;
+  }
+  return t;
+}
+
+/**
+ * Serialize alarm time for POST/PATCH `scheduled_at` (Supabase `timestamptz` habit).
+ * Uses UTC with `+00` offset, e.g. `2026-04-30 20:40:00+00`.
+ */
 export function alarmScheduledAtToApiIso(d: Date): string {
   if (Number.isNaN(d.getTime())) {
     throw new Error('Invalid alarm time. Tap the time to set it again.');
   }
-  return d.toISOString();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const y = d.getUTCFullYear();
+  const mo = pad(d.getUTCMonth() + 1);
+  const day = pad(d.getUTCDate());
+  const h = pad(d.getUTCHours());
+  const mi = pad(d.getUTCMinutes());
+  const sec = pad(d.getUTCSeconds());
+  return `${y}-${mo}-${day} ${h}:${mi}:${sec}+00`;
 }
 
 /**
@@ -48,11 +68,10 @@ export function mergeIosTimePickerHours(
 ): Date {
   const merged = new Date(base);
   let h = selectedHours;
-  const hour24 = base.getHours();
-  const isPm = hour24 >= 12;
-  if (isPm && h < 12) {
+  const { meridiem } = clockPartsFromDate(base);
+  if (meridiem === 'PM' && h < 12) {
     h += 12;
-  } else if (!isPm && h >= 12) {
+  } else if (meridiem === 'AM' && h >= 12) {
     h -= 12;
   }
   merged.setHours(h, selectedMinutes, 0, 0);

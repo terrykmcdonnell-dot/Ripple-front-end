@@ -1,3 +1,4 @@
+import { alarmScheduledAtToApiIso } from '@/lib/alarm-datetime';
 import type { AlarmListItem } from '@/lib/alarm-format';
 import { advanceAlarmOccurrence, nextCanonicalAlarmFire } from '@/lib/upcoming-reminder-scheduler';
 
@@ -36,5 +37,5 @@ export function computeScheduledAtAfterSkipNext(
   if (!next) {
     return null;
   }
-  return advanceAlarmOccurrence(next, baseline.interval, baseline.unit).toISOString();
+  return alarmScheduledAtToApiIso(advanceAlarmOccurrence(next, baseline.interval, baseline.unit));
 }
