@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -27,19 +27,20 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import { AppModal } from '@/components/ui/AppModal';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
+import { deleteAlarm, fetchAlarmById, patchAlarm } from '@/lib/alarm-api';
 import { categoryIdToChipKey, coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
-import { takeStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
+import {
+  clearStashedAlarmForEdit,
+  peekStashedAlarmForEditMatch,
+} from '@/lib/alarm-navigation-cache';
 import {
   computeScheduledAtAfterSkipNext,
   getNextOccurrenceForAlarmSchedule,
 } from '@/lib/alarm-skip-next';
-import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
-import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
+import { getAuthErrorDisplayText, notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
-import { fetchCurrentUserRowId } from '@/lib/users-table';
 import {
   type AlarmSoundId,
   coerceAlarmSoundId,
@@ -257,51 +258,51 @@ export default function AlarmEditScreen() {
     }
   }, [alarmIdOk, alarmIdParsed, alarmTime, interval, showToast, unit]);
 
-  const loadAlarmFromApi = useCallback(async () => {
-    if (!alarmIdOk) {
-      setLoading(false);
-      setError('Missing or invalid alarm id.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const { id: userId, error: userErr } = await fetchCurrentUserRowId();
-    if (userErr || userId == null) {
-      setLoading(false);
-      if (await shouldSkipAuthFailureAlerts()) {
-        return;
-      }
-      setError(userErr?.message ?? 'Could not resolve your profile.');
-      notifyAuthError('Edit Alarm', userErr ?? new Error('Missing user profile.'));
-      return;
-    }
-
-    try {
-      const alarm = await fetchAlarmForEdit(alarmIdParsed, userId);
-      if (!alarm) {
-        setError('Alarm not found.');
+  const loadAlarmFromApi = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!alarmIdOk) {
+        setLoading(false);
+        setError('Missing or invalid alarm id.');
         return;
       }
 
-      applyAlarmFieldsToForm({
-        scheduledAt: alarm.scheduledAt,
-        label: alarm.label,
-        interval: alarm.interval,
-        unit: alarm.unit,
-        categoryRef: alarm.categoryId,
-        sound: alarm.sound,
-        isEnabled: alarm.isEnabled,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load alarm.';
-      setError(msg);
-      notifyAuthError('Edit Alarm', e);
-    } finally {
-      setLoading(false);
-    }
-  }, [alarmIdOk, alarmIdParsed, applyAlarmFieldsToForm]);
+      const silent = options?.silent === true;
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
+
+      try {
+        const alarm = await fetchAlarmById(alarmIdParsed);
+        if (!alarm) {
+          if (!silent) {
+            setError('Alarm not found.');
+          }
+          return;
+        }
+
+        applyAlarmFieldsToForm({
+          scheduledAt: alarm.scheduledAt,
+          label: alarm.label,
+          interval: alarm.interval,
+          unit: alarm.unit,
+          categoryRef: alarm.category,
+          sound: alarm.sound,
+          isEnabled: alarm.isEnabled,
+        });
+      } catch (e) {
+        if (!silent) {
+          setError(getAuthErrorDisplayText(e));
+          notifyAuthError('Edit Alarm', e);
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [alarmIdOk, alarmIdParsed, applyAlarmFieldsToForm],
+  );
 
   useLayoutEffect(() => {
     if (!alarmIdOk) {
@@ -310,7 +311,7 @@ export default function AlarmEditScreen() {
       return;
     }
 
-    const stashed = takeStashedAlarmForEditMatch(alarmIdParsed);
+    const stashed = peekStashedAlarmForEditMatch(alarmIdParsed);
     if (stashed) {
       applyAlarmFieldsToForm({
         scheduledAt: stashed.scheduledAt,
@@ -322,13 +323,18 @@ export default function AlarmEditScreen() {
         isEnabled: stashed.isEnabled,
       });
       setLoading(false);
+      void loadAlarmFromApi({ silent: true });
       return;
     }
 
     void loadAlarmFromApi();
-    // Only react to route alarm id changes; loaders close over fresh callbacks on each edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- omit loadAlarmFromApi / apply to avoid redundant effect runs
-  }, [alarmIdOk, alarmIdParsed]);
+  }, [alarmIdOk, alarmIdParsed, applyAlarmFieldsToForm, loadAlarmFromApi]);
+
+  useEffect(() => {
+    return () => {
+      clearStashedAlarmForEdit();
+    };
+  }, []);
 
   return (
     <View style={styles.screen}>
@@ -379,7 +385,7 @@ export default function AlarmEditScreen() {
       ) : error ? (
         <View style={styles.centered}>
           <Text style={styles.errorBanner}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={() => void loadAlarmFromApi()}>
+          <Pressable style={styles.retryBtn} onPress={() => void loadAlarmFromApi({ silent: false })}>
             <Text style={styles.retryBtnText}>Retry</Text>
           </Pressable>
         </View>

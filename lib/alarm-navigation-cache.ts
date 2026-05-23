@@ -1,32 +1,19 @@
 import type { AlarmListItem } from '@/lib/alarm-format';
 
-/** Row tapped on the list — primary stash for edit hydration without another GET. */
-let stashPrimary: AlarmListItem | undefined;
-/**
- * Matches `stashPrimary` (React Strict Mode runs layout twice; consume once per copy).
- */
-let stashTwin: AlarmListItem | undefined;
+/** Row tapped on the list — hydrates edit without blocking on GET until unmount. */
+let stashForEdit: AlarmListItem | undefined;
 
 /** Call immediately before navigating to `/alarm-edit` with `?id=`. */
 export function stashAlarmForEdit(alarm: AlarmListItem): void {
-  stashPrimary = alarm;
-  stashTwin = alarm;
+  stashForEdit = alarm;
 }
 
-/**
- * If stash matches `id`, returns one copy for this hydration pass (`primary` then `twin`).
- * Opening a row from the list resets both slots via {@link stashAlarmForEdit}.
- */
-export function takeStashedAlarmForEditMatch(id: number): AlarmListItem | undefined {
-  if (stashPrimary?.id === id) {
-    const alarm = stashPrimary;
-    stashPrimary = undefined;
-    return alarm;
-  }
-  if (stashTwin?.id === id) {
-    const alarm = stashTwin;
-    stashTwin = undefined;
-    return alarm;
-  }
-  return undefined;
+/** Returns the stashed row when `id` matches (does not clear; safe for Strict Mode double effects). */
+export function peekStashedAlarmForEditMatch(id: number): AlarmListItem | undefined {
+  return stashForEdit?.id === id ? stashForEdit : undefined;
+}
+
+/** Clears stash when leaving the edit screen so a later open always re-stashes from the list. */
+export function clearStashedAlarmForEdit(): void {
+  stashForEdit = undefined;
 }

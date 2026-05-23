@@ -177,8 +177,34 @@ export async function fetchAlarms(userId: number): Promise<AlarmListItem[]> {
     .filter((row): row is AlarmListItem => row != null);
 }
 
-/** Single alarm for edit flow (resolved from user-scoped GET list until a dedicated GET-by-id exists). */
-export async function fetchAlarmForEdit(alarmId: number, userId: number): Promise<{
+/** GET /api/alarm/{alarm_id}/ — single alarm for edit / detail. */
+export async function fetchAlarmById(alarmId: number): Promise<AlarmListItem | null> {
+  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
+  const res = await rippleApiFetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (res.status === 404) {
+    return null;
+  }
+
+  if (!res.ok) {
+    let detail = '';
+    try {
+      detail = await res.text();
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail || `Could not load alarm (${res.status}).`);
+  }
+
+  const body = (await res.json()) as unknown;
+  return normalizeAlarmPayload(body);
+}
+
+/** Single alarm for edit flow (prefer {@link fetchAlarmById}). */
+export async function fetchAlarmForEdit(alarmId: number, _userId: number): Promise<{
   scheduledAt: string;
   label: string;
   interval: number;
@@ -188,8 +214,7 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
   sound?: string;
   isEnabled: boolean;
 } | null> {
-  const rows = await fetchAlarms(userId);
-  const row = rows.find((r) => r.id === alarmId);
+  const row = await fetchAlarmById(alarmId);
   if (!row) {
     return null;
   }
