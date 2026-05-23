@@ -6,6 +6,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { isAlarmPaletteDark, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { AppModal } from '@/components/ui/AppModal';
 import { SegmentButton } from '@/components/alarms-create/SegmentButton';
+import { mergeIosTimePickerHours } from '@/lib/alarm-datetime';
 import { clockPartsFromDate } from '@/lib/alarm-time';
 
 type AlarmTimePickRowProps = {
@@ -173,11 +174,10 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
   };
 
   const onIosPick = (_event: DateTimePickerEvent, selected?: Date) => {
-    if (selected) {
-      const merged = new Date(value);
-      merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
-      onChange(merged);
+    if (!selected) {
+      return;
     }
+    onChange(mergeIosTimePickerHours(value, selected.getHours(), selected.getMinutes()));
   };
 
   const pad2 = (n: number) => n.toString().padStart(2, '0');

@@ -4,6 +4,39 @@ import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
 
 const RIPPLE_FETCH_TIMEOUT_MS = 25_000;
 
+function formatRippleApiErrorBody(status: number, detail: string): string {
+  const trimmed = detail.trim();
+  if (!trimmed) {
+    return `Request failed (${status}).`;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (parsed && typeof parsed === 'object' && 'detail' in parsed) {
+      const d = (parsed as { detail: unknown }).detail;
+      if (typeof d === 'string' && d.trim()) {
+        return d.trim();
+      }
+      if (Array.isArray(d)) {
+        const parts = d
+          .map((item) => {
+            if (item && typeof item === 'object' && 'msg' in item) {
+              const msg = (item as { msg?: unknown }).msg;
+              return typeof msg === 'string' ? msg.trim() : '';
+            }
+            return '';
+          })
+          .filter(Boolean);
+        if (parts.length > 0) {
+          return parts.join(' ');
+        }
+      }
+    }
+  } catch {
+    /* plain text body */
+  }
+  return trimmed;
+}
+
 async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), RIPPLE_FETCH_TIMEOUT_MS);
@@ -116,7 +149,7 @@ export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Prom
   } catch {
     /* ignore */
   }
-  throw new Error(detail || `Could not update alarm (${res.status}).`);
+  throw new Error(formatRippleApiErrorBody(res.status, detail) || `Could not update alarm (${res.status}).`);
 }
 
 /** DELETE /api/alarm/{alarm_id}/ — remove alarm row on backend. */
@@ -177,34 +210,8 @@ export async function fetchAlarms(userId: number): Promise<AlarmListItem[]> {
     .filter((row): row is AlarmListItem => row != null);
 }
 
-/** GET /api/alarm/{alarm_id}/ — single alarm for edit / detail. */
-export async function fetchAlarmById(alarmId: number): Promise<AlarmListItem | null> {
-  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
-  const res = await rippleApiFetch(url, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  });
-
-  if (res.status === 404) {
-    return null;
-  }
-
-  if (!res.ok) {
-    let detail = '';
-    try {
-      detail = await res.text();
-    } catch {
-      /* ignore */
-    }
-    throw new Error(detail || `Could not load alarm (${res.status}).`);
-  }
-
-  const body = (await res.json()) as unknown;
-  return normalizeAlarmPayload(body);
-}
-
-/** Single alarm for edit flow (prefer {@link fetchAlarmById}). */
-export async function fetchAlarmForEdit(alarmId: number, _userId: number): Promise<{
+/** Single alarm for edit flow (resolved from user-scoped GET list until a dedicated GET-by-id exists). */
+export async function fetchAlarmForEdit(alarmId: number, userId: number): Promise<{
   scheduledAt: string;
   label: string;
   interval: number;
@@ -214,7 +221,8 @@ export async function fetchAlarmForEdit(alarmId: number, _userId: number): Promi
   sound?: string;
   isEnabled: boolean;
 } | null> {
-  const row = await fetchAlarmById(alarmId);
+  const rows = await fetchAlarms(userId);
+  const row = rows.find((r) => r.id === alarmId);
   if (!row) {
     return null;
   }

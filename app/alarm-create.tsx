@@ -14,6 +14,7 @@ import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { fetchAlarms, createAlarm } from '@/lib/alarm-api';
+import { alarmScheduledAtToApiIso } from '@/lib/alarm-datetime';
 import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
@@ -100,7 +101,7 @@ export default function AlarmCreateScreen() {
       await createAlarm({
         user_id: userId,
         label: labelValue,
-        scheduled_at: alarmTime.toISOString(),
+        scheduled_at: alarmScheduledAtToApiIso(alarmTime),
         interval,
         unit,
         category: categoryLabel,

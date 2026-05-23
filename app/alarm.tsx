@@ -22,6 +22,7 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { fetchAlarms, patchAlarm } from '@/lib/alarm-api';
+import { parseAlarmScheduledAt } from '@/lib/alarm-datetime';
 import {
   formatRepeatEveryTag,
   formatScheduledLocalParts,
@@ -173,8 +174,8 @@ export default function AlarmScreen() {
       if (a.isEnabled !== b.isEnabled) {
         return a.isEnabled ? -1 : 1;
       }
-      const aSched = new Date(a.scheduledAt).getTime();
-      const bSched = new Date(b.scheduledAt).getTime();
+      const aSched = parseAlarmScheduledAt(a.scheduledAt).getTime();
+      const bSched = parseAlarmScheduledAt(b.scheduledAt).getTime();
       if (aSched !== bSched) {
         return aSched - bSched;
       }
