@@ -3,42 +3,55 @@ import { Platform } from 'react-native';
 import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
 
 const RIPPLE_FETCH_TIMEOUT_MS = 25_000;
+const RIPPLE_WRITE_TIMEOUT_MS = 45_000;
 
-async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
+function throwRippleFetchError(err: unknown, timeoutMs: number): never {
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ?? '';
+  const msg = err instanceof Error ? err.message : String(err);
+  const isAbort =
+    err instanceof Error &&
+    (err.name === 'AbortError' || msg === 'Aborted' || msg.toLowerCase().includes('aborted'));
+  if (isAbort) {
+    throw new Error(
+      `Ripple API timed out after ${timeoutMs / 1000}s. Check ${base || 'EXPO_PUBLIC_API_BASE_URL'} is reachable on this network.`,
+    );
+  }
+  if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
+    let detail =
+      'Could not reach the Ripple API (no response). Check Wi‑Fi/cellular, VPN, firewall, and that the server is running.';
+    if (Platform.OS !== 'web' && /localhost|127\.0\.0\.1/i.test(base)) {
+      detail +=
+        ' On a physical phone, localhost is the phone itself — use your PC’s LAN IP (e.g. http://192.168.1.10:8000). On Android emulator, try http://10.0.2.2:8000 for the host machine.';
+    } else if (Platform.OS === 'ios' && /^http:/i.test(base)) {
+      detail +=
+        ' iOS can block plain HTTP unless App Transport Security allows it in the native build; use HTTPS for TestFlight/production or rebuild the app after changing app.json.';
+    } else if (Platform.OS === 'android' && /^http:/i.test(base)) {
+      detail +=
+        ' Plain HTTP on Android may be blocked in release builds; prefer HTTPS or a dev client debug build with cleartext allowed.';
+    }
+    throw new Error(`${detail} (${msg})`);
+  }
+  throw err;
+}
+
+async function rippleTimedFetch(
+  url: string,
+  init?: RequestInit,
+  timeoutMs: number = RIPPLE_FETCH_TIMEOUT_MS,
+): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), RIPPLE_FETCH_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (err: unknown) {
-    const base = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ?? '';
-    const msg = err instanceof Error ? err.message : String(err);
-    const isAbort =
-      err instanceof Error &&
-      (err.name === 'AbortError' || msg === 'Aborted' || msg.toLowerCase().includes('aborted'));
-    if (isAbort) {
-      throw new Error(
-        `Ripple API timed out after ${RIPPLE_FETCH_TIMEOUT_MS / 1000}s. Check ${base || 'EXPO_PUBLIC_API_BASE_URL'} is reachable on this network.`,
-      );
-    }
-    if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
-      let detail =
-        'Could not reach the Ripple API (no response). Check Wi‑Fi/cellular, VPN, firewall, and that the server is running.';
-      if (Platform.OS !== 'web' && /localhost|127\.0\.0\.1/i.test(base)) {
-        detail +=
-          ' On a physical phone, localhost is the phone itself — use your PC’s LAN IP (e.g. http://192.168.1.10:8000). On Android emulator, try http://10.0.2.2:8000 for the host machine.';
-      } else if (Platform.OS === 'ios' && /^http:/i.test(base)) {
-        detail +=
-          ' iOS can block plain HTTP unless App Transport Security allows it in the native build; use HTTPS for TestFlight/production or rebuild the app after changing app.json.';
-      } else if (Platform.OS === 'android' && /^http:/i.test(base)) {
-        detail +=
-          ' Plain HTTP on Android may be blocked in release builds; prefer HTTPS or a dev client debug build with cleartext allowed.';
-      }
-      throw new Error(`${detail} (${msg})`);
-    }
-    throw err;
+    throwRippleFetchError(err, timeoutMs);
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
+  return rippleTimedFetch(url, init, RIPPLE_FETCH_TIMEOUT_MS);
 }
 
 export type CreateAlarmPayload = {
@@ -99,17 +112,21 @@ export type AlarmPatchPayload = {
   is_enabled?: boolean;
 };
 
-/** PATCH /api/alarm/{alarm_id}/ — partial update (alarm list toggle or edit-screen save). */
+/** POST /api/alarm/{alarm_id}/update — same body as PATCH; avoids proxies/WAFs that stall PATCH. */
 export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Promise<void> {
-  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
-  const res = await rippleApiFetch(url, {
-    method: 'PATCH',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
+  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/update`;
+  const res = await rippleTimedFetch(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    RIPPLE_WRITE_TIMEOUT_MS,
+  );
   if (res.ok) {
     return;
   }
@@ -119,7 +136,11 @@ export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Prom
   } catch {
     /* ignore */
   }
-  throw new Error(detail || `Could not update alarm (${res.status}).`);
+  throw new Error(
+    detail
+      ? `Alarm update failed (${res.status}): ${detail}`
+      : `Could not update alarm (${res.status}).`,
+  );
 }
 
 /** DELETE /api/alarm/{alarm_id}/ — remove alarm row on backend. */
@@ -180,7 +201,7 @@ export async function fetchAlarms(userId: number): Promise<AlarmListItem[]> {
     .filter((row): row is AlarmListItem => row != null);
 }
 
-/** Single alarm for edit flow (resolved from user-scoped GET list until a dedicated GET-by-id exists). */
+/** Single alarm for edit flow (GET by id; scoped to the signed-in user). */
 export async function fetchAlarmForEdit(alarmId: number, userId: number): Promise<{
   scheduledAt: string;
   label: string;
@@ -191,8 +212,29 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
   sound?: string;
   isEnabled: boolean;
 } | null> {
-  const rows = await fetchAlarms(userId);
-  const row = rows.find((r) => r.id === alarmId);
+  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}`;
+  const res = await rippleApiFetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    let detail = '';
+    try {
+      detail = await res.text();
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail || `Could not load alarm (${res.status}).`);
+  }
+  const body = (await res.json()) as Record<string, unknown>;
+  const ownerId = body.user_id ?? body.userId;
+  if (Number(ownerId) !== userId) {
+    return null;
+  }
+  const row = normalizeAlarmPayload(body);
   if (!row) {
     return null;
   }
