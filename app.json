@@ -13,7 +13,10 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.terrykm.ripplealarm",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {

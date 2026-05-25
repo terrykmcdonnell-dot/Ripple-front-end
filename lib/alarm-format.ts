@@ -1,6 +1,5 @@
 import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
 import { alarmThemes, type AlarmThemePalette, type AlarmTone } from '@/components/alarms/theme';
-import { parseAlarmScheduledAt } from '@/lib/alarm-datetime';
 
 /** Parsed row from GET /api/alarm/ (handles snake_case or camelCase from the API). */
 export type AlarmListItem = {
@@ -144,7 +143,7 @@ export function categoryIdToChipKey(categoryRef: unknown): CategoryChipKey {
 
 /** 12-hour time parts in the device’s local timezone. */
 export function formatScheduledLocalParts(isoUtc: string): { time: string; ampm: 'AM' | 'PM' } {
-  const d = parseAlarmScheduledAt(isoUtc);
+  const d = new Date(isoUtc);
   if (Number.isNaN(d.getTime())) {
     return { time: '—', ampm: 'AM' };
   }

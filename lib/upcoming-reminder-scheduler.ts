@@ -15,7 +15,6 @@ import { Platform } from 'react-native';
 
 import { fetchAlarms } from '@/lib/alarm-api';
 import type { AlarmListItem } from '@/lib/alarm-format';
-import { parseAlarmScheduledAt } from '@/lib/alarm-datetime';
 import { coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
@@ -81,7 +80,7 @@ export function advanceAlarmOccurrence(from: Date, interval: number, unitRaw: st
 
 /** Next repeat instant that is >= `from` (exported for alarm-fire scheduling). */
 export function nextCanonicalAlarmFire(alarm: AlarmListItem, from: Date): Date | null {
-  let t = parseAlarmScheduledAt(alarm.scheduledAt);
+  let t = new Date(alarm.scheduledAt);
   if (Number.isNaN(t.getTime())) {
     return null;
   }

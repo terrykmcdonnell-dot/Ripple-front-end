@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   InteractionManager,
@@ -37,6 +37,8 @@ import {
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import Purchases from 'react-native-purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
+
+const PRO_PLAN_FEATURES = ['Unlimited alarms — no cap, ever', 'Premium themes'] as const;
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -280,6 +282,8 @@ export default function PaywallScreen() {
   }, [managementURL]);
 
   const [plan, setPlan] = useState<PricingPlan>('annual');
+  /** When true, do not overwrite `plan` from subscription sync (user tapped Annual / Monthly). */
+  const userPickedPlanRef = useRef(false);
   const [monthlyPkg, setMonthlyPkg] = useState<PurchasesPackage | undefined>();
   const [annualPkg, setAnnualPkg] = useState<PurchasesPackage | undefined>();
   const [loadingOfferings, setLoadingOfferings] = useState(Platform.OS !== 'web');
@@ -309,8 +313,13 @@ export default function PaywallScreen() {
     );
   }, [displayedPremiumPlan, plan, customerInfo, selectedPackage]);
 
+  const selectPlan = useCallback((next: PricingPlan) => {
+    userPickedPlanRef.current = true;
+    setPlan(next);
+  }, []);
+
   useEffect(() => {
-    if (!isSubscriber || loadingOfferings || loadError) {
+    if (!isSubscriber || loadingOfferings || userPickedPlanRef.current) {
       return;
     }
     const resolved = resolveDisplayedPremiumPlan(customerInfo, dbRow);
@@ -341,7 +350,7 @@ export default function PaywallScreen() {
     } else if (derived === 'monthly') {
       setPlan('monthly');
     }
-  }, [isSubscriber, customerInfo, dbRow, monthlyPkg, annualPkg, loadingOfferings, loadError]);
+  }, [isSubscriber, customerInfo, dbRow, monthlyPkg, annualPkg, loadingOfferings]);
 
   const navigateAfterSubscriptionSuccess = useCallback(() => {
     if (router.canGoBack()) {
@@ -412,6 +421,7 @@ export default function PaywallScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      userPickedPlanRef.current = false;
       invalidateSubscriptionCache();
       void loadOfferings();
     }, [loadOfferings]),
@@ -565,11 +575,9 @@ export default function PaywallScreen() {
           <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>Included with your plan:</Text>
 
           <View style={[styles.features, { marginBottom: 16 }]}>
-            <FeatureRow text="Unlimited alarms — no cap, ever" />
-            <FeatureRow text="Home screen widget (iOS + Android)" />
-            <FeatureRow text="iCloud & Google sync across devices" />
-            <FeatureRow text="Premium themes" />
-            <FeatureRow text="Template gallery access" />
+            {PRO_PLAN_FEATURES.map((text) => (
+              <FeatureRow key={text} text={text} />
+            ))}
           </View>
 
           {loadingOfferings ? (
@@ -590,10 +598,10 @@ export default function PaywallScreen() {
 
           <PricingToggle
             selected={plan}
-            onSelect={setPlan}
+            onSelect={selectPlan}
             annualPriceLabel={annualPriceLabel}
             monthlyPriceLabel={monthlyPriceLabel}
-            disabled={loadingOfferings || !!loadError || purchasing}
+            disabled={loadingOfferings || purchasing}
           />
 
           <Pressable
@@ -663,16 +671,14 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, cloud sync, widgets and more — billed through {Platform.OS === 'ios' ? 'Apple' : 'Google'} via
+          Unlimited alarms, premium themes, and more — billed through {Platform.OS === 'ios' ? 'Apple' : 'Google'} via
           RevenueCat.
         </Text>
 
         <View style={styles.features}>
-          <FeatureRow text="Unlimited alarms — no cap, ever" />
-          <FeatureRow text="Home screen widget (iOS + Android)" />
-          <FeatureRow text="iCloud & Google sync across devices" />
-          <FeatureRow text="Premium themes" />
-          <FeatureRow text="Template gallery access" />
+          {PRO_PLAN_FEATURES.map((text) => (
+            <FeatureRow key={text} text={text} />
+          ))}
         </View>
 
         {loadingOfferings ? (
@@ -693,10 +699,10 @@ export default function PaywallScreen() {
 
         <PricingToggle
           selected={plan}
-          onSelect={setPlan}
+          onSelect={selectPlan}
           annualPriceLabel={annualPriceLabel}
           monthlyPriceLabel={monthlyPriceLabel}
-          disabled={loadingOfferings || !!loadError || restoring}
+          disabled={loadingOfferings || restoring}
         />
 
         <Pressable disabled={!canPurchase || purchasing || restoring} onPress={() => void onSubscribe()}>

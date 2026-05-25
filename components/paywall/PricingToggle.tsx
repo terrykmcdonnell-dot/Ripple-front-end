@@ -36,6 +36,8 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       paddingVertical: 11,
       paddingHorizontal: 10,
       alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 52,
     },
     optionActive: {
       backgroundColor: alarmTheme.accent,
@@ -85,18 +87,27 @@ export function PricingToggle({
   const monthlyLine = monthlyPriceLabel?.trim() ? `${monthlyPriceLabel} / month` : '$1.99 / month';
 
   return (
-    <View style={[styles.wrap, disabled ? styles.wrapDisabled : null]}>
+    <View style={[styles.wrap, disabled ? styles.wrapDisabled : null]} pointerEvents={disabled ? 'none' : 'auto'}>
       <Pressable
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityState={{ selected: selected === 'annual' }}
+        hitSlop={8}
         style={[styles.option, selected === 'annual' ? styles.optionActive : null]}
         onPress={() => onSelect('annual')}>
-        <Text style={[styles.name, selected === 'annual' ? styles.activeText : null]}>
-          Annual <Text style={styles.saveBadge}>SAVE 58%</Text>
-        </Text>
-        <Text style={[styles.price, selected === 'annual' ? styles.activeText : null]}>{annualLine}</Text>
+        <View style={{ alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Text style={[styles.name, selected === 'annual' ? styles.activeText : null]}>Annual</Text>
+            <Text style={styles.saveBadge}>SAVE 58%</Text>
+          </View>
+          <Text style={[styles.price, selected === 'annual' ? styles.activeText : null]}>{annualLine}</Text>
+        </View>
       </Pressable>
       <Pressable
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityState={{ selected: selected === 'monthly' }}
+        hitSlop={8}
         style={[styles.option, selected === 'monthly' ? styles.optionActive : null]}
         onPress={() => onSelect('monthly')}>
         <Text style={[styles.name, selected === 'monthly' ? styles.activeText : null]}>Monthly</Text>

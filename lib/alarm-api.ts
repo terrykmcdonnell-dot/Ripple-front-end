@@ -4,39 +4,6 @@ import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
 
 const RIPPLE_FETCH_TIMEOUT_MS = 25_000;
 
-function formatRippleApiErrorBody(status: number, detail: string): string {
-  const trimmed = detail.trim();
-  if (!trimmed) {
-    return `Request failed (${status}).`;
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (parsed && typeof parsed === 'object' && 'detail' in parsed) {
-      const d = (parsed as { detail: unknown }).detail;
-      if (typeof d === 'string' && d.trim()) {
-        return d.trim();
-      }
-      if (Array.isArray(d)) {
-        const parts = d
-          .map((item) => {
-            if (item && typeof item === 'object' && 'msg' in item) {
-              const msg = (item as { msg?: unknown }).msg;
-              return typeof msg === 'string' ? msg.trim() : '';
-            }
-            return '';
-          })
-          .filter(Boolean);
-        if (parts.length > 0) {
-          return parts.join(' ');
-        }
-      }
-    }
-  } catch {
-    /* plain text body */
-  }
-  return trimmed;
-}
-
 async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), RIPPLE_FETCH_TIMEOUT_MS);
@@ -53,13 +20,15 @@ async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response
         `Ripple API timed out after ${RIPPLE_FETCH_TIMEOUT_MS / 1000}s. Check ${base || 'EXPO_PUBLIC_API_BASE_URL'} is reachable on this network.`,
       );
     }
-    const lowerMsg = msg.toLowerCase();
-    if (lowerMsg.includes('network request failed') || lowerMsg.includes('failed to fetch')) {
+    if (msg.includes('Network request failed') || msg.includes('Failed to fetch')) {
       let detail =
         'Could not reach the Ripple API (no response). Check Wi‑Fi/cellular, VPN, firewall, and that the server is running.';
       if (Platform.OS !== 'web' && /localhost|127\.0\.0\.1/i.test(base)) {
         detail +=
           ' On a physical phone, localhost is the phone itself — use your PC’s LAN IP (e.g. http://192.168.1.10:8000). On Android emulator, try http://10.0.2.2:8000 for the host machine.';
+      } else if (Platform.OS === 'ios' && /^http:/i.test(base)) {
+        detail +=
+          ' iOS can block plain HTTP unless App Transport Security allows it in the native build; use HTTPS for TestFlight/production or rebuild the app after changing app.json.';
       } else if (Platform.OS === 'android' && /^http:/i.test(base)) {
         detail +=
           ' Plain HTTP on Android may be blocked in release builds; prefer HTTPS or a dev client debug build with cleartext allowed.';
@@ -130,9 +99,9 @@ export type AlarmPatchPayload = {
   is_enabled?: boolean;
 };
 
-/** PATCH /api/alarm/{alarm_id} — no trailing slash (nginx 307 on `/id/` breaks iOS PATCH). */
+/** PATCH /api/alarm/{alarm_id}/ — partial update (alarm list toggle or edit-screen save). */
 export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Promise<void> {
-  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}`;
+  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
   const res = await rippleApiFetch(url, {
     method: 'PATCH',
     headers: {
@@ -150,13 +119,12 @@ export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Prom
   } catch {
     /* ignore */
   }
-  const text = formatRippleApiErrorBody(res.status, detail) || `Could not update alarm (${res.status}).`;
-  throw new Error(`Alarm update failed (${res.status}): ${text}`);
+  throw new Error(detail || `Could not update alarm (${res.status}).`);
 }
 
-/** DELETE /api/alarm/{alarm_id} — no trailing slash (same nginx/iOS PATCH issue). */
+/** DELETE /api/alarm/{alarm_id}/ — remove alarm row on backend. */
 export async function deleteAlarm(alarmId: number): Promise<void> {
-  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}`;
+  const url = `${rippleApiBaseUrl()}/api/alarm/${alarmId}/`;
   const res = await rippleApiFetch(url, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },

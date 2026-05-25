@@ -14,7 +14,7 @@ import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { fetchAlarms, createAlarm } from '@/lib/alarm-api';
-import { alarmScheduledAtToApiIso } from '@/lib/alarm-datetime';
+import { toAlarmIsoString } from '@/lib/alarm-date';
 import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
@@ -75,6 +75,11 @@ export default function AlarmCreateScreen() {
       notifyAuthMessage('New Alarm', 'Enter a label for this alarm.');
       return;
     }
+    const scheduledAtIso = toAlarmIsoString(alarmTime);
+    if (!scheduledAtIso) {
+      notifyAuthMessage('New Alarm', 'Choose a valid alarm time.');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -101,7 +106,7 @@ export default function AlarmCreateScreen() {
       await createAlarm({
         user_id: userId,
         label: labelValue,
-        scheduled_at: alarmScheduledAtToApiIso(alarmTime),
+        scheduled_at: scheduledAtIso,
         interval,
         unit,
         category: categoryLabel,

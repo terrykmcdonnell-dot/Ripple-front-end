@@ -28,9 +28,9 @@ import { AppModal } from '@/components/ui/AppModal';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
+import { parseAlarmDate, toAlarmIsoString } from '@/lib/alarm-date';
 import { categoryIdToChipKey, coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
-import { peekStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
-import { alarmScheduledAtToApiIso, parseAlarmScheduledAt } from '@/lib/alarm-datetime';
+import { takeStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
 import {
   computeScheduledAtAfterSkipNext,
   getNextOccurrenceForAlarmSchedule,
@@ -102,8 +102,7 @@ export default function AlarmEditScreen() {
       sound?: string;
       isEnabled?: boolean;
     }) => {
-      const d = parseAlarmScheduledAt(payload.scheduledAt);
-      setAlarmTime(Number.isNaN(d.getTime()) ? new Date() : d);
+      setAlarmTime(parseAlarmDate(payload.scheduledAt) ?? new Date());
       setLabel(payload.label);
       setInterval(payload.interval > 0 ? payload.interval : 1);
       setUnit(coerceAlarmUnit(payload.unit));
@@ -117,7 +116,7 @@ export default function AlarmEditScreen() {
 
   const skipScheduleFromForm = useMemo(
     () => ({
-      scheduledAt: alarmScheduledAtToApiIso(alarmTime),
+      scheduledAt: alarmTime.toISOString(),
       interval: interval > 0 ? interval : 1,
       unit,
     }),
@@ -150,8 +149,9 @@ export default function AlarmEditScreen() {
     if (!alarmIdOk || isSkipping) {
       return;
     }
-    if (Number.isNaN(alarmTime.getTime())) {
-      notifyAuthMessage('Edit Alarm', 'Invalid alarm time. Tap the time to set it again.');
+    const scheduledAtIso = toAlarmIsoString(alarmTime);
+    if (!scheduledAtIso) {
+      notifyAuthMessage('Edit Alarm', 'Choose a valid alarm time.');
       return;
     }
 
@@ -160,7 +160,7 @@ export default function AlarmEditScreen() {
       const categoryLabel = categories.find((item) => item.key === category)?.label ?? 'Health';
       await patchAlarm(alarmIdParsed, {
         label: labelValue,
-        scheduled_at: alarmScheduledAtToApiIso(alarmTime),
+        scheduled_at: scheduledAtIso,
         interval,
         unit,
         category: categoryLabel,
@@ -230,7 +230,7 @@ export default function AlarmEditScreen() {
       return;
     }
     const baseline = {
-      scheduledAt: alarmScheduledAtToApiIso(alarmTime),
+      scheduledAt: toAlarmIsoString(alarmTime) ?? new Date().toISOString(),
       interval: interval > 0 ? interval : 1,
       unit,
     };
@@ -315,7 +315,7 @@ export default function AlarmEditScreen() {
       return;
     }
 
-    const stashed = peekStashedAlarmForEditMatch(alarmIdParsed);
+    const stashed = takeStashedAlarmForEditMatch(alarmIdParsed);
     if (stashed) {
       applyAlarmFieldsToForm({
         scheduledAt: stashed.scheduledAt,
