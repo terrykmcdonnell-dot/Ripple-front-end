@@ -14,7 +14,6 @@ import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { fetchAlarms, createAlarm } from '@/lib/alarm-api';
-import { toAlarmIsoString } from '@/lib/alarm-date';
 import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
@@ -28,6 +27,7 @@ import {
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 import { canAddAlarmFresh, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
+import { isScreenshotMode } from '@/lib/screenshot-mode';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
@@ -67,17 +67,25 @@ export default function AlarmCreateScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isScreenshotMode()) {
+      return;
+    }
+    setLabel('Take Medication');
+    setInterval(3);
+    setUnit('Days');
+    setCategory('health');
+    const t = new Date();
+    t.setHours(7, 0, 0, 0);
+    setAlarmTime(t);
+  }, []);
+
   const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);
 
   const handleSave = async () => {
     const labelValue = label.trim();
     if (!labelValue) {
       notifyAuthMessage('New Alarm', 'Enter a label for this alarm.');
-      return;
-    }
-    const scheduledAtIso = toAlarmIsoString(alarmTime);
-    if (!scheduledAtIso) {
-      notifyAuthMessage('New Alarm', 'Choose a valid alarm time.');
       return;
     }
 
@@ -106,7 +114,7 @@ export default function AlarmCreateScreen() {
       await createAlarm({
         user_id: userId,
         label: labelValue,
-        scheduled_at: scheduledAtIso,
+        scheduled_at: alarmTime.toISOString(),
         interval,
         unit,
         category: categoryLabel,

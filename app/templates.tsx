@@ -19,6 +19,7 @@ import { installTemplatePack, uninstallTemplatePack } from '@/lib/install-templa
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { TEMPLATE_PACK_DEFINITIONS, type TemplatePackDefinition, type TemplatePackId } from '@/lib/template-packs-data';
 import { getAllPackAlarmIds, reconcilePackAlarmIdsWithServer } from '@/lib/template-packs-storage';
+import { isScreenshotMode } from '@/lib/screenshot-mode';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const categories = [
@@ -130,6 +131,11 @@ export default function TemplatesScreen() {
   const refreshPackState = useCallback(async () => {
     setPackStateLoading(true);
     try {
+      if (isScreenshotMode()) {
+        setPackAlarmIds({});
+        return;
+      }
+
       const { id: userId, error } = await fetchCurrentUserRowId();
       if (error || userId == null) {
         setPackAlarmIds(await getAllPackAlarmIds());

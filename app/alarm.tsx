@@ -40,6 +40,8 @@ import {
 } from '@/lib/upcoming-reminder-scheduler';
 import { canAddAlarm, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
+import { isScreenshotMode } from '@/lib/screenshot-mode';
+import { SCREENSHOT_MOCK_ALARMS } from '@/lib/screenshot-mock-data';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 function formatDeviceClock(now: Date): { time: string; ampm: 'AM' | 'PM' } {
@@ -189,6 +191,14 @@ export default function AlarmScreen() {
     const silent = opts?.silent === true;
     if (!silent) {
       setListError(null);
+    }
+
+    if (isScreenshotMode()) {
+      setAlarms(SCREENSHOT_MOCK_ALARMS);
+      setListError(null);
+      setInitialLoad(false);
+      setRefreshing(false);
+      return;
     }
 
     const { id: userId, error: userErr } = await fetchCurrentUserRowId();

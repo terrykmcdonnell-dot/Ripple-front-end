@@ -21,7 +21,7 @@ function throwRippleFetchError(err: unknown, timeoutMs: number): never {
       'Could not reach the Ripple API (no response). Check Wi‑Fi/cellular, VPN, firewall, and that the server is running.';
     if (Platform.OS !== 'web' && /localhost|127\.0\.0\.1/i.test(base)) {
       detail +=
-        ' On a physical phone, localhost is the phone itself — use your PC’s LAN IP (e.g. http://192.168.1.10:8000). On Android emulator, try http://10.0.2.2:8000 for the host machine.';
+        ' On a physical phone, localhost is the phone itself — use your PC’s LAN IP (e.g. http://192.168.1.10:8001). On Android emulator, try http://10.0.2.2:8001 for the host machine.';
     } else if (Platform.OS === 'ios' && /^http:/i.test(base)) {
       detail +=
         ' iOS can block plain HTTP unless App Transport Security allows it in the native build; use HTTPS for TestFlight/production or rebuild the app after changing app.json.';
@@ -70,7 +70,7 @@ export function rippleApiBaseUrl(): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (!base) {
     throw new Error(
-      'EXPO_PUBLIC_API_BASE_URL is not set. Use your backend origin (e.g. http://localhost:8000). On an Android emulator, http://10.0.2.2:8000 often maps to the host machine.',
+      'EXPO_PUBLIC_API_BASE_URL is not set. Use your backend origin (e.g. http://localhost:8001). On an Android emulator, http://10.0.2.2:8001 often maps to the host machine.',
     );
   }
   return base.replace(/\/$/, '');
