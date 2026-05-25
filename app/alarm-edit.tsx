@@ -30,7 +30,7 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
 import { parseAlarmDate, toAlarmIsoString } from '@/lib/alarm-date';
 import { categoryIdToChipKey, coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
-import { takeStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
+import { peekStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
 import {
   computeScheduledAtAfterSkipNext,
   getNextOccurrenceForAlarmSchedule,
@@ -315,7 +315,7 @@ export default function AlarmEditScreen() {
       return;
     }
 
-    const stashed = takeStashedAlarmForEditMatch(alarmIdParsed);
+    const stashed = peekStashedAlarmForEditMatch(alarmIdParsed);
     if (stashed) {
       applyAlarmFieldsToForm({
         scheduledAt: stashed.scheduledAt,

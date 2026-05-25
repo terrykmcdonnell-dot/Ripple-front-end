@@ -13,6 +13,9 @@ export function peekStashedAlarmForEditMatch(id: number): AlarmListItem | undefi
   return stashForEdit?.id === id ? stashForEdit : undefined;
 }
 
+/** @deprecated Use {@link peekStashedAlarmForEditMatch}. */
+export const takeStashedAlarmForEditMatch = peekStashedAlarmForEditMatch;
+
 /** Clears stash when leaving the edit screen so a later open always re-stashes from the list. */
 export function clearStashedAlarmForEdit(): void {
   stashForEdit = undefined;
