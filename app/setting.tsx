@@ -5,8 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Purchases from 'react-native-purchases';
 
 import { settingsIcons } from '@/assets/icons/settings-icons';
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
@@ -63,6 +64,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { AppModal } from '@/components/ui/AppModal';
 import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings, type UserSettingsDbRow } from '@/lib/sync-user-settings-db';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
@@ -70,6 +72,8 @@ import { applyAlarmVolumePreferenceToDevice } from '@/lib/alarm-system-volume';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 import { openAndroidNotificationPolicyAccessSettings } from '@/lib/open-android-notification-policy-access-settings';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
+import { closeAccount } from '@/lib/close-account-api';
+import { clearLocalAccountData } from '@/lib/clear-local-account-data';
 
 export default function SettingScreen() {
   useRequireAuth();
@@ -99,6 +103,8 @@ export default function SettingScreen() {
   const [upcomingLeadMinutes, setUpcomingLeadMinutes] = useState(60);
   const [theme, setTheme] = useState<AppThemePreference>('Dark');
   const [signingOut, setSigningOut] = useState(false);
+  const [closeConfirmVisible, setCloseConfirmVisible] = useState(false);
+  const [closingAccount, setClosingAccount] = useState(false);
   const [defaultSnoozeMinutes, setDefaultSnoozeMinutes] = useState(10);
   const [snoozePickerOpen, setSnoozePickerOpen] = useState(false);
   const [defaultSoundId, setDefaultSoundId] = useState<AlarmSoundId>('gentle-rise');
@@ -340,7 +346,7 @@ export default function SettingScreen() {
   }
 
   const onSignOut = async () => {
-    if (signingOut) {
+    if (signingOut || closingAccount) {
       return;
     }
     setSigningOut(true);
@@ -352,6 +358,26 @@ export default function SettingScreen() {
       return;
     }
     /** Navigation: `useRequireAuth` + `replaceWithSignInIfNeeded` (deduped). */
+  };
+
+  const onCloseAccount = async () => {
+    if (closingAccount || signingOut) {
+      return;
+    }
+    setClosingAccount(true);
+    try {
+      await closeAccount();
+      await clearLocalAccountData();
+      if (Platform.OS !== 'web') {
+        await Purchases.logOut().catch(() => undefined);
+      }
+      await supabase.auth.signOut({ scope: 'local' });
+      setCloseConfirmVisible(false);
+    } catch (e) {
+      notifyAuthError('Close account', e);
+    } finally {
+      setClosingAccount(false);
+    }
   };
 
   return (
@@ -565,6 +591,13 @@ export default function SettingScreen() {
             title={signingOut ? 'Signing out...' : 'Sign out'}
             titleColor={palette.red}
             onPress={() => void onSignOut()}
+          />
+          <SettingsRow
+            icon={settingsIcons.closeAccount}
+            title={closingAccount ? 'Closing account...' : 'Close account'}
+            value="Permanently delete your alarms, history, and sign-in"
+            titleColor={palette.red}
+            onPress={() => !closingAccount && !signingOut && setCloseConfirmVisible(true)}
             noBorder
           />
         </SettingsGroup>
@@ -619,6 +652,41 @@ export default function SettingScreen() {
         formatOptionLabel={formatUpcomingReminderLeadLabel}
       />
 
+      <AppModal
+        transparent
+        animationType="fade"
+        visible={closeConfirmVisible}
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+        onRequestClose={() => !closingAccount && setCloseConfirmVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Close account?</Text>
+            <Text style={styles.modalBody}>
+              This permanently deletes your Ripple account, alarms, and history from our servers. This cannot be
+              undone.
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                disabled={closingAccount}
+                onPress={() => !closingAccount && setCloseConfirmVisible(false)}>
+                <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalBtn, styles.modalBtnDanger]}
+                disabled={closingAccount}
+                onPress={() => void onCloseAccount()}>
+                {closingAccount ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalBtnDangerText}>Close account</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </AppModal>
+
       <BottomNavbar
         items={[
           { icon: settingsIcons.alarms, label: 'Alarms', onPress: () => router.push('/alarm') },
@@ -627,7 +695,7 @@ export default function SettingScreen() {
           { icon: settingsIcons.settings, label: 'Settings', active: true, onPress: () => router.push('/setting') },
         ]}
       />
-      <FullScreenLoadingOverlay visible={signingOut} />
+      <FullScreenLoadingOverlay visible={signingOut || closingAccount} />
     </View>
   );
 }
@@ -773,6 +841,67 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
   },
   themeOptionTextLocked: {
     color: alarmTheme.muted,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: alarmTheme.surface,
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: alarmTheme.border,
+  },
+  modalTitle: {
+    color: alarmTheme.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  modalBody: {
+    color: alarmTheme.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+  },
+  modalBtn: {
+    minWidth: 96,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 42,
+  },
+  modalBtnSecondary: {
+    backgroundColor: alarmTheme.surface2,
+    borderWidth: 1,
+    borderColor: alarmTheme.border,
+  },
+  modalBtnSecondaryText: {
+    color: alarmTheme.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalBtnDanger: {
+    backgroundColor: '#dc2626',
+  },
+  modalBtnDangerText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 }

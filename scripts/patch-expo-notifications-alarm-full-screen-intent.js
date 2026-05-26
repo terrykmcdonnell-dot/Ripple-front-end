@@ -39,7 +39,7 @@ ${BLOCK_V4}
     if (notificationContent.containsImage()) {`;
   s = s.replace(INSERT_NEEDLE, replacement);
   fs.writeFileSync(file, s, 'utf8');
-  console.log('[patch-expo-fsi] Applied alarm full-screen intent patch (v4).');
+  console.log('[patch-expo-fsi] Applied alarm full-screen intent patch (v5).');
 }
 
 applyFullScreenIntentPatch(path.join(__dirname, '..'));

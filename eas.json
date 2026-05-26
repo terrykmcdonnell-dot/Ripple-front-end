@@ -12,9 +12,6 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "env": {
-        "EXPO_PUBLIC_SCREENSHOT_MODE": "1"
-      },
       "android": {
         "buildType": "apk"
       },

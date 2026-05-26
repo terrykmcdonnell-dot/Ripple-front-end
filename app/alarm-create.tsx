@@ -27,7 +27,6 @@ import {
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 import { canAddAlarmFresh, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
-import { isScreenshotMode } from '@/lib/screenshot-mode';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
@@ -65,19 +64,6 @@ export default function AlarmCreateScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!isScreenshotMode()) {
-      return;
-    }
-    setLabel('Take Medication');
-    setInterval(3);
-    setUnit('Days');
-    setCategory('health');
-    const t = new Date();
-    t.setHours(7, 0, 0, 0);
-    setAlarmTime(t);
   }, []);
 
   const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);

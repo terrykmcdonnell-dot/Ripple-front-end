@@ -8,11 +8,17 @@ export async function openAndroidFullScreenAlarmPermissionSettings(): Promise<vo
   if (Platform.OS !== 'android' || Platform.Version < 34) {
     return;
   }
-  const pkg = Constants.expoConfig?.android?.package?.trim();
+  const pkg = Constants.expoConfig?.android?.package?.trim() || 'com.terrykm.ripplealarm';
   if (!pkg) {
     return;
   }
-  await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.MANAGE_APP_USE_FULL_SCREEN_INTENT, {
-    data: `package:${pkg}`,
-  });
+  try {
+    await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.MANAGE_APP_USE_FULL_SCREEN_INTENT, {
+      data: `package:${pkg}`,
+    });
+  } catch {
+    await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS, {
+      data: `package:${pkg}`,
+    });
+  }
 }

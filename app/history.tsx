@@ -22,8 +22,6 @@ import {
   monthlyComplianceFromHistory,
   type HistoryGroupUi,
 } from '@/lib/history-format';
-import { isScreenshotMode } from '@/lib/screenshot-mode';
-import { SCREENSHOT_MOCK_HISTORY } from '@/lib/screenshot-mock-data';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const FILTER_ALL = 'all' as const;
@@ -92,13 +90,6 @@ export default function HistoryScreen() {
     const silent = opts?.silent === true;
     if (!silent) {
       setListError(null);
-    }
-
-    if (isScreenshotMode()) {
-      setRows(SCREENSHOT_MOCK_HISTORY);
-      setListError(null);
-      setInitialLoad(false);
-      return;
     }
 
     const { id: userId, error: userErr } = await fetchCurrentUserRowId();

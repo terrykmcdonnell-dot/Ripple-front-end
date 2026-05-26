@@ -39,6 +39,9 @@ function withAndroidAlarmActivity(config) {
     const imports = `import android.content.Intent
 import android.view.WindowManager
 `;
+    if (!contents.includes('import android.app.KeyguardManager')) {
+      contents = contents.replace('import expo.modules.splashscreen.SplashScreenManager\n', 'import expo.modules.splashscreen.SplashScreenManager\n\nimport android.app.KeyguardManager\nimport android.content.Context\n');
+    }
     if (!contents.includes('import android.content.Intent')) {
       contents = contents.replace(
         'import android.os.Bundle\n',
@@ -72,9 +75,12 @@ import android.view.WindowManager
     if (!isAlarmNotificationLaunch(intent)) {
       return
     }
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true)
       setTurnScreenOn(true)
+      val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+      keyguard?.requestDismissKeyguard(this, null)
     } else {
       @Suppress("DEPRECATION")
       window.addFlags(

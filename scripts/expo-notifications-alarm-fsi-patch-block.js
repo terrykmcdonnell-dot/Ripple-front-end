@@ -1,11 +1,13 @@
-/** Kotlin inserted into ExpoNotificationBuilder.kt for alarm full-screen intents. */
-const MARKER_V4 = 'rippleAlarmFullScreen';
+/** Kotlin inserted into ExpoNotificationBuilder.kt for alarm lock-screen presentation. */
+const MARKER_V4 = 'Ripple alarm presentation v5';
 
 const BLOCK_V4 = `    val isRippleAlarmFire =
-      notificationContent.categoryId == "ripple_alarm_fire" ||
+      notification.notificationRequest.identifier.startsWith("ripple_alarm_fire_") ||
+        notificationContent.categoryId == "ripple_alarm_fire" ||
         (notificationContent.body?.toString()?.contains("\\"type\\":\\"ripple_alarm_fire\\"") == true) ||
         (notificationContent.body?.toString()?.contains("ripple_alarm_fire") == true)
     if (isRippleAlarmFire) {
+      // ${MARKER_V4}
       builder.setCategory(NotificationCompat.CATEGORY_ALARM)
       builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       builder.setPriority(NotificationCompat.PRIORITY_MAX)

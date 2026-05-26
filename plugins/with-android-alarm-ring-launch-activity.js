@@ -32,7 +32,10 @@ class AlarmRingLaunchActivity : Activity() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true)
       setTurnScreenOn(true)
-      window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+      window.addFlags(
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+          WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON,
+      )
       val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
       keyguard?.requestDismissKeyguard(this, null)
     } else {

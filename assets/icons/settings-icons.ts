@@ -11,6 +11,7 @@ export const settingsIcons = {
   rating: '⭐',
   info: 'ℹ️',
   signOut: '🚪',
+  closeAccount: '⚠️',
   chevron: '›',
   alarms: '🏠',
   history: '📅',

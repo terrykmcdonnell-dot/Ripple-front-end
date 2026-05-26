@@ -43,4 +43,4 @@ yarn-error.*
 app-example
 
 /ios/
-# /android/
+/android/

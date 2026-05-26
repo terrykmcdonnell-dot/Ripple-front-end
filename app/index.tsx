@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
 import { replaceWithSignInIfNeeded } from '@/lib/auth-sign-in-redirect';
-import { isScreenshotMode } from '@/lib/screenshot-mode';
 import { supabase } from '@/lib/supabase';
 
 export default function Index() {
@@ -25,10 +24,8 @@ export default function Index() {
         if (session) {
           const openedFromAlarm = await consumeInitialAlarmFireResponse();
           if (!openedFromAlarm) {
-            router.replace(isScreenshotMode() ? '/screenshots' : '/alarm');
+            router.replace('/alarm');
           }
-        } else if (isScreenshotMode()) {
-          router.replace('/screenshots');
         } else {
           replaceWithSignInIfNeeded(pathname);
         }
