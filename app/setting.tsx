@@ -55,11 +55,10 @@ import {
   saveUpcomingReminderLeadMinutes,
 } from '@/lib/settings-preferences';
 import {
-  SETTINGS_ABOUT_ICON_AMBER,
   SETTINGS_ABOUT_ICON_BLUE,
-  getMarketingWebsiteUrl,
+  getPrivacyPolicyUrl,
+  getTermsOfServiceUrl,
   openConfiguredUrl,
-  openStoreReviewFlow,
 } from '@/lib/settings-about-links';
 import { supabase } from '@/lib/supabase';
 import { useAppToast } from '@/components/ui/AppToastProvider';
@@ -562,24 +561,30 @@ export default function SettingScreen() {
           <SettingsRow
             icon={settingsIcons.website}
             iconBackgroundColor={SETTINGS_ABOUT_ICON_BLUE}
-            title="Ripple website"
-            value="Features, pricing, privacy & contact"
+            title="Privacy Policy"
+            value="How Ripple collects and uses data"
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
             onPress={() =>
-              void openConfiguredUrl(getMarketingWebsiteUrl(), () =>
+              void openConfiguredUrl(getPrivacyPolicyUrl(), () =>
                 showToast(
-                  'Set EXPO_PUBLIC_RIPPLE_MARKETING_WEBSITE_URL in .env (e.g. https://ripplealarm.com/) or check the URL.',
+                  'Set EXPO_PUBLIC_RIPPLE_PRIVACY_POLICY_URL in .env (e.g. https://ripplealarm.com/privacy) or check the URL.',
                 ),
               )
             }
           />
           <SettingsRow
             icon={settingsIcons.rating}
-            iconBackgroundColor={SETTINGS_ABOUT_ICON_AMBER}
-            title="Rate Ripple"
-            value="Reviews help others find interval alarms"
+            iconBackgroundColor={SETTINGS_ABOUT_ICON_BLUE}
+            title="Terms of Service"
+            value="Rules and conditions for using Ripple"
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-            onPress={() => openStoreReviewFlow(showToast)}
+            onPress={() =>
+              void openConfiguredUrl(getTermsOfServiceUrl(), () =>
+                showToast(
+                  'Set EXPO_PUBLIC_RIPPLE_TERMS_OF_SERVICE_URL in .env (e.g. https://ripplealarm.com/terms) or check the URL.',
+                ),
+              )
+            }
           />
           <SettingsRow icon={settingsIcons.info} title="Version" value={Constants.expoConfig?.version ?? '1.0.0'} noBorder />
         </SettingsGroup>
