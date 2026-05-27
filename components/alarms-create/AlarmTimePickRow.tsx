@@ -244,7 +244,7 @@ export function AlarmTimePickRow({ value, onChange }: AlarmTimePickRowProps) {
                 value={value}
                 mode="time"
                 display="spinner"
-                minuteInterval={5}
+                minuteInterval={1}
                 onChange={onIosPick}
                 themeVariant={pickerTheme}
               />

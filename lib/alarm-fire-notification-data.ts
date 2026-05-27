@@ -10,6 +10,8 @@ export type ParsedAlarmFireData = {
   fireAt: string;
   label: string;
   category: string;
+  /** Alarm sound preset id — used for in-app loop when the ring screen opens. */
+  soundId?: string;
   /** Present when the alarm was scheduled from a signed-in session — used so background tasks can POST history without Supabase session hydration. */
   userId?: number;
 };
@@ -43,12 +45,14 @@ export function parseAlarmFireNotificationData(raw: unknown): ParsedAlarmFireDat
   }
   const label = typeof data.label === 'string' ? data.label.trim() || 'Alarm' : 'Alarm';
   const category = typeof data.category === 'string' ? data.category.trim() : '';
+  const soundId = typeof data.soundId === 'string' ? data.soundId.trim() : '';
   const uid = coerceAlarmId(data.userId);
   return {
     alarmId,
     fireAt,
     label,
     category,
+    ...(soundId ? { soundId } : {}),
     ...(uid != null ? { userId: uid } : {}),
   };
 }

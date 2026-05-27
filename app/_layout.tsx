@@ -40,10 +40,12 @@ function NotificationPresentationBootstrap() {
               shouldSetBadge: false,
             };
           }
+          // iOS foreground: ring UI plays looping audio via expo-av (respects silent switch).
+          // OS notification sound is unreliable here and only ~2s anyway.
           return {
             shouldShowBanner: false,
             shouldShowList: false,
-            shouldPlaySound: true,
+            shouldPlaySound: false,
             shouldSetBadge: false,
           };
         }

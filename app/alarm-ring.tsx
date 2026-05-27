@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
@@ -16,6 +16,7 @@ import { notifyAuthMessage } from '@/lib/auth-notify';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
 import { recordAlarmHistoryDismissed, recordAlarmHistorySnoozed } from '@/lib/alarm-history-sync';
+import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 
 function paramOne(v: string | string[] | undefined): string | undefined {
   if (v == null) {
@@ -30,6 +31,7 @@ function parsedFromParams(params: {
   fireAt?: string | string[];
   label?: string | string[];
   category?: string | string[];
+  soundId?: string | string[];
   userId?: string | string[];
 }): ParsedAlarmFireData | null {
   const alarmIdRaw = paramOne(params.alarmId);
@@ -43,6 +45,7 @@ function parsedFromParams(params: {
   }
   const label = paramOne(params.label)?.trim() || 'Alarm';
   const category = paramOne(params.category)?.trim() ?? '';
+  const soundId = paramOne(params.soundId);
   const uidRaw = paramOne(params.userId);
   const uid = uidRaw != null ? Number(uidRaw) : NaN;
   return {
@@ -50,6 +53,7 @@ function parsedFromParams(params: {
     fireAt,
     label,
     category,
+    ...(soundId ? { soundId } : {}),
     ...(Number.isFinite(uid) ? { userId: uid } : {}),
   };
 }
@@ -92,7 +96,17 @@ export default function AlarmRingScreen() {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createRingStyles(palette), [palette]);
 
+  const soundIdParam = paramOne(rawParams.soundId);
+
+  useEffect(() => {
+    void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId);
+    return () => {
+      void stopRingAlarmSound();
+    };
+  }, [soundIdParam, liveParsed?.soundId]);
+
   const onDismissPress = useCallback(() => {
+    void stopRingAlarmSound();
     router.replace('/alarm');
     if (liveParsed) {
       void recordAlarmHistoryDismissed(liveParsed).catch(() => undefined);
@@ -105,6 +119,7 @@ export default function AlarmRingScreen() {
       return;
     }
     snoozePendingRef.current = true;
+    void stopRingAlarmSound();
     router.replace('/alarm');
 
     void (async () => {

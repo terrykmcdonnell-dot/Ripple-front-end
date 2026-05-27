@@ -35,7 +35,7 @@ import {
   computeScheduledAtAfterSkipNext,
   getNextOccurrenceForAlarmSchedule,
 } from '@/lib/alarm-skip-next';
-import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { notifyAuthError, notifyAuthWarning } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
@@ -87,6 +87,7 @@ export default function AlarmEditScreen() {
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [skipConfirmVisible, setSkipConfirmVisible] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
 
   const palette = useAlarmTheme();
   const { showToast } = useAppToast();
@@ -143,15 +144,18 @@ export default function AlarmEditScreen() {
   const handleSave = useCallback(async () => {
     const labelValue = label.trim();
     if (!labelValue) {
-      notifyAuthMessage('Edit Alarm', 'Enter a label for this alarm.');
+      const msg = 'Enter a label for this alarm.';
+      setLabelError(msg);
+      notifyAuthWarning('Edit Alarm', msg);
       return;
     }
+    setLabelError(null);
     if (!alarmIdOk || isSkipping) {
       return;
     }
     const scheduledAtIso = toAlarmIsoString(alarmTime);
     if (!scheduledAtIso) {
-      notifyAuthMessage('Edit Alarm', 'Choose a valid alarm time.');
+      notifyAuthWarning('Edit Alarm', 'Choose a valid alarm time.');
       return;
     }
 
@@ -398,13 +402,18 @@ export default function AlarmEditScreen() {
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}>
-            <SectionField label="Label">
+            <SectionField label="Label" errorMessage={labelError ?? undefined}>
               <TextInput
                 value={label}
-                onChangeText={setLabel}
+                onChangeText={(text) => {
+                  setLabel(text);
+                  if (text.trim()) {
+                    setLabelError(null);
+                  }
+                }}
                 placeholder="Alarm label"
                 placeholderTextColor={palette.muted}
-                style={styles.input}
+                style={[styles.input, labelError ? styles.inputError : null]}
                 editable={!isSaving && !isDeleting && !isSkipping}
                 returnKeyType="done"
               />
@@ -658,6 +667,10 @@ function createAlarmEditStyles(alarmTheme: AlarmThemePalette) {
     paddingVertical: 12,
     color: alarmTheme.text,
     fontSize: 14,
+  },
+  inputError: {
+    borderColor: alarmTheme.amber,
+    backgroundColor: alarmTheme.amberDim,
   },
   unitTabs: {
     flexDirection: 'row',

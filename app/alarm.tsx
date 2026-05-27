@@ -263,7 +263,13 @@ export default function AlarmScreen() {
     try {
       await patchAlarm(alarm.id, { is_enabled: next });
       void syncUpcomingReminderNotifications();
-      void syncAlarmFireNotifications();
+      if (next) {
+        void syncAlarmFireNotifications().then(() => {
+          void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
+        });
+      } else {
+        void syncAlarmFireNotifications();
+      }
     } catch (e) {
       setAlarms((rows) =>
         rows.map((a) => (a.id === alarm.id ? { ...a, isEnabled: previous } : a)),
@@ -273,7 +279,7 @@ export default function AlarmScreen() {
       patchingIdsRef.current.delete(alarm.id);
       setPatchingIds((ids) => ids.filter((id) => id !== alarm.id));
     }
-  }, []);
+  }, [showToast]);
 
   return (
     <View style={styles.screen}>

@@ -170,6 +170,7 @@ export async function syncAlarmFireNotifications(alarms?: AlarmListItem[]): Prom
             fireAt: fireAt.toISOString(),
             label,
             category: alarm.category,
+            soundId,
             ...(schedulingUserId != null ? { userId: schedulingUserId } : {}),
           },
           ...(Platform.OS === 'android' && vibrationEnabled ? { vibrate: [...FIRE_VIBRATION_PATTERN] } : {}),

@@ -4,16 +4,21 @@ import { formatAuthErrorMessage } from '@/lib/auth-validation';
 import { isExpiredJwtOrSessionError, refreshOrSignOutOnExpiredSession } from '@/lib/auth-session-errors';
 
 /** Set by `AppToastProvider` so auth UX uses in-app toasts instead of system `Alert`. */
-let authToastShow: ((message: string) => void) | null = null;
+export type AuthToastVariant = 'info' | 'warning' | 'error';
 
-export function setAuthToastHandler(handler: ((message: string) => void) | null) {
+let authToastShow: ((message: string, variant?: AuthToastVariant) => void) | null = null;
+
+export function setAuthToastHandler(handler: ((message: string, variant?: AuthToastVariant) => void) | null) {
   authToastShow = handler;
 }
 
-function formatAuthToast(title: string, message: string): string {
+function formatAuthToast(title: string, message: string, variant: AuthToastVariant = 'info'): string {
   const m = message.trim();
   if (!m) {
     return title;
+  }
+  if (variant === 'warning') {
+    return m;
   }
   return `${title} — ${m}`;
 }
@@ -59,20 +64,30 @@ export function notifyAuthError(title: string, error: unknown) {
   }
   const text = getAuthErrorDisplayText(error);
   if (authToastShow) {
-    authToastShow(formatAuthToast(title, text));
+    authToastShow(formatAuthToast(title, text), 'error');
     return;
   }
   Alert.alert(title, text);
 }
 
-export function notifyAuthMessage(title: string, message: string, buttons?: AlertButton[]) {
+export function notifyAuthMessage(
+  title: string,
+  message: string,
+  buttons?: AlertButton[],
+  variant: AuthToastVariant = 'info',
+) {
   if (buttons?.length) {
     Alert.alert(title, message, buttons);
     return;
   }
   if (authToastShow) {
-    authToastShow(formatAuthToast(title, message));
+    authToastShow(formatAuthToast(title, message, variant), variant);
     return;
   }
   Alert.alert(title, message);
+}
+
+/** Validation / missing-field prompts (amber warning toast, not info). */
+export function notifyAuthWarning(title: string, message: string) {
+  notifyAuthMessage(title, message, undefined, 'warning');
 }

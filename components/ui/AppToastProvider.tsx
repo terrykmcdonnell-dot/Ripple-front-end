@@ -12,13 +12,13 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
-import { setAuthToastHandler } from '@/lib/auth-notify';
+import { setAuthToastHandler, type AuthToastVariant } from '@/lib/auth-notify';
 
 /** Matches typical scroll `paddingBottom` above `BottomNavbar`. */
 const TOAST_ABOVE_TAB_BAR = 94;
 
 type ToastContextValue = {
-  showToast: (message: string) => void;
+  showToast: (message: string, variant?: AuthToastVariant) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -36,7 +36,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createToastStyles(alarmTheme), [alarmTheme]);
 
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; variant: AuthToastVariant } | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
   const sessionRef = useRef(0);
@@ -59,7 +59,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
         }),
       ]).start(({ finished }) => {
         if (finished && sessionRef.current === session) {
-          setMessage(null);
+          setToast(null);
         }
       });
     },
@@ -67,7 +67,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
   );
 
   const showToast = useCallback(
-    (msg: string) => {
+    (msg: string, variant: AuthToastVariant = 'info') => {
       opacity.stopAnimation();
       translateY.stopAnimation();
 
@@ -77,7 +77,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       }
 
       const session = ++sessionRef.current;
-      setMessage(msg);
+      setToast({ message: msg, variant });
       opacity.setValue(0);
       translateY.setValue(12);
 
@@ -110,11 +110,11 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
-    if (!message) {
+    if (!toast) {
       return;
     }
     runDismissAnimation(sessionRef.current);
-  }, [message, runDismissAnimation]);
+  }, [toast, runDismissAnimation]);
 
   useEffect(() => {
     setAuthToastHandler(showToast);
@@ -130,10 +130,23 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
 
   const bottomPad = TOAST_ABOVE_TAB_BAR + Math.max(insets.bottom, 8);
 
+  const bubbleStyle = useMemo(() => {
+    if (!toast) {
+      return styles.bubbleInfo;
+    }
+    if (toast.variant === 'warning') {
+      return styles.bubbleWarning;
+    }
+    if (toast.variant === 'error') {
+      return styles.bubbleError;
+    }
+    return styles.bubbleInfo;
+  }, [toast, styles]);
+
   return (
     <ToastContext.Provider value={ctxValue}>
       {children}
-      {message ? (
+      {toast ? (
         <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.overlay]}>
           <Animated.View
             pointerEvents="box-none"
@@ -148,8 +161,8 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
             <Pressable
               accessibilityRole="alert"
               onPress={() => dismissNow()}
-              style={({ pressed }) => [styles.bubble, pressed && styles.bubblePressed]}>
-              <Text style={styles.text}>{message}</Text>
+              style={({ pressed }) => [styles.bubbleBase, bubbleStyle, pressed && styles.bubblePressed]}>
+              <Text style={styles.text}>{toast.message}</Text>
             </Pressable>
           </Animated.View>
         </View>
@@ -169,7 +182,7 @@ function createToastStyles(theme: AlarmThemePalette) {
       paddingHorizontal: 20,
       alignItems: 'center',
     },
-    bubble: {
+    bubbleBase: {
       width: '100%',
       maxWidth: 400,
       backgroundColor: theme.surface2,
@@ -177,14 +190,30 @@ function createToastStyles(theme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: theme.border,
       borderLeftWidth: 3,
-      borderLeftColor: theme.accent,
       paddingVertical: 16,
       paddingHorizontal: 20,
+      elevation: 12,
+    },
+    bubbleInfo: {
+      borderLeftColor: theme.accent,
       shadowColor: theme.accent,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.28,
       shadowRadius: 14,
-      elevation: 12,
+    },
+    bubbleWarning: {
+      borderLeftColor: theme.amber,
+      shadowColor: theme.amber,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.32,
+      shadowRadius: 14,
+    },
+    bubbleError: {
+      borderLeftColor: theme.red,
+      shadowColor: theme.red,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.28,
+      shadowRadius: 14,
     },
     bubblePressed: {
       opacity: 0.92,

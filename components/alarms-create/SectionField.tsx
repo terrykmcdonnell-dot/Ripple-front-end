@@ -6,6 +6,8 @@ import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/compon
 type SectionFieldProps = {
   label: string;
   children: ReactNode;
+  /** Shown under the field in warning color when validation fails. */
+  errorMessage?: string;
 };
 
 function createStyles(alarmTheme: AlarmThemePalette) {
@@ -22,17 +24,27 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       textTransform: 'uppercase',
       fontFamily: 'monospace',
     },
+    labelError: {
+      color: alarmTheme.amber,
+    },
+    errorMessage: {
+      marginTop: 8,
+      color: alarmTheme.amber,
+      fontSize: alarmTypography.caption,
+      fontWeight: '600',
+    },
   });
 }
 
-export function SectionField({ label, children }: SectionFieldProps) {
+export function SectionField({ label, children, errorMessage }: SectionFieldProps) {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, errorMessage ? styles.labelError : null]}>{label}</Text>
       {children}
+      {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
     </View>
   );
 }
