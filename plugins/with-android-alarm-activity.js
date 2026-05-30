@@ -5,6 +5,11 @@ const MAIN_ACTIVITY_ALARM_MARKER = 'applyAlarmLaunchWindowFlags';
 /**
  * Ensures MainActivity can show over the lock screen when opened from a full-screen alarm intent.
  * Without this, prebuild-generated manifests omit showWhenLocked / turnScreenOn.
+ *
+ * requestDismissKeyguard is intentionally NOT used — on devices with a PIN or
+ * biometric lock it triggers the PIN entry screen and hides the alarm ring UI.
+ * setShowWhenLocked / setTurnScreenOn display the activity *over* the keyguard
+ * without attempting to dismiss it, which is the correct behaviour for alarms.
  */
 function withAndroidAlarmActivity(config) {
   config = withAndroidManifest(config, (cfg) => {
@@ -36,35 +41,71 @@ function withAndroidAlarmActivity(config) {
       return cfg;
     }
 
-    const imports = `import android.content.Intent
-import android.view.WindowManager
-`;
-    if (!contents.includes('import android.app.KeyguardManager')) {
-      contents = contents.replace('import expo.modules.splashscreen.SplashScreenManager\n', 'import expo.modules.splashscreen.SplashScreenManager\n\nimport android.app.KeyguardManager\nimport android.content.Context\n');
-    }
+    // Inject only the imports we actually need (Intent, WindowManager).
+    // Try multiple anchor patterns to handle SDK version differences.
     if (!contents.includes('import android.content.Intent')) {
-      contents = contents.replace(
+      const intentAnchors = [
         'import android.os.Bundle\n',
-        `import android.content.Intent\nimport android.os.Bundle\nimport android.view.WindowManager\n`,
-      );
+        'import android.os.Build\n',
+        'import expo.modules.splashscreen.SplashScreenManager\n',
+      ];
+      let injected = false;
+      for (const anchor of intentAnchors) {
+        if (contents.includes(anchor)) {
+          contents = contents.replace(
+            anchor,
+            `${anchor}import android.content.Intent\n`,
+          );
+          injected = true;
+          break;
+        }
+      }
+      if (!injected) {
+        console.warn('[with-android-alarm-activity] Could not inject Intent import.');
+      }
     }
 
+    if (!contents.includes('import android.view.WindowManager')) {
+      const wmAnchors = [
+        'import android.content.Intent\n',
+        'import android.os.Bundle\n',
+        'import android.os.Build\n',
+      ];
+      let injected = false;
+      for (const anchor of wmAnchors) {
+        if (contents.includes(anchor)) {
+          contents = contents.replace(
+            anchor,
+            `${anchor}import android.view.WindowManager\n`,
+          );
+          injected = true;
+          break;
+        }
+      }
+      if (!injected) {
+        console.warn('[with-android-alarm-activity] Could not inject WindowManager import.');
+      }
+    }
+
+    // Hook into onCreate to apply window flags when launched from an alarm FSI.
     const onCreateNeedle = '    super.onCreate(null)';
-    if (contents.includes(onCreateNeedle) && !contents.includes(MAIN_ACTIVITY_ALARM_MARKER)) {
+    const onCreateNeedle2 = '    super.onCreate(savedInstanceState)';
+    if (contents.includes(onCreateNeedle)) {
       contents = contents.replace(
         onCreateNeedle,
         `${onCreateNeedle}\n    applyAlarmLaunchWindowFlags(intent)`,
       );
-    } else if (contents.includes('    super.onCreate(savedInstanceState)') && !contents.includes(MAIN_ACTIVITY_ALARM_MARKER)) {
+    } else if (contents.includes(onCreateNeedle2)) {
       contents = contents.replace(
-        '    super.onCreate(savedInstanceState)',
-        `    super.onCreate(savedInstanceState)\n    applyAlarmLaunchWindowFlags(intent)`,
+        onCreateNeedle2,
+        `${onCreateNeedle2}\n    applyAlarmLaunchWindowFlags(intent)`,
       );
     }
 
+    // Inject onNewIntent + helper methods before getMainComponentName.
     if (!contents.includes('override fun onNewIntent')) {
       const delegateNeedle = '  override fun getMainComponentName()';
-      const onNewIntentBlock = `
+      const helperBlock = `
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
@@ -75,42 +116,34 @@ import android.view.WindowManager
     if (!isAlarmNotificationLaunch(intent)) {
       return
     }
-    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      // Show the activity over the lock screen without dismissing it.
+      // requestDismissKeyguard is intentionally omitted — it triggers the
+      // PIN entry screen on locked devices and hides the alarm ring UI.
       setShowWhenLocked(true)
       setTurnScreenOn(true)
-      val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-      keyguard?.requestDismissKeyguard(this, null)
     } else {
       @Suppress("DEPRECATION")
       window.addFlags(
         WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
       )
     }
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   }
 
   private fun isAlarmNotificationLaunch(intent: Intent?): Boolean {
-    if (intent == null) {
-      return false
-    }
+    if (intent == null) return false
     val extras = intent.extras ?: return false
-    if (extras.getBoolean("rippleAlarmFullScreen", false)) {
-      return true
-    }
-    if (extras.containsKey("notificationResponse") || extras.containsKey("textInputNotificationResponse")) {
-      return true
-    }
-    if (extras.containsKey("notification")) {
-      return true
-    }
+    if (extras.getBoolean("rippleAlarmFullScreen", false)) return true
+    if (extras.containsKey("notificationResponse") || extras.containsKey("textInputNotificationResponse")) return true
+    if (extras.containsKey("notification")) return true
     return intent.action == "expo.modules.notifications.NOTIFICATION_EVENT"
   }
 
 `;
       if (contents.includes(delegateNeedle)) {
-        contents = contents.replace(delegateNeedle, `${onNewIntentBlock}${delegateNeedle}`);
+        contents = contents.replace(delegateNeedle, `${helperBlock}${delegateNeedle}`);
       }
     }
 

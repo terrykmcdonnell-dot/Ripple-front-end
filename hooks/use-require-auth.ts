@@ -11,11 +11,15 @@ export function useRequireAuth() {
   pathnameRef.current = pathname;
 
   useEffect(() => {
-    let mounted = true;
+    // Empty dependency array: the subscription is created once and stays active
+    // for the lifetime of the component. We read the latest pathname via the ref
+    // so we never need to tear down and re-create the listener on navigation.
+    // Previously using [pathname] here caused unsubscribe → re-subscribe on every
+    // route change, creating a window where a SIGNED_OUT event could be missed.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted || session) {
+      if (session) {
         return;
       }
       if (isGuestAuthFlowPathname(pathnameRef.current)) {
@@ -25,8 +29,7 @@ export function useRequireAuth() {
     });
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, [pathname]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }

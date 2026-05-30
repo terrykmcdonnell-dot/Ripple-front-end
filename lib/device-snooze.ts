@@ -10,6 +10,8 @@ import { Platform } from 'react-native';
 
 import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alarm-notification-channel';
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
+import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
+import { ALARM_FIRE_CATEGORY_ID, ALARM_FIRE_DATA_TYPE } from '@/lib/alarm-notification-constants';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { loadDefaultAlarmSoundId, loadDefaultVibrationEnabled, loadNotificationsMasterEnabled } from '@/lib/settings-preferences';
 
@@ -67,12 +69,18 @@ export type ScheduleSnoozeResult =
  * Schedules a **device-level** local notification at `now + minutes`, using the OS scheduler
  * (e.g. AlarmManager-backed delivery on Android, UNNotificationCenter on iOS).
  * Cancels any previously scheduled snooze from this app session/storage slot first.
+ *
+ * Pass `alarmData` (the `ParsedAlarmFireData` of the original alarm) so the snooze
+ * notification is handled identically to an alarm-fire notification: tapping it opens
+ * the ring screen, history is recorded correctly, and the Dismiss/Snooze action buttons
+ * appear on lock screen.
  */
 export async function scheduleSnoozeNotification(params: {
   minutes: number;
   alarmTitle?: string;
+  alarmData?: ParsedAlarmFireData;
 }): Promise<ScheduleSnoozeResult> {
-  const { minutes, alarmTitle } = params;
+  const { minutes, alarmTitle, alarmData } = params;
 
   if (Platform.OS === 'web') {
     return {
@@ -118,15 +126,33 @@ export async function scheduleSnoozeNotification(params: {
       ? await ensureAndroidSnoozeChannelForAlarmPrefs(soundId, vibrationEnabled)
       : '';
 
+  const snoozeFireAt = new Date(Date.now() + seconds * 1000).toISOString();
+  const titleBase = alarmTitle?.trim() ?? alarmData?.label?.trim() ?? 'Alarm';
+
+  // Build the notification data payload. When alarmData is provided we embed the full
+  // alarm-fire fields so the snooze notification is handled by the same listeners that
+  // handle regular alarm-fire notifications (ring screen opens, history recorded, etc.).
+  const notificationData: Record<string, unknown> = alarmData
+    ? {
+        type: ALARM_FIRE_DATA_TYPE,
+        alarmId: alarmData.alarmId,
+        fireAt: snoozeFireAt,
+        label: alarmData.label,
+        category: alarmData.category,
+        ...(alarmData.soundId ? { soundId: alarmData.soundId } : { soundId }),
+        ...(alarmData.userId != null ? { userId: alarmData.userId } : {}),
+      }
+    : { type: 'ripple-snooze', soundId, vibrationEnabled };
+
   try {
-    const titleBase = alarmTitle?.trim() ? alarmTitle.trim() : 'Alarm';
     const notificationId = await scheduleNotificationAsync({
       content: {
         title: `Snooze · ${titleBase}`,
         body: `Scheduled for ${minutes} minute${minutes === 1 ? '' : 's'} from now`,
         sound: soundFile,
         priority: AndroidNotificationPriority.MAX,
-        data: { type: 'ripple-snooze', soundId, vibrationEnabled },
+        categoryIdentifier: alarmData ? ALARM_FIRE_CATEGORY_ID : undefined,
+        data: notificationData,
         ...(Platform.OS === 'android' && vibrationEnabled
           ? { vibrate: [...SNOOZE_VIBRATION_PATTERN] }
           : {}),

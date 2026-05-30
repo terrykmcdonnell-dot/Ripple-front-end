@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { AppState, StyleSheet, Text, View } from 'react-native';
 
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
@@ -13,7 +13,7 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { formatScheduledLocalParts } from '@/lib/alarm-format';
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { notifyAuthMessage } from '@/lib/auth-notify';
-import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
+import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
 import { recordAlarmHistoryDismissed, recordAlarmHistorySnoozed } from '@/lib/alarm-history-sync';
 import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
@@ -98,12 +98,33 @@ export default function AlarmRingScreen() {
 
   const soundIdParam = paramOne(rawParams.soundId);
 
+  // Start sound on mount; stop on unmount (Dismiss/Snooze navigation triggers this).
+  // Also mark this occurrence as delivered immediately so any sync triggered
+  // after the user dismisses (e.g. alarm list gaining focus) does not
+  // re-schedule and re-fire the same occurrence within the grace window.
   useEffect(() => {
     void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId);
+    if (liveParsed) {
+      const fireAtMs = new Date(liveParsed.fireAt).getTime();
+      if (Number.isFinite(fireAtMs)) {
+        void markAlarmFireDelivered(liveParsed.alarmId, fireAtMs);
+      }
+    }
     return () => {
       void stopRingAlarmSound();
     };
-  }, [soundIdParam, liveParsed?.soundId]);
+  }, [soundIdParam, liveParsed?.soundId, liveParsed]);
+
+  // Stop sound when the user presses Home or switches apps from the ring screen.
+  // The 90-second auto-stop in ring-alarm-sound.ts is the last-resort safety net.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        void stopRingAlarmSound();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const onDismissPress = useCallback(() => {
     void stopRingAlarmSound();
@@ -127,6 +148,7 @@ export default function AlarmRingScreen() {
         const result = await scheduleSnoozeNotification({
           minutes: defaultSnoozeMinutes,
           alarmTitle,
+          alarmData: liveParsed ?? undefined,
         });
         if (!result.ok) {
           notifyAuthMessage('Snooze', result.message);

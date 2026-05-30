@@ -9,6 +9,8 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
+import { AndroidFsiPermissionBootstrap } from '@/components/bootstrap/AndroidFsiPermissionBootstrap';
+import { IosNotificationPermissionBootstrap } from '@/components/bootstrap/IosNotificationPermissionBootstrap';
 import { AlarmScheduleAuthSync } from '@/components/bootstrap/AlarmScheduleAuthSync';
 import { RevenueCatBootstrap } from '@/components/bootstrap/RevenueCatBootstrap';
 import { SupabaseAuthAutoRefreshBootstrap } from '@/components/bootstrap/SupabaseAuthAutoRefreshBootstrap';
@@ -29,19 +31,14 @@ function NotificationPresentationBootstrap() {
         const data = notification.request.content.data as Record<string, unknown> | undefined;
         const isAlarmFire = data?.type === ALARM_FIRE_DATA_TYPE;
         if (isAlarmFire) {
-          // iOS foreground: ring UI via received listener — suppress duplicate banner.
-          // Android: must present an alert so the notification (and full-screen intent) is posted;
-          // suppressing banner/list prevents background lock-screen takeover.
-          if (Platform.OS === 'android') {
-            return {
-              shouldShowBanner: true,
-              shouldShowList: true,
-              shouldPlaySound: true,
-              shouldSetBadge: false,
-            };
-          }
-          // iOS foreground: ring UI plays looping audio via expo-av (respects silent switch).
-          // OS notification sound is unreliable here and only ~2s anyway.
+          // setNotificationHandler is ONLY called when the app is in the foreground.
+          // The received listener (AlarmNotificationBootstrap) opens the in-app ring screen,
+          // so we suppress the OS banner on both platforms to avoid a duplicate notification
+          // appearing alongside the ring screen.
+          //
+          // This does NOT affect lock-screen / background delivery — when the app is
+          // background/killed, Android delivers via NotificationsService directly (FSI path)
+          // and never calls this handler.
           return {
             shouldShowBanner: false,
             shouldShowList: false,
@@ -100,6 +97,8 @@ export default function RootLayout() {
             <AlarmScheduleAuthSync />
             <SupabaseAuthAutoRefreshBootstrap />
             <RevenueCatBootstrap />
+            <IosNotificationPermissionBootstrap />
+            <AndroidFsiPermissionBootstrap />
             <AlarmNotificationBootstrap />
             <NotificationPresentationBootstrap />
             <Stack>

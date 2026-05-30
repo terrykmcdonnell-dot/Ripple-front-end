@@ -51,11 +51,21 @@ export function isExpiredJwtOrSessionError(error: unknown): boolean {
 
 /** After JWT errors: try one refresh; if still no session, sign out so routing sends user to sign-in. */
 export async function refreshOrSignOutOnExpiredSession(): Promise<void> {
-  const { data } = await supabase.auth.refreshSession();
-  if (data.session) {
-    return;
+  try {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (data.session && !error) {
+      return;
+    }
+    // Refresh returned an error (revoked token, network failure, etc.) or no session.
+    // Fall through to sign out.
+  } catch {
+    // refreshSession threw — treat as unrecoverable and force sign-out.
   }
-  await supabase.auth.signOut();
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // signOut itself could fail on network loss; GoTrue will still clear local storage.
+  }
 }
 
 /** Use before showing “missing profile” alerts — avoids a bogus dialog right after session cleared for JWT expiry. */

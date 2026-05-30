@@ -93,6 +93,11 @@ export function nextCanonicalAlarmFire(alarm: AlarmListItem, from: Date): Date |
     }
     t = next;
   }
+  // Guard limit hit or horizonEnd passed before reaching `from` — t is still in the
+  // past, so there is no valid upcoming occurrence within the search window.
+  if (t.getTime() < from.getTime()) {
+    return null;
+  }
   return t.getTime() <= horizonEnd ? t : null;
 }
 
@@ -133,24 +138,37 @@ async function ensureAndroidUpcomingChannel(soundId: AlarmSoundId, vibrationEnab
   return channelId;
 }
 
+/** One resolved upcoming-reminder slot, ready to hand to the OS scheduler. */
+type UpcomingReminderSpec = {
+  alarm: AlarmListItem;
+  reminderAt: Date;
+  fireAt: Date;
+};
+
 /**
- * Reschedules OS local notifications one lead-time **before** each enabled alarm’s next occurrence.
+ * Reschedules OS local notifications one lead-time **before** each enabled alarm's next occurrence.
  * Pass `alarms` after a fresh fetch to avoid an extra round-trip.
+ *
+ * Uses a compute-then-commit pattern: all fallible reads (network, settings, permissions)
+ * complete FIRST. Only after every read succeeds does the function cancel the old schedule
+ * and write the new one. This prevents a transient network failure from wiping upcoming
+ * reminders without replacing them.
  */
 export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]): Promise<void> {
   if (Platform.OS === 'web') {
     return;
   }
 
-  await cancelStoredUpcomingNotifications();
-
   const upcomingEnabled = await loadUpcomingReminderEnabled();
   if (!upcomingEnabled) {
+    // Deliberate user setting — clear the schedule.
+    await cancelStoredUpcomingNotifications();
     return;
   }
 
   const notificationsMasterEnabled = await loadNotificationsMasterEnabled();
   if (!notificationsMasterEnabled) {
+    await cancelStoredUpcomingNotifications();
     return;
   }
 
@@ -158,11 +176,13 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
   if (rows === undefined) {
     const { id: userId, error } = await fetchCurrentUserRowId();
     if (error || userId == null) {
+      // Transient auth/network failure — leave existing reminders intact.
       return;
     }
     try {
       rows = await fetchAlarms(userId);
     } catch {
+      // Network failure — keep existing reminders rather than wiping them.
       return;
     }
   }
@@ -178,27 +198,35 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
   const vibrationEnabled = await loadDefaultVibrationEnabled();
   const soundFile = bundledNotificationSoundFilename(soundId);
 
-  const androidChannelId =
-    Platform.OS === 'android' ? await ensureAndroidUpcomingChannel(soundId, vibrationEnabled) : '';
-
   const now = new Date();
-  const scheduledIds: string[] = [];
 
+  // ── PHASE 1 (compute): resolve every slot without touching the OS schedule.
+  const specs: UpcomingReminderSpec[] = [];
   for (const alarm of rows.filter((a) => a.isEnabled)) {
     const slot = nextReminderSlot(alarm, leadMs, now);
     if (!slot) {
       continue;
     }
-
     const reminderAt = alignAlarmNotificationTriggerDate(slot.reminderAt);
+    specs.push({ alarm, reminderAt, fireAt: slot.fireAt });
+  }
 
-    const { time, ampm } = formatScheduledLocalParts(slot.fireAt.toISOString());
+  // ── PHASE 2 (commit): all reads succeeded — safe to swap the OS schedule.
+  await cancelStoredUpcomingNotifications();
+
+  const androidChannelId =
+    Platform.OS === 'android' ? await ensureAndroidUpcomingChannel(soundId, vibrationEnabled) : '';
+
+  const scheduledIds: string[] = [];
+
+  for (const { alarm, reminderAt, fireAt } of specs) {
+    const { time, ampm } = formatScheduledLocalParts(fireAt.toISOString());
     const label = alarm.label.trim() || 'Alarm';
     const leadPhrase = formatUpcomingReminderLeadLabel(leadMinutes);
 
     try {
       const notificationId = await scheduleNotificationAsync({
-        identifier: `ripple-upcoming-${alarm.id}-${slot.fireAt.getTime()}`,
+        identifier: `ripple-upcoming-${alarm.id}-${fireAt.getTime()}`,
         content: {
           title: `Soon · ${label}`,
           body: `Rings at ${time} ${ampm} (${leadPhrase}).`,
@@ -207,7 +235,7 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
           data: {
             type: 'ripple-upcoming-reminder',
             alarmId: alarm.id,
-            fireAt: slot.fireAt.toISOString(),
+            fireAt: fireAt.toISOString(),
           },
           ...(Platform.OS === 'android' && vibrationEnabled ? { vibrate: [...VIBRATION_PATTERN] } : {}),
           ...(Platform.OS === 'android'

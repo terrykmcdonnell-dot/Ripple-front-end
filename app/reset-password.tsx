@@ -93,6 +93,19 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     expiryValue: {
       color: alarmTheme.accentBright,
     },
+    expiryValueWarn: {
+      color: alarmTheme.amber,
+    },
+    expiryValueExpired: {
+      color: alarmTheme.red,
+    },
+    expiredHint: {
+      fontSize: 11,
+      color: alarmTheme.red,
+      fontFamily: 'monospace',
+      marginBottom: 16,
+      textAlign: 'center',
+    },
     pwdWrap: {
       marginBottom: 10,
     },
@@ -192,8 +205,10 @@ export default function ResetPasswordScreen() {
       return;
     }
 
+    // Clear the OTP boxes so the user enters the NEW code, not the old one.
+    setOtpCode('');
     setSecondsLeft(CODE_TTL_SECONDS);
-    showToast('If this email is registered, a new code was sent.');
+    showToast('New code sent — check your email.');
   }, [emailDisplay, showToast]);
 
   const onSubmit = useCallback(async () => {
@@ -222,16 +237,48 @@ export default function ResetPasswordScreen() {
     });
 
     if (error || !data.session) {
+      // After any failed verifyOtp attempt Supabase invalidates the OTP flow
+      // state for security — even the correct code won't work after this point.
+      // Auto-resend a fresh code immediately so the user can try again without
+      // confusion. Clear the boxes so it's obvious they need the new code.
+      setOtpCode('');
+
+      const isExpired =
+        (error as { code?: string } | null)?.code === 'otp_expired' ||
+        (error as { code?: string } | null)?.code === 'flow_state_expired';
+
+      const resendResult = await sendPasswordResetOtp(email);
       setSubmitLoading(false);
-      showToast(`Reset password · ${getAuthErrorDisplayText(error ?? new Error('Verification did not complete.'))}`);
+
+      if (resendResult.error) {
+        // Resend failed too — just show the original error.
+        showToast(`Reset password · ${getAuthErrorDisplayText(error ?? new Error('Verification did not complete.'))}`);
+      } else {
+        setSecondsLeft(CODE_TTL_SECONDS);
+        if (isExpired) {
+          showToast('Code expired — a new code has been sent to your email. Enter the new one.', 'warning');
+        } else {
+          showToast('Wrong code — a new code has been sent to your email. Enter the new one.', 'warning');
+        }
+      }
       return;
     }
 
     const { error: pwError } = await supabase.auth.updateUser({ password });
     if (pwError) {
-      await supabase.auth.signOut();
       setSubmitLoading(false);
-      showToast(`Reset password · ${getAuthErrorDisplayText(pwError)}`);
+      const pwCode = (pwError as { code?: string }).code ?? '';
+      const isPasswordQualityError = pwCode === 'weak_password' || pwCode === 'same_password';
+      if (isPasswordQualityError) {
+        // The OTP session is still valid — just let the user choose a better
+        // password without destroying their session or restarting the OTP flow.
+        showToast('Choose a different password — avoid simple or repeated patterns.', 'warning');
+      } else {
+        // Unexpected error (network, server) — sign out to avoid a stale
+        // half-authenticated recovery session.
+        await supabase.auth.signOut();
+        showToast(`Reset password · ${getAuthErrorDisplayText(pwError)}`);
+      }
       return;
     }
 
@@ -279,9 +326,24 @@ export default function ResetPasswordScreen() {
 
         <OtpVerificationCode value={otpCode} onChangeCode={setOtpCode} />
 
-        <Text style={styles.expiryText}>
-          Code expires in <Text style={styles.expiryValue}>{timeLabel}</Text> · Tap resend if it expired
-        </Text>
+        {secondsLeft === 0 ? (
+          <Text style={styles.expiredHint}>Code expired — tap Resend below to get a new one.</Text>
+        ) : (
+          <Text style={styles.expiryText}>
+            Code expires in{' '}
+            <Text
+              style={
+                secondsLeft <= 60
+                  ? styles.expiryValueExpired
+                  : secondsLeft <= 120
+                    ? styles.expiryValueWarn
+                    : styles.expiryValue
+              }>
+              {timeLabel}
+            </Text>
+            {secondsLeft <= 120 ? ' · Get a new code soon' : ' · Tap resend if it expired'}
+          </Text>
+        )}
 
         <View style={styles.pwdWrap}>
           <SignInField
@@ -307,8 +369,8 @@ export default function ResetPasswordScreen() {
         />
 
         <Pressable
-          style={[styles.ctaBtn, submitLoading && styles.ctaDisabled]}
-          disabled={submitLoading}
+          style={[styles.ctaBtn, (submitLoading || secondsLeft === 0) && styles.ctaDisabled]}
+          disabled={submitLoading || secondsLeft === 0}
           onPress={() => void onSubmit()}>
           <Text style={styles.ctaText}>{submitLoading ? 'Saving…' : `Update password ${signInIcons.arrow}`}</Text>
         </Pressable>

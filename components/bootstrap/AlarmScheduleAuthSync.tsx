@@ -32,7 +32,9 @@ export function AlarmScheduleAuthSync() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session) {
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+        // TOKEN_REFRESHED: the userId embedded in scheduled notifications is still
+        // valid but re-sync ensures the schedule is fresh after any gap.
         rescheduleAllForSignedInUser();
         return;
       }

@@ -5,18 +5,23 @@ const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins')
 const KOTLIN_SOURCE = `package PACKAGE_NAME
 
 import android.app.Activity
-import android.app.KeyguardManager
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 
-/** Trampoline for alarm full-screen intents — lock screen + forward to MainActivity. */
+/**
+ * Trampoline activity for alarm full-screen intents.
+ *
+ * On API 27+ we use setShowWhenLocked / setTurnScreenOn which display the
+ * activity *over* the lock screen without attempting to dismiss it.
+ * requestDismissKeyguard is intentionally NOT called — on devices with a PIN
+ * or biometric lock it would show the PIN entry screen instead of the alarm,
+ * breaking the full-screen experience.
+ */
 class AlarmRingLaunchActivity : Activity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-
     showOverLockScreen()
     forwardToMainActivity(intent)
   }
@@ -30,38 +35,34 @@ class AlarmRingLaunchActivity : Activity() {
 
   private fun showOverLockScreen() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      // setShowWhenLocked / setTurnScreenOn are the modern API.
+      // They show the activity over the lock screen without dismissing it,
+      // which is exactly what alarm apps need when a PIN is set.
       setShowWhenLocked(true)
       setTurnScreenOn(true)
-      window.addFlags(
-        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-          WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON,
-      )
-      val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-      keyguard?.requestDismissKeyguard(this, null)
+      window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     } else {
       @Suppress("DEPRECATION")
       window.addFlags(
         WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
           WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-          WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD,
+          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
       )
     }
   }
 
   private fun forwardToMainActivity(sourceIntent: Intent?) {
-    val forward = packageManager.getLaunchIntentForPackage(packageName)
-    if (forward != null) {
-      sourceIntent?.extras?.let { forward.putExtras(it) }
-      forward.putExtra("rippleAlarmFullScreen", true)
-      forward.addFlags(
+    val forward = Intent().apply {
+      setClassName(packageName, "$packageName.MainActivity")
+      sourceIntent?.extras?.let { putExtras(it) }
+      putExtra("rippleAlarmFullScreen", true)
+      addFlags(
         Intent.FLAG_ACTIVITY_NEW_TASK or
           Intent.FLAG_ACTIVITY_SINGLE_TOP or
           Intent.FLAG_ACTIVITY_CLEAR_TOP,
       )
-      startActivity(forward)
     }
-
+    startActivity(forward)
     finish()
   }
 }
@@ -97,7 +98,7 @@ function withAndroidAlarmRingLaunchActivity(config) {
           'android:turnScreenOn': 'true',
           'android:excludeFromRecents': 'true',
           'android:noHistory': 'true',
-          'android:launchMode': 'singleInstance',
+          'android:launchMode': 'singleTask',
           'android:taskAffinity': '',
         },
       });

@@ -18,7 +18,6 @@ import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-da
 import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
 import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/alarm-notification-response';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
-import { recordAlarmHistoryMissed } from '@/lib/alarm-history-sync';
 
 async function ensureAlarmFireCategoryRegistered(): Promise<void> {
   await setNotificationCategoryAsync(ALARM_FIRE_CATEGORY_ID, [
@@ -74,7 +73,12 @@ export function AlarmNotificationBootstrap() {
         if (!parsed) {
           return;
         }
-        void recordAlarmHistoryMissed(parsed);
+        // Do NOT record "missed" here. addNotificationReceivedListener fires only
+        // in the foreground, where the ring screen always opens and the user can
+        // dismiss or snooze. Recording "missed" immediately and "dismissed" shortly
+        // after creates a race where the slower upsert overwrites the correct status.
+        // The background task (RIPPLE_ALARM_HISTORY_BG_TASK) handles truly-missed
+        // alarms when the app is backgrounded or terminated.
         openAlarmRingScreen(parsed);
       });
 

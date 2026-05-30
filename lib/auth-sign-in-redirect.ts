@@ -3,7 +3,12 @@ import { router } from 'expo-router';
 const DEDUP_MS = 1200;
 let lastSignInReplaceAt = 0;
 
-/** Path suffixes for routes where **no** session is normal (sign-in/up/recovery). */
+/**
+ * Path suffixes where an expired/absent session must not redirect to sign-in.
+ * Includes auth entry flows AND the alarm ring screen: an alarm fires at any
+ * time, so a token refresh failure must never navigate the user away from a
+ * ringing alarm.
+ */
 const GUEST_AUTH_SUFFIXES = [
   '/signin',
   '/login',
@@ -11,6 +16,7 @@ const GUEST_AUTH_SUFFIXES = [
   '/verify',
   '/forgot-password',
   '/reset-password',
+  '/alarm-ring',
 ] as const;
 
 /**

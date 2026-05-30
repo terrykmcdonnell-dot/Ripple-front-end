@@ -15,6 +15,39 @@ type Strength = {
   labelColor: string;
 };
 
+/**
+ * Returns true for passwords Supabase's zxcvbn-based checker reliably rejects:
+ * all-same-char, repeated short chunks (123123, abcabc), or sequential runs
+ * (12345678, abcdefgh). Supabase's actual check is server-side but catching
+ * the obvious cases here avoids a confusing "weak password" error after OTP.
+ */
+function isObviouslyWeak(pw: string): boolean {
+  const lower = pw.toLowerCase();
+  // All identical characters: aaaaaa, 111111
+  if (/^(.)\1+$/.test(pw)) {
+    return true;
+  }
+  // Repeated short chunks: 123123, abcabc (chunk len 2-4, repeated ≥ 2×)
+  for (let chunk = 2; chunk <= 4; chunk++) {
+    const part = lower.slice(0, chunk);
+    if (part.length === chunk && lower === part.repeat(Math.ceil(lower.length / chunk)).slice(0, lower.length)) {
+      return true;
+    }
+  }
+  // Ascending or descending sequential runs of ≥ 6 chars: 123456, abcdef
+  const codes = [...lower].map((c) => c.charCodeAt(0));
+  let ascRun = 1;
+  let descRun = 1;
+  for (let i = 1; i < codes.length; i++) {
+    ascRun = codes[i] === (codes[i - 1] ?? 0) + 1 ? ascRun + 1 : 1;
+    descRun = codes[i] === (codes[i - 1] ?? 0) - 1 ? descRun + 1 : 1;
+    if (ascRun >= 6 || descRun >= 6) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function computeStrength(password: string, t: AlarmThemePalette): Strength {
   if (!password.length) {
     return {
@@ -23,6 +56,17 @@ function computeStrength(password: string, t: AlarmThemePalette): Strength {
       label: 'Password strength',
       activeColor: t.surface3,
       labelColor: t.muted,
+    };
+  }
+
+  // Penalise patterns Supabase rejects regardless of length or character variety.
+  if (isObviouslyWeak(password)) {
+    return {
+      activeBars: 1,
+      level: 'weak',
+      label: 'Weak — avoid repeated or sequential patterns',
+      activeColor: t.red,
+      labelColor: t.red,
     };
   }
 

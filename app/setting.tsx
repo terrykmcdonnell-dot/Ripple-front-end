@@ -84,7 +84,16 @@ export default function SettingScreen() {
     titleLine,
     limitsApply,
     renewalHint,
+    managementURL,
   } = useSubscriptionStatus();
+
+  const openSubscriptionManagement = useCallback(() => {
+    if (managementURL) {
+      void Linking.openURL(managementURL);
+    } else {
+      void Linking.openSettings();
+    }
+  }, [managementURL]);
   const palette = useAlarmTheme();
   const styles = useMemo(() => createSettingStyles(palette), [palette]);
 
@@ -438,6 +447,20 @@ export default function SettingScreen() {
             </Pressable>
           ) : null}
         </LinearGradient>
+
+        {Platform.OS !== 'web' && !subLoading && isSubscriber ? (
+          <SettingsGroup>
+            <SettingsRow
+              icon={settingsIcons.cancelSubscription}
+              title="Cancel subscription"
+              value={`Opens ${Platform.OS === 'ios' ? 'App Store' : 'Play Store'} subscription management`}
+              titleColor={palette.red}
+              right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
+              onPress={() => openSubscriptionManagement()}
+              noBorder
+            />
+          </SettingsGroup>
+        ) : null}
 
         <Text style={styles.sectionLabel}>Appearance</Text>
         <SettingsGroup>

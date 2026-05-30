@@ -15,7 +15,7 @@ import {
   recordAlarmHistoryDismissed,
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
-import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
+import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
 import { clearMissedAlarmAppBadge } from '@/lib/missed-alarm-app-badge';
 import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
@@ -51,6 +51,18 @@ export async function handleAlarmFireNotificationResponse(response: Notification
   const reqId = response.notification.request.identifier;
   const action = response.actionIdentifier;
 
+  // Mark this occurrence delivered before any sync runs.
+  // syncAlarmFireNotifications (called below) runs before the ring screen
+  // has mounted, so the ring screen's own useEffect markAlarmFireDelivered
+  // call would be too late — the sync would see an empty delivered map,
+  // treat the grace-window alarm as undelivered, and schedule a duplicate
+  // now+5 s notification. Marking it here ensures the sync skips it and arms
+  // the deferred re-sync timer for the next occurrence instead.
+  const fireAtMs = new Date(parsed.fireAt).getTime();
+  if (Number.isFinite(fireAtMs)) {
+    await markAlarmFireDelivered(parsed.alarmId, fireAtMs);
+  }
+
   if (action === DEFAULT_ACTION_IDENTIFIER) {
     openAlarmRingScreen(parsed);
     await dismissNotificationAsync(reqId).catch(() => undefined);
@@ -64,7 +76,7 @@ export async function handleAlarmFireNotificationResponse(response: Notification
   if (action === ALARM_NOTIFICATION_ACTION_SNOOZE) {
     await stopRingAlarmSound();
     const minutes = await loadSnoozeMinutesForHistory();
-    await scheduleSnoozeNotification({ minutes, alarmTitle: parsed.label });
+    await scheduleSnoozeNotification({ minutes, alarmTitle: parsed.label, alarmData: parsed });
     await recordAlarmHistorySnoozed(parsed, minutes);
   } else if (action === ALARM_NOTIFICATION_ACTION_DISMISS) {
     await stopRingAlarmSound();

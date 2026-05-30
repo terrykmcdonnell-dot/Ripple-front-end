@@ -10,6 +10,7 @@ export const settingsIcons = {
   website: '🌐',
   rating: '⭐',
   info: 'ℹ️',
+  cancelSubscription: '🚫',
   signOut: '🚪',
   closeAccount: '⚠️',
   chevron: '›',
