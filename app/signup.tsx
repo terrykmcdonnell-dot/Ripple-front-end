@@ -16,6 +16,7 @@ import { useAppleAuthWithSupabase } from '@/hooks/use-apple-auth';
 import { useGoogleAuthWithSupabase } from '@/hooks/use-google-auth';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { EMAIL_ALREADY_REGISTERED_MESSAGE, startEmailSignUp } from '@/lib/auth-sign-up';
 import { isValidEmail, isValidPassword, sanitizeEmailInput } from '@/lib/auth-validation';
 import { savePendingSignUp } from '@/lib/pending-signup';
 import { syncUserProfileToTable } from '@/lib/sync-user-profile';
@@ -168,24 +169,26 @@ export default function SignUpScreen() {
 
     setIsSubmitting(true);
 
-    // Use passwordless OTP first so no row is committed in auth.users until the user verifies.
-    // Password is applied after OTP via updateUser on the verify screen (or here if a session is returned immediately).
-    const { data: otpData, error: otpError } = await supabase.auth.signInWithOtp({
+    const result = await startEmailSignUp({
       email: emailValue,
-      options: {
-        shouldCreateUser: true,
-        data: { name: nameValue },
-      },
+      password,
+      name: nameValue,
     });
 
-    if (otpError) {
+    if (result.kind === 'error') {
       setIsSubmitting(false);
-      notifyAuthError('Sign Up', otpError);
+      notifyAuthError('Sign Up', result.error);
       return;
     }
 
-    // If your project disables email confirmation, you may get a session immediately — set password and finish.
-    if (otpData?.session) {
+    if (result.kind === 'existing_user') {
+      setIsSubmitting(false);
+      setEmailError(EMAIL_ALREADY_REGISTERED_MESSAGE);
+      notifyAuthMessage('Sign Up', EMAIL_ALREADY_REGISTERED_MESSAGE);
+      return;
+    }
+
+    if (result.kind === 'session') {
       const { error: pwError } = await supabase.auth.updateUser({ password });
       if (pwError) {
         setIsSubmitting(false);

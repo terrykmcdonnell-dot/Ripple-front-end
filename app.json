@@ -47,7 +47,7 @@
         }
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0a1423",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -79,16 +79,16 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0a1423",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#0a1423"
           }
         }
       ],
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.629364170217-in6ab46jfkv74m4p4a8dq0ae10u0pkce"
+          "iosUrlScheme": "com.googleusercontent.apps.767579062920-tt7rg6hsg58upafjeteh0q70p9mvr2b9"
         }
       ],
       "expo-task-manager",

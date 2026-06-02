@@ -210,11 +210,11 @@ export default function VerifyScreen() {
 
     setVerifyLoading(true);
     try {
-      // Matches signInWithOtp — user is created/confirmed when this succeeds (not on the sign-up screen).
+      // Matches signUp — user is confirmed when this succeeds.
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otpCode,
-        type: 'email',
+        type: 'signup',
       });
 
       if (error) {
