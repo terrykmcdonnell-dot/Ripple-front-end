@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
 import { AndroidFsiPermissionBootstrap } from '@/components/bootstrap/AndroidFsiPermissionBootstrap';
+import { AppVersionCheckBootstrap } from '@/components/bootstrap/AppVersionCheckBootstrap';
 import { IosNotificationPermissionBootstrap } from '@/components/bootstrap/IosNotificationPermissionBootstrap';
 import { AlarmScheduleAuthSync } from '@/components/bootstrap/AlarmScheduleAuthSync';
 import { RevenueCatBootstrap } from '@/components/bootstrap/RevenueCatBootstrap';
@@ -94,6 +95,7 @@ export default function RootLayout() {
       <AlarmThemeProvider>
         <ThemedNavigationShell>
           <AppToastProvider>
+            <AppVersionCheckBootstrap />
             <AlarmScheduleAuthSync />
             <SupabaseAuthAutoRefreshBootstrap />
             <RevenueCatBootstrap />

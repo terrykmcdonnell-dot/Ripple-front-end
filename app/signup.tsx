@@ -189,12 +189,10 @@ export default function SignUpScreen() {
     }
 
     if (result.kind === 'session') {
-      const { error: pwError } = await supabase.auth.updateUser({ password });
-      if (pwError) {
-        setIsSubmitting(false);
-        notifyAuthError('Sign Up', pwError);
-        return;
-      }
+      // Do NOT call supabase.auth.updateUser({ password }) here.
+      // signUp() already set the password. Calling updateUser again re-runs
+      // Supabase's server-side zxcvbn strength check which can reject passwords
+      // that signUp accepted, showing a spurious "weak password" error.
       const { error: profileError } = await syncUserProfileToTable({
         name: nameValue,
         email: emailValue,
@@ -202,6 +200,9 @@ export default function SignUpScreen() {
       });
       setIsSubmitting(false);
       if (profileError) {
+        // Sign out so the session does not persist — without a profile the user
+        // would be silently redirected to /alarm on the next app launch.
+        await supabase.auth.signOut();
         notifyAuthError('Sign Up', profileError);
         return;
       }

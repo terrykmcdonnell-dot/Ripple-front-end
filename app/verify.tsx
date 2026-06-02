@@ -210,7 +210,6 @@ export default function VerifyScreen() {
 
     setVerifyLoading(true);
     try {
-      // Matches signUp — user is confirmed when this succeeds.
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otpCode,
@@ -218,28 +217,38 @@ export default function VerifyScreen() {
       });
 
       if (error) {
+        // Clear boxes — Supabase invalidates the OTP after a failed attempt,
+        // so the same code will not work again. Prompt the user to resend.
+        setOtpCode('');
         notifyAuthError('Verify', error);
         return;
       }
 
       if (!data.session) {
+        setOtpCode('');
         notifyAuthMessage('Verify', 'Verification did not finish. Try again or tap Resend code.');
         return;
       }
 
       const pending = await getPendingSignUp();
       if (!pending || pending.email !== email) {
-        notifyAuthMessage('Verify', 'Your sign-up data is missing. Please create an account again.');
+        // No pending data — sign out the newly-created session so the user
+        // is not silently "logged in" with an incomplete profile.
+        await supabase.auth.signOut();
         await clearPendingSignUp();
+        notifyAuthMessage('Verify', 'Your sign-up data is missing. Please create an account again.');
         router.replace('/signup');
         return;
       }
 
-      const { error: pwError } = await supabase.auth.updateUser({ password: pending.password });
-      if (pwError) {
-        notifyAuthError('Verify', pwError);
-        return;
-      }
+      // Do NOT call supabase.auth.updateUser({ password }) here.
+      //
+      // The password was already set when supabase.auth.signUp() was called.
+      // Calling updateUser again is redundant and re-runs Supabase's server-side
+      // password strength check (zxcvbn) which can reject passwords that signUp
+      // accepted — e.g. "123123123123" scores as weak despite being 12 chars.
+      // This caused a "Choose a stronger password" error on the verify screen
+      // even when the user's code and password were both correct.
 
       const { error: profileError } = await syncUserProfileToTable({
         name: pending.name,
@@ -248,6 +257,11 @@ export default function VerifyScreen() {
       });
 
       if (profileError) {
+        // Sign out so the session does not persist — without a profile the user
+        // would be silently redirected to /alarm on the next app launch even
+        // though their account setup did not complete.
+        await supabase.auth.signOut();
+        await clearPendingSignUp();
         notifyAuthError('Verify', profileError);
         return;
       }
@@ -276,6 +290,7 @@ export default function VerifyScreen() {
       return;
     }
 
+    setOtpCode('');
     setSecondsLeft(CODE_TTL_SECONDS);
     notifyAuthMessage('Resend code', 'If this email is waiting for verification, a new code was sent.');
   }, [emailDisplay]);
