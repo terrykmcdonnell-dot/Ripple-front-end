@@ -88,7 +88,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.767579062920-tt7rg6hsg58upafjeteh0q70p9mvr2b9"
+          "iosUrlScheme": "com.googleusercontent.apps.219598516590-d4vhe3j1lft5e28i3m045fm52sjig15p"
         }
       ],
       "expo-task-manager",
