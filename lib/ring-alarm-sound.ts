@@ -21,6 +21,22 @@ let activeRingSound: Audio.Sound | null = null;
 let activeRingSoundId: AlarmSoundId | null = null;
 let autoStopTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * Monotonically-increasing generation counter.
+ *
+ * Why this exists — race condition:
+ *   1. Alarm fires → AlarmRingScreen mounts → startRingAlarmSound() begins awaiting createAsync().
+ *   2. User presses Snooze/Dismiss very fast → stopRingAlarmSound() is called.
+ *   3. At step 2, activeRingSound is still null (createAsync hasn't resolved) → stop is a no-op.
+ *   4. createAsync resolves → activeRingSound is set, sound starts playing forever.
+ *
+ * Fix: stopRingAlarmSound() increments _soundGen synchronously (before any await).
+ * startRingAlarmSound() captures its own generation at the start and checks it after every
+ * await. If the generation changed, a stop won the race — the freshly-loaded sound is
+ * discarded immediately instead of being stored in activeRingSound.
+ */
+let _soundGen = 0;
+
 function clearAutoStopTimer() {
   if (autoStopTimer != null) {
     clearTimeout(autoStopTimer);
@@ -29,20 +45,29 @@ function clearAutoStopTimer() {
 }
 
 export async function stopRingAlarmSound(): Promise<void> {
+  // Bump generation first — synchronous, so any concurrent startRingAlarmSound()
+  // that checks after its next await will see the mismatch and abort.
+  _soundGen++;
+
   clearAutoStopTimer();
-  if (activeRingSound) {
+
+  // Capture and clear the ref before awaiting so a concurrent start() cannot
+  // accidentally see and re-use a sound we are in the middle of stopping.
+  const s = activeRingSound;
+  activeRingSound = null;
+  activeRingSoundId = null;
+
+  if (s) {
     try {
-      await activeRingSound.stopAsync();
+      await s.stopAsync();
     } catch {
       /* ignore */
     }
     try {
-      await activeRingSound.unloadAsync();
+      await s.unloadAsync();
     } catch {
       /* ignore */
     }
-    activeRingSound = null;
-    activeRingSoundId = null;
   }
 
   // Release the audio session so other apps can use audio normally again.
@@ -70,27 +95,59 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
     return;
   }
 
+  // Capture our generation. Every await below re-checks it. If stopRingAlarmSound()
+  // is called while we are loading, it increments _soundGen and we abort.
+  const myGen = ++_soundGen;
+
   const id = rawId ? coerceAlarmSoundId(rawId) : await loadDefaultAlarmSoundId();
+  if (myGen !== _soundGen) {
+    return; // stop() was called while we were reading AsyncStorage → abort
+  }
+
   const source = ALARM_SOUND_SOURCES[id];
   if (source == null) {
     return;
   }
 
-  // Already playing the same sound — restart auto-stop timer but don't reload.
+  // Already playing the same sound — refresh auto-stop timer, no reload needed.
   if (activeRingSound && activeRingSoundId === id) {
     try {
       const status = await activeRingSound.getStatusAsync();
+      if (myGen !== _soundGen) {
+        return; // stop() called between the getStatus await and here → abort
+      }
       if (status.isLoaded && status.isPlaying) {
         clearAutoStopTimer();
         autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
         return;
       }
     } catch {
-      /* restart below */
+      if (myGen !== _soundGen) return;
+      /* fall through to reload below */
     }
   }
 
-  await stopRingAlarmSound();
+  // Stop any previously-playing sound without bumping _soundGen (we don't want
+  // to cancel ourselves — only stopRingAlarmSound() should do that).
+  clearAutoStopTimer();
+  const prev = activeRingSound;
+  activeRingSound = null;
+  activeRingSoundId = null;
+  if (prev) {
+    try {
+      await prev.stopAsync();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await prev.unloadAsync();
+    } catch {
+      /* ignore */
+    }
+  }
+  if (myGen !== _soundGen) {
+    return; // stop() was called while we were unloading the previous sound → abort
+  }
 
   try {
     await Audio.setAudioModeAsync({
@@ -105,18 +162,50 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
     /* still try to play */
   }
 
+  if (myGen !== _soundGen) {
+    return; // stop() called while we were configuring the audio session → abort
+  }
+
   try {
     const { sound } = await Audio.Sound.createAsync(source, {
       shouldPlay: true,
       volume: 1,
       isLooping: true,
     });
+
+    if (myGen !== _soundGen) {
+      // stop() was called while createAsync was running — discard the freshly
+      // loaded sound immediately instead of storing it in activeRingSound.
+      try {
+        await sound.stopAsync();
+      } catch {
+        /* ignore */
+      }
+      try {
+        await sound.unloadAsync();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
     activeRingSound = sound;
     activeRingSoundId = id;
 
     // Hard stop after 90 seconds regardless of user interaction.
     autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
   } catch {
-    await stopRingAlarmSound();
+    // createAsync failed — release audio session if we are still the active load.
+    if (myGen === _soundGen) {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: false,
+          staysActiveInBackground: false,
+        });
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
