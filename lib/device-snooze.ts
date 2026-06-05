@@ -163,8 +163,10 @@ export async function scheduleSnoozeNotification(params: {
               },
             }
           : {}),
-        ...(Platform.OS === 'ios'
+          ...(Platform.OS === 'ios'
           ? {
+              // 'timeSensitive' bypasses Focus/DND. Switch to 'critical' once Apple
+              // approves the critical-alerts entitlement and it is in the provisioning profile.
               interruptionLevel: 'timeSensitive' as const,
             }
           : {}),

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { AppConfirmModal } from '@/components/ui/AppConfirmModal';
+import { isAndroidFullScreenIntentGranted } from '@/lib/android-full-screen-intent-granted';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 
 const FSI_WARN_KEY = 'ripple_fsi_warn_last_v1';
@@ -14,6 +15,7 @@ let shownThisSession = false;
 /**
  * Android 14+: shows a themed confirm modal on first launch (and once per day)
  * asking the user to grant the full-screen intent permission.
+ * Skips the prompt if the permission is already granted.
  *
  * Uses AppConfirmModal (same style as delete/skip dialogs) rather than the
  * native Alert, which renders as a bright white system dialog that clashes
@@ -33,6 +35,12 @@ export function AndroidFsiPermissionBootstrap() {
 
     void (async () => {
       try {
+        // Skip entirely if the user already granted the permission.
+        if (await isAndroidFullScreenIntentGranted()) {
+          shownThisSession = true;
+          return;
+        }
+
         const raw = await AsyncStorage.getItem(FSI_WARN_KEY);
         const lastShown = raw ? Number(raw) : 0;
         const now = Date.now();

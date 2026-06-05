@@ -3,16 +3,105 @@ const path = require('path');
 const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
 
 const { BLOCK_V4, MARKER_V4, OLD_BLOCK_REGEX } = require('../scripts/expo-notifications-alarm-fsi-patch-block');
+const {
+  MARKER_SCHEDULING,
+  IMPORT_LINES,
+  TRIGGER_REPLACEMENT,
+  SETUP_ALARM_REPLACEMENT,
+} = require('../scripts/expo-notifications-alarm-scheduling-patch-block');
 
-const RELATIVE =
+const BUILDER_RELATIVE =
   'node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt';
+
+const SCHEDULING_RELATIVE =
+  'node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/service/delegates/ExpoSchedulingDelegate.kt';
 
 const INSERT_NEEDLE = `    )
 
     if (notificationContent.containsImage()) {`;
 
+function applySchedulingPatch(projectRoot) {
+  const file = path.join(projectRoot, ...SCHEDULING_RELATIVE.split('/'));
+  if (!fs.existsSync(file)) {
+    console.warn('[with-android-alarm-fsi] ExpoSchedulingDelegate not found; skip scheduling patch.');
+    return;
+  }
+  let s = fs.readFileSync(file, 'utf8');
+  if (s.includes(MARKER_SCHEDULING)) {
+    return;
+  }
+
+  const triggerOld = `  override fun triggerNotification(identifier: String) {
+    try {
+      val notificationRequest: NotificationRequest = store.getNotificationRequest(identifier)!!
+      NotificationsService.receive(context, Notification(notificationRequest))
+      NotificationsService.schedule(context, notificationRequest)
+    } catch (e: ClassNotFoundException) {
+      Log.e("expo-notifications", "An exception occurred while triggering notification " + identifier + ", removing. " + e.message)
+      e.printStackTrace()
+      NotificationsService.removeScheduledNotification(context, identifier)
+    } catch (e: InvalidClassException) {
+      Log.e("expo-notifications", "An exception occurred while triggering notification " + identifier + ", removing. " + e.message)
+      e.printStackTrace()
+      NotificationsService.removeScheduledNotification(context, identifier)
+    } catch (e: NullPointerException) {
+      Log.e("expo-notifications", "An exception occurred while triggering notification " + identifier + ", removing. " + e.message)
+      e.printStackTrace()
+      NotificationsService.removeScheduledNotification(context, identifier)
+    }
+  }`;
+
+  const setupAlarmOld = `  private fun setupAlarm(triggerAtMillis: Long, operation: PendingIntent) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+      AlarmManagerCompat.setExactAndAllowWhileIdle(
+        alarmManager,
+        AlarmManager.RTC_WAKEUP,
+        triggerAtMillis,
+        operation
+      )
+    } else {
+      AlarmManagerCompat.setAndAllowWhileIdle(
+        alarmManager,
+        AlarmManager.RTC_WAKEUP,
+        triggerAtMillis,
+        operation
+      )
+    }
+  }`;
+
+  for (const line of IMPORT_LINES) {
+    if (!s.includes(line)) {
+      s = s.replace(
+        'import expo.modules.notifications.service.interfaces.SchedulingDelegate',
+        `import expo.modules.notifications.service.interfaces.SchedulingDelegate\n${line}`,
+      );
+    }
+  }
+
+  if (!s.includes(triggerOld)) {
+    console.warn('[with-android-alarm-fsi] Scheduling triggerNotification block missing; skip.');
+    return;
+  }
+  s = s.replace(triggerOld, TRIGGER_REPLACEMENT);
+
+  const scheduleCallOld =
+    'setupAlarm(nextTriggerDate.time, NotificationsService.createNotificationTrigger(context, request.identifier))';
+  if (s.includes(scheduleCallOld)) {
+    s = s.replace(
+      scheduleCallOld,
+      'setupAlarm(nextTriggerDate.time, NotificationsService.createNotificationTrigger(context, request.identifier), request.identifier)',
+    );
+  }
+
+  if (s.includes(setupAlarmOld)) {
+    s = s.replace(setupAlarmOld, SETUP_ALARM_REPLACEMENT);
+    fs.writeFileSync(file, s, 'utf8');
+    console.log(`[with-android-alarm-fsi] Applied alarm scheduling patch (${MARKER_SCHEDULING}).`);
+  }
+}
+
 function applyFullScreenIntentPatch(projectRoot) {
-  const file = path.join(projectRoot, ...RELATIVE.split('/'));
+  const file = path.join(projectRoot, ...BUILDER_RELATIVE.split('/'));
   if (!fs.existsSync(file)) {
     console.warn('[with-android-alarm-fsi] expo-notifications builder not found; skip.');
     return;
@@ -67,6 +156,7 @@ function withAndroidAlarmFullScreenIntent(config) {
     'android',
     async (cfg) => {
       applyFullScreenIntentPatch(cfg.modRequest.projectRoot);
+      applySchedulingPatch(cfg.modRequest.projectRoot);
       return cfg;
     },
   ]);

@@ -49,6 +49,58 @@ export function isExpiredJwtOrSessionError(error: unknown): boolean {
   return false;
 }
 
+/** Seconds before access-token expiry when we proactively refresh (Supabase default JWT ≈ 3600s). */
+const ACCESS_TOKEN_REFRESH_BUFFER_SEC = 30;
+
+/**
+ * Validates the stored session with Supabase Auth (refreshes when possible).
+ * Signs out when the refresh token is invalid or expired so `SIGNED_OUT` routing runs.
+ *
+ * `getSession()` alone can return a locally cached access JWT that is already past
+ * `expires_at` — especially after the app was backgrounded with `stopAutoRefresh()`.
+ */
+export async function ensureAuthSessionFreshOrSignOut(): Promise<boolean> {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session) {
+    return false;
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const expiresAt = session.expires_at ?? 0;
+
+  if (expiresAt > 0 && expiresAt <= nowSec + ACCESS_TOKEN_REFRESH_BUFFER_SEC) {
+    await refreshOrSignOutOnExpiredSession();
+    const {
+      data: { session: after },
+    } = await supabase.auth.getSession();
+    return after != null;
+  }
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    if (isExpiredJwtOrSessionError(userError)) {
+      await refreshOrSignOutOnExpiredSession();
+      const {
+        data: { session: after },
+      } = await supabase.auth.getSession();
+      return after != null;
+    }
+    // Network / transient — keep the cached session; do not force sign-out offline.
+    return true;
+  }
+
+  if (!user) {
+    await refreshOrSignOutOnExpiredSession();
+    return false;
+  }
+
+  return true;
+}
+
 /** After JWT errors: try one refresh; if still no session, sign out so routing sends user to sign-in. */
 export async function refreshOrSignOutOnExpiredSession(): Promise<void> {
   try {

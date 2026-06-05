@@ -1,6 +1,7 @@
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
+import { ensureAuthSessionFreshOrSignOut } from '@/lib/auth-session-errors';
 import { replaceWithSignInIfNeeded, isGuestAuthFlowPathname } from '@/lib/auth-sign-in-redirect';
 import { supabase } from '@/lib/supabase';
 
@@ -11,6 +12,15 @@ export function useRequireAuth() {
   pathnameRef.current = pathname;
 
   useEffect(() => {
+    // Validate on mount — expired JWT in AsyncStorage does not always emit SIGNED_OUT
+    // until the next API call; this forces refresh-or-sign-out on protected screens.
+    void (async () => {
+      const ok = await ensureAuthSessionFreshOrSignOut();
+      if (!ok && !isGuestAuthFlowPathname(pathnameRef.current)) {
+        replaceWithSignInIfNeeded(pathnameRef.current);
+      }
+    })();
+
     // Empty dependency array: the subscription is created once and stays active
     // for the lifetime of the component. We read the latest pathname via the ref
     // so we never need to tear down and re-create the listener on navigation.

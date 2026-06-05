@@ -5,8 +5,10 @@ import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications
 import { IosAuthorizationStatus } from 'expo-notifications/build/NotificationPermissions.types';
 
 /**
- * Ask iOS notification permission on first app open.
- * iOS only shows the system dialog while status is `NOT_DETERMINED`.
+ * iOS notification permission on app open:
+ * - First install: request alert + sound + critical alerts together.
+ * - Existing users who allowed notifications before critical was added: re-request
+ *   critical-only so muted-switch alarms can use interruptionLevel "critical".
  */
 export function IosNotificationPermissionBootstrap() {
   useEffect(() => {
@@ -22,16 +24,26 @@ export function IosNotificationPermissionBootstrap() {
           return;
         }
 
-        const iosStatus = current.ios?.status;
+        const ios = current.ios;
+        const iosStatus = ios?.status;
         const canPrompt = current.canAskAgain !== false;
-        const notDetermined = iosStatus === IosAuthorizationStatus.NOT_DETERMINED;
-        if (!notDetermined || !canPrompt) {
+        if (!canPrompt) {
           return;
         }
 
-        await requestPermissionsAsync({
-          ios: { allowAlert: true, allowBadge: true, allowSound: true },
-        });
+        const criticalGranted = ios?.allowsCriticalAlerts === true;
+
+        if (iosStatus === IosAuthorizationStatus.NOT_DETERMINED) {
+          await requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+              // allowCriticalAlerts: true — add back once Apple approves the
+              // critical-alerts entitlement and it is included in the provisioning profile.
+            },
+          });
+        }
       } catch {
         /* expo-notifications unavailable */
       }

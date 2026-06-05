@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { navIcons } from '@/assets/icons/alarm-icons';
 import { AlarmCard } from '@/components/alarms/AlarmCard';
+import { AndroidLockScreenAlarmBanner } from '@/components/alarms/AndroidLockScreenAlarmBanner';
+import { NotificationsDisabledBanner } from '@/components/alarms/NotificationsDisabledBanner';
 import { BottomNavbar } from '@/components/alarms/BottomNavbar';
 import { RichWordText } from '@/components/alarms/RichWordText';
 import { isAlarmPaletteDark, alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
@@ -29,7 +31,7 @@ import {
   type AlarmListItem,
 } from '@/lib/alarm-format';
 import { ADD_ALARM_HIT_SLOP } from '@/lib/header-hit-slop';
-import { notifyAuthError } from '@/lib/auth-notify';
+import { getAuthErrorDisplayText, notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { stashAlarmForEdit } from '@/lib/alarm-navigation-cache';
 import { promptAndroidFullScreenAlarmPermissionIfNeeded } from '@/lib/android-alarm-full-screen-setup';
@@ -214,8 +216,7 @@ export default function AlarmScreen() {
         void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
       });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load alarms.';
-      setListError(msg);
+      setListError(getAuthErrorDisplayText(e));
       if (!silent) {
         notifyAuthError('Alarms', e);
       }
@@ -301,6 +302,9 @@ export default function AlarmScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
+
+      <NotificationsDisabledBanner />
+      <AndroidLockScreenAlarmBanner />
 
       <View style={styles.clockWrap}>
         <View style={styles.heroClockRow}>

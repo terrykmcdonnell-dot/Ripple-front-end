@@ -2,7 +2,6 @@ import {
   clearLastNotificationResponseAsync,
   getLastNotificationResponseAsync,
 } from 'expo-notifications/build/NotificationsEmitter';
-import { Platform } from 'react-native';
 
 import { ALARM_FIRE_DATA_TYPE } from '@/lib/alarm-notification-constants';
 import { handleAlarmFireNotificationResponse } from '@/lib/alarm-notification-response';
@@ -15,9 +14,6 @@ function isAlarmFireResponseData(data: Record<string, unknown> | undefined): boo
 }
 
 async function consumeInitialAlarmFireResponseInner(): Promise<boolean> {
-  if (Platform.OS !== 'android') {
-    return false;
-  }
   if (initialAlarmLaunchHandled) {
     return true;
   }
@@ -42,13 +38,11 @@ async function consumeInitialAlarmFireResponseInner(): Promise<boolean> {
 }
 
 /**
- * On Android, a full-screen intent / notification tap can cold-start the app before `/alarm` mounts.
- * Consume the pending response once and open the ring UI so `app/index.tsx` does not replace it.
+ * A full-screen intent (Android) or lock-screen notification tap (iOS/Android) can cold-start
+ * the app before `/alarm` mounts. Consume the pending response once and open the ring UI so
+ * `app/index.tsx` does not replace it.
  */
 export function consumeInitialAlarmFireResponse(): Promise<boolean> {
-  if (Platform.OS !== 'android') {
-    return Promise.resolve(false);
-  }
   if (initialAlarmLaunchHandled) {
     return Promise.resolve(true);
   }

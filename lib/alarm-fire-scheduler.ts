@@ -139,11 +139,13 @@ async function ensureAndroidAlarmFireChannel(soundId: AlarmSoundId, vibrationEna
  * system wakes the device at the requested time.
  *
  * **Android:** Alarm channels use **USAGE_ALARM**, **enforceAudibility**, and
- * **bypassDnd** so rings follow the **alarm** volume stream and can surface
- * through Do Not Disturb where the OS allows — not a guarantee over every OEM
- * / "total silence" mode.
- * **iOS:** hardware mute / Focus still limit audibility; `timeSensitive` is
- * already used.
+ * **bypassDnd** so rings follow the **alarm** volume stream and bypass silent /
+ * vibrate mode and Do Not Disturb on all OEMs that honour it.
+ * **iOS:** notifications use `interruptionLevel: 'critical'` which bypasses
+ * both the hardware mute switch and Focus/DND, provided the user has granted
+ * the critical-alerts permission and the app has the
+ * `com.apple.developer.usernotifications.critical-alerts` entitlement.
+ * The foreground in-app sound uses `playsInSilentModeIOS: true` (expo-av).
  *
  * A module-level mutex ensures only one sync runs at a time. Any concurrent
  * call queues a single re-run that executes once the in-flight sync completes.
@@ -357,6 +359,11 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
             : {}),
           ...(Platform.OS === 'ios'
             ? {
+                // 'timeSensitive' bypasses Focus/DND but not the hardware mute switch.
+                // Switch to 'critical' once Apple approves the
+                // com.apple.developer.usernotifications.critical-alerts entitlement
+                // and the provisioning profile includes it — then also add back the
+                // entitlement to app.json ios.entitlements.
                 interruptionLevel: 'timeSensitive' as const,
               }
             : {}),

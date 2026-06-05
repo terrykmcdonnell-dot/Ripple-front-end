@@ -115,11 +115,17 @@ export default function AlarmRingScreen() {
     };
   }, [soundIdParam, liveParsed?.soundId, liveParsed]);
 
-  // Stop sound when the user presses Home or switches apps from the ring screen.
+  // Stop sound only when the app fully leaves the foreground (background state).
+  // 'inactive' is intentionally excluded on iOS: the system briefly sets the app
+  // to 'inactive' during the lock-screen-to-ring-screen transition (e.g. when an
+  // alarm fires while the phone is locked and the ring screen animates in over the
+  // keyguard). Stopping on 'inactive' would silence the alarm before the ring
+  // screen is even visible. 'background' is the correct signal that the user
+  // pressed Home or switched apps.
   // The 90-second auto-stop in ring-alarm-sound.ts is the last-resort safety net.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'background' || nextState === 'inactive') {
+      if (nextState === 'background') {
         void stopRingAlarmSound();
       }
     });

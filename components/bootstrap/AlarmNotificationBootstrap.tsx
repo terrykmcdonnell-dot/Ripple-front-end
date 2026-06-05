@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
+import dismissNotificationAsync from 'expo-notifications/build/dismissNotificationAsync';
 import {
   addNotificationReceivedListener,
   addNotificationResponseReceivedListener,
@@ -80,6 +81,11 @@ export function AlarmNotificationBootstrap() {
         // The background task (RIPPLE_ALARM_HISTORY_BG_TASK) handles truly-missed
         // alarms when the app is backgrounded or terminated.
         openAlarmRingScreen(parsed);
+        // Foreground handler uses shouldShowList on Android so the alarm channel posts;
+        // remove the tray row once the ring UI is open.
+        if (Platform.OS === 'android') {
+          void dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
+        }
       });
 
       responseSub = addNotificationResponseReceivedListener((response) => {

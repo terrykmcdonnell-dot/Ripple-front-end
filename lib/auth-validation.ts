@@ -105,7 +105,16 @@ export function formatAuthErrorMessage(message: string, meta?: AuthErrorMeta) {
   ) {
     return 'Network problem. Check your connection and try again.';
   }
-  if (meta?.status === 500 || lower.includes('internal server error') || lower.includes('service unavailable')) {
+  if (
+    meta?.status === 500 ||
+    meta?.status === 502 ||
+    meta?.status === 503 ||
+    meta?.status === 504 ||
+    lower.includes('internal server error') ||
+    lower.includes('bad gateway') ||
+    lower.includes('service unavailable') ||
+    lower.includes('gateway timeout')
+  ) {
     return 'Service is temporarily unavailable. Try again in a moment.';
   }
   if (lower.includes('session') && lower.includes('expired')) {

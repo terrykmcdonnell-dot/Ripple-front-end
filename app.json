@@ -16,7 +16,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
@@ -61,7 +62,8 @@
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM",
         "android.permission.USE_FULL_SCREEN_INTENT",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.ACCESS_NOTIFICATION_POLICY"
       ]
     },
     "web": {
@@ -69,6 +71,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/with-android-notification-policy-permission",
       "./plugins/with-android-alarm-activity",
       "./plugins/with-android-alarm-full-screen-intent",
       "expo-apple-authentication",

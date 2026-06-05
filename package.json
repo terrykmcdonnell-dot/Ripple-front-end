@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "generate-alarm-sounds": "node ./scripts/generate-alarm-sounds.mjs",
-    "postinstall": "node ./scripts/patch-expo-notifications-alarm-full-screen-intent.js"
+    "postinstall": "node ./scripts/patch-expo-notifications-alarm-full-screen-intent.js && node ./scripts/patch-expo-notifications-alarm-scheduling.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -1,26 +1,53 @@
 import { useEffect } from 'react';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
+import { ensureAuthSessionFreshOrSignOut } from '@/lib/auth-session-errors';
 import { supabase } from '@/lib/supabase';
+
+/** Re-check session while app stays in foreground (access JWT default ≈ 1 hour). */
+const SESSION_VALIDATION_INTERVAL_MS = 60_000;
 
 /**
  * React Native cannot detect foreground like a browser tab. Supabase recommends tying
- * `startAutoRefresh` / `stopAutoRefresh` to AppState so tokens refresh when the user returns,
- * and background work does not rely on a stalled ticker. When the access token is expired,
- * `getSession()` triggers a refresh; if refresh fails, GoTrue removes storage and emits
- * `SIGNED_OUT` — `useRequireAuth` / index routing then send users to sign-in.
+ * `startAutoRefresh` / `stopAutoRefresh` to AppState so tokens refresh when the user returns.
+ *
+ * We also call {@link ensureAuthSessionFreshOrSignOut} on foreground and every minute while
+ * active: `getSession()` can keep an expired access token in memory until an API fails.
+ * Failed refresh signs out and emits `SIGNED_OUT` — `useRequireAuth` sends users to sign-in.
  */
 export function SupabaseAuthAutoRefreshBootstrap() {
   useEffect(() => {
+    let validationInterval: ReturnType<typeof setInterval> | null = null;
+
+    const clearValidationInterval = () => {
+      if (validationInterval != null) {
+        clearInterval(validationInterval);
+        validationInterval = null;
+      }
+    };
+
+    const startValidationInterval = () => {
+      clearValidationInterval();
+      validationInterval = setInterval(() => {
+        void ensureAuthSessionFreshOrSignOut();
+      }, SESSION_VALIDATION_INTERVAL_MS);
+    };
+
     if (Platform.OS === 'web') {
-      return;
+      void ensureAuthSessionFreshOrSignOut();
+      startValidationInterval();
+      return () => {
+        clearValidationInterval();
+      };
     }
 
     const onChange = (next: AppStateStatus) => {
       if (next === 'active') {
         void supabase.auth.startAutoRefresh();
-        void supabase.auth.getSession();
+        void ensureAuthSessionFreshOrSignOut();
+        startValidationInterval();
       } else {
+        clearValidationInterval();
         void supabase.auth.stopAutoRefresh();
       }
     };
@@ -30,6 +57,7 @@ export function SupabaseAuthAutoRefreshBootstrap() {
 
     return () => {
       sub.remove();
+      clearValidationInterval();
       void supabase.auth.stopAutoRefresh();
     };
   }, []);

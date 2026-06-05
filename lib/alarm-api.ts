@@ -5,6 +5,43 @@ import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
 const RIPPLE_FETCH_TIMEOUT_MS = 25_000;
 const RIPPLE_WRITE_TIMEOUT_MS = 45_000;
 
+/** Thrown when the Ripple FastAPI responds with a non-2xx status (carries HTTP status for UI mapping). */
+export class RippleApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'RippleApiError';
+    this.status = status;
+  }
+}
+
+function parseRippleApiErrorBody(raw: string, status: number): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return '';
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as { detail?: unknown };
+    if (typeof parsed.detail === 'string') {
+      return parsed.detail;
+    }
+    if (Array.isArray(parsed.detail)) {
+      return parsed.detail
+        .map((d) => (typeof d === 'object' && d && 'msg' in d ? String((d as { msg: unknown }).msg) : String(d)))
+        .join('; ');
+    }
+  } catch {
+    /* plain text body */
+  }
+  return trimmed;
+}
+
+function throwRippleApiHttpError(status: number, rawBody: string, fallback: string): never {
+  const detail = parseRippleApiErrorBody(rawBody, status);
+  throw new RippleApiError(detail || fallback, status);
+}
+
 function throwRippleFetchError(err: unknown, timeoutMs: number): never {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ?? '';
   const msg = err instanceof Error ? err.message : String(err);
@@ -97,7 +134,7 @@ export async function createAlarm(payload: CreateAlarmPayload): Promise<void> {
   } catch {
     /* ignore */
   }
-  throw new Error(detail || `Could not create alarm (${res.status}).`);
+  throwRippleApiHttpError(res.status, detail, `Could not create alarm (${res.status}).`);
 }
 
 /** PATCH /api/alarm/{alarm_id}/ — any subset (toggle, edit fields). */
@@ -136,10 +173,10 @@ export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Prom
   } catch {
     /* ignore */
   }
-  throw new Error(
-    detail
-      ? `Alarm update failed (${res.status}): ${detail}`
-      : `Could not update alarm (${res.status}).`,
+  throwRippleApiHttpError(
+    res.status,
+    detail,
+    detail ? `Alarm update failed (${res.status}): ${detail}` : `Could not update alarm (${res.status}).`,
   );
 }
 
@@ -159,7 +196,7 @@ export async function deleteAlarm(alarmId: number): Promise<void> {
   } catch {
     /* ignore */
   }
-  throw new Error(detail || `Could not delete alarm (${res.status}).`);
+  throwRippleApiHttpError(res.status, detail, `Could not delete alarm (${res.status}).`);
 }
 
 /** GET /api/alarm/?user_id= — list alarms for the given `public.users.id`. */
@@ -178,7 +215,7 @@ export async function fetchAlarms(userId: number): Promise<AlarmListItem[]> {
     } catch {
       /* ignore */
     }
-    throw new Error(detail || `Could not load alarms (${res.status}).`);
+    throwRippleApiHttpError(res.status, detail, `Could not load alarms (${res.status}).`);
   }
 
   const body = (await res.json()) as unknown;
@@ -227,7 +264,7 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
     } catch {
       /* ignore */
     }
-    throw new Error(detail || `Could not load alarm (${res.status}).`);
+    throwRippleApiHttpError(res.status, detail, `Could not load alarm (${res.status}).`);
   }
   const body = (await res.json()) as Record<string, unknown>;
   const ownerId = body.user_id ?? body.userId;

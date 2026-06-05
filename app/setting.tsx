@@ -561,7 +561,7 @@ export default function SettingScreen() {
             <SettingsRow
               icon={settingsIcons.notifications}
               title="Alarms & Do Not Disturb"
-              value="Allow Ripple to ring during DND (opens system access list)"
+              value="Modes access — turn Ripple ON (requires latest app install)"
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
               onPress={() => void openAndroidNotificationPolicyAccessSettings()}
               noBorder

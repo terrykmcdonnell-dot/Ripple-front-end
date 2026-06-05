@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
+import { ensureAuthSessionFreshOrSignOut } from '@/lib/auth-session-errors';
 import { replaceWithSignInIfNeeded } from '@/lib/auth-sign-in-redirect';
 import { supabase } from '@/lib/supabase';
 
@@ -13,6 +14,10 @@ export default function Index() {
 
   useEffect(() => {
     let mounted = true;
+
+    void (async () => {
+      await ensureAuthSessionFreshOrSignOut();
+    })();
 
     const {
       data: { subscription },
