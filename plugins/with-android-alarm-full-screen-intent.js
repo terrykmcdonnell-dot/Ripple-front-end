@@ -16,6 +16,9 @@ const BUILDER_RELATIVE =
 
 const SCHEDULING_RELATIVE =
   'node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/service/delegates/ExpoSchedulingDelegate.kt';
+const LIFECYCLE_RELATIVE =
+  'node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/service/delegates/ExpoNotificationLifecycleListener.java';
+const LIFECYCLE_MARKER = 'Ripple direct MainActivity notification response v1';
 
 const INSERT_NEEDLE = `    )
 
@@ -144,6 +147,69 @@ ${BLOCK_V4}
   console.log(`[with-android-alarm-fsi] Applied alarm full-screen intent patch (${MARKER_V4}).`);
 }
 
+function applyMainActivityResponsePatch(projectRoot) {
+  const file = path.join(projectRoot, ...LIFECYCLE_RELATIVE.split('/'));
+  if (!fs.existsSync(file)) {
+    console.warn('[with-android-alarm-fsi] ExpoNotificationLifecycleListener not found; skip response patch.');
+    return;
+  }
+  let s = fs.readFileSync(file, 'utf8');
+  if (s.includes(LIFECYCLE_MARKER)) {
+    return;
+  }
+
+  const importNeedle = 'import expo.modules.notifications.notifications.NotificationManager;\n';
+  if (s.includes(importNeedle) && !s.includes('import expo.modules.notifications.notifications.model.NotificationResponse;')) {
+    s = s.replace(
+      importNeedle,
+      `${importNeedle}import expo.modules.notifications.notifications.model.NotificationResponse;\nimport expo.modules.notifications.service.NotificationsService;\n`,
+    );
+  }
+
+  const onCreateOld = `                if (extras.containsKey(NOTIFICATION_RESPONSE_KEY) || extras.containsKey(TEXT_INPUT_NOTIFICATION_RESPONSE_KEY)) {
+                    Log.d("ReactNativeJS", "[native] ExpoNotificationLifecycleListener contains an unmarshalled notification response. Skipping.");
+                    return;
+                }`;
+  const onCreateNew = `                if (extras.containsKey(NOTIFICATION_RESPONSE_KEY) || extras.containsKey(TEXT_INPUT_NOTIFICATION_RESPONSE_KEY)) {
+                    // ${LIFECYCLE_MARKER}
+                    NotificationResponse response = NotificationsService.Companion.getNotificationResponseFromOpenIntent(intent);
+                    if (response != null) {
+                        mNotificationManager.onNotificationResponseReceived(response);
+                    }
+                    return;
+                }`;
+  if (!s.includes(onCreateOld)) {
+    console.warn('[with-android-alarm-fsi] Lifecycle onCreate response block missing; skip response patch.');
+    return;
+  }
+  s = s.replace(onCreateOld, onCreateNew);
+
+  const onNewIntentOld = `            if (extras.containsKey(NOTIFICATION_RESPONSE_KEY) || extras.containsKey(TEXT_INPUT_NOTIFICATION_RESPONSE_KEY)) {
+                intent.removeExtra(NOTIFICATION_RESPONSE_KEY);
+                intent.removeExtra(TEXT_INPUT_NOTIFICATION_RESPONSE_KEY);
+                // response events are already handled by
+                // NotificationForwarderActivity -> NotificationsService.onReceiveNotificationResponse -> NotificationEmitter.onNotificationResponseReceived
+                return ReactActivityLifecycleListener.super.onNewIntent(intent);
+            }`;
+  const onNewIntentNew = `            if (extras.containsKey(NOTIFICATION_RESPONSE_KEY) || extras.containsKey(TEXT_INPUT_NOTIFICATION_RESPONSE_KEY)) {
+                NotificationResponse response = NotificationsService.Companion.getNotificationResponseFromOpenIntent(intent);
+                if (response != null) {
+                    mNotificationManager.onNotificationResponseReceived(response);
+                }
+                intent.removeExtra(NOTIFICATION_RESPONSE_KEY);
+                intent.removeExtra(TEXT_INPUT_NOTIFICATION_RESPONSE_KEY);
+                return ReactActivityLifecycleListener.super.onNewIntent(intent);
+            }`;
+  if (!s.includes(onNewIntentOld)) {
+    console.warn('[with-android-alarm-fsi] Lifecycle onNewIntent response block missing; skip response patch.');
+    return;
+  }
+  s = s.replace(onNewIntentOld, onNewIntentNew);
+
+  fs.writeFileSync(file, s, 'utf8');
+  console.log(`[with-android-alarm-fsi] Applied lifecycle response patch (${LIFECYCLE_MARKER}).`);
+}
+
 function withAndroidNotificationForwarderLockscreen(config) {
   return withAndroidManifest(config, (cfg) => {
     const application = cfg.modResults.manifest.application?.[0];
@@ -183,6 +249,7 @@ function withAndroidAlarmFullScreenIntent(config) {
     'android',
     async (cfg) => {
       applyFullScreenIntentPatch(cfg.modRequest.projectRoot);
+      applyMainActivityResponsePatch(cfg.modRequest.projectRoot);
       applySchedulingPatch(cfg.modRequest.projectRoot);
       applyFsiPermissionPatch(cfg.modRequest.projectRoot);
       return cfg;
