@@ -1,7 +1,14 @@
 /** Kotlin patches ExpoSchedulingDelegate.kt for lock-screen alarm takeover. */
-const MARKER_SCHEDULING = 'Ripple alarm scheduling v1';
+const MARKER_SCHEDULING = 'Ripple alarm scheduling v4';
+const MARKER_SCHEDULING_LEGACY = [
+  'Ripple alarm scheduling v1',
+  'Ripple alarm scheduling v2',
+  'Ripple alarm scheduling v3',
+  'Ripple alarm scheduling v4',
+];
 
 const IMPORT_LINES = [
+  'import android.app.ActivityOptions',
   'import android.content.Intent',
   'import expo.modules.notifications.notifications.model.Notification',
   'import expo.modules.notifications.notifications.model.NotificationAction',
@@ -11,17 +18,37 @@ const IMPORT_LINES = [
 const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: String) {
     try {
       val notificationRequest: NotificationRequest = store.getNotificationRequest(identifier)!!
-      // Ripple alarm scheduling v1 — launch ring UI directly when AlarmManager fires.
-      // FSI alone is blocked on Android 14+ without the user granting full-screen intents;
-      // starting MainActivity from the alarm callback still opens the app over the lock screen.
-      if (identifier.startsWith("ripple_alarm_fire_")) {
+      val isRippleAlarm = identifier.startsWith("ripple_alarm_fire_")
+      // Ripple alarm scheduling v4 — synchronous AlarmWakeActivity launch then FSI notification.
+      if (isRippleAlarm) {
+        // 1. Start alarm sound foreground service immediately.
+        try {
+          val svcIntent = android.content.Intent().apply {
+            setClassName(context.packageName, context.packageName + ".AlarmSoundService")
+            putExtra("soundName", notificationRequest.content.soundName ?: "")
+          }
+          if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            context.startForegroundService(svcIntent)
+          } else {
+            context.startService(svcIntent)
+          }
+        } catch (e: Exception) {
+          Log.w("expo-notifications", "Ripple AlarmSoundService start failed: " + e.message)
+        }
+        // 2. Launch AlarmWakeActivity SYNCHRONOUSLY while still inside the BroadcastReceiver
+        //    execution window. setAlarmClock grants background-activity-start privilege only
+        //    during onReceive(); using Handler.postDelayed() lets that window close first,
+        //    which causes a silent "not allowed to start activity from background" failure on
+        //    Android 14+. This must happen before NotificationsService.receive().
         try {
           val notification = Notification(notificationRequest)
           val fsiAction =
             NotificationAction(NotificationResponse.DEFAULT_ACTION_IDENTIFIER, null, true)
-          val alarmLaunchIntent = Intent().apply {
-            setClassName(context.packageName, context.packageName + ".MainActivity")
+          val wakeIntent = Intent().apply {
+            setClassName(context.packageName, context.packageName + ".AlarmWakeActivity")
             putExtra("rippleAlarmFullScreen", true)
+            putExtra("alarmTitle", notificationRequest.content.title ?: "Alarm")
+            putExtra("alarmBody", notificationRequest.content.body ?: "Ringing")
             NotificationsService.setNotificationResponseToIntent(
               this,
               NotificationResponse(fsiAction, notification)
@@ -32,11 +59,12 @@ const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: Stri
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
             )
           }
-          context.startActivity(alarmLaunchIntent)
+          context.startActivity(wakeIntent)
         } catch (e: Exception) {
-          Log.w("expo-notifications", "Ripple alarm: could not launch MainActivity for " + identifier + ": " + e.message)
+          Log.w("expo-notifications", "Ripple AlarmWakeActivity launch failed for " + identifier + ": " + e.message)
         }
       }
+      // 3. Post the notification (with FSI as additional lock-screen signal).
       NotificationsService.receive(context, Notification(notificationRequest))
       NotificationsService.schedule(context, notificationRequest)
     } catch (e: ClassNotFoundException) {
@@ -55,26 +83,40 @@ const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: Stri
   }`;
 
 const SETUP_ALARM_REPLACEMENT = `  private fun setupAlarm(triggerAtMillis: Long, operation: PendingIntent, identifier: String = "") {
-    // Ripple alarm scheduling v1 — treat alarm fires as alarm-clock alarms for the system.
+    // Ripple alarm scheduling v4 — treat alarm fires as alarm-clock alarms for the system.
     if (identifier.startsWith("ripple_alarm_fire_") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
       try {
-        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        if (launch != null) {
-          val showFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-          } else {
-            PendingIntent.FLAG_UPDATE_CURRENT
-          }
-          val showIntent = PendingIntent.getActivity(
-            context,
-            ("ripple_alarm_clock_show_" + identifier).hashCode(),
-            launch,
-            showFlags
-          )
-          val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent)
-          alarmManager.setAlarmClock(alarmClockInfo, operation)
-          return
+        val showLaunch = Intent().apply {
+          setClassName(context.packageName, context.packageName + ".AlarmWakeActivity")
+          putExtra("rippleAlarmFullScreen", true)
+          putExtra("alarmTitle", "Alarm")
+          putExtra("alarmBody", "Ringing")
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
+        val showFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+          PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val showRequestCode = ("ripple_alarm_clock_show_" + identifier).hashCode()
+        val showIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+          val options = ActivityOptions.makeBasic()
+          options.setPendingIntentBackgroundActivityStartMode(
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+          )
+          PendingIntent.getActivity(
+            context,
+            showRequestCode,
+            showLaunch,
+            showFlags,
+            options.toBundle()
+          )
+        } else {
+          PendingIntent.getActivity(context, showRequestCode, showLaunch, showFlags)
+        }
+        val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent)
+        alarmManager.setAlarmClock(alarmClockInfo, operation)
+        return
       } catch (e: Exception) {
         Log.w("expo-notifications", "Ripple alarm: setAlarmClock failed for " + identifier + ", falling back: " + e.message)
       }
@@ -98,6 +140,7 @@ const SETUP_ALARM_REPLACEMENT = `  private fun setupAlarm(triggerAtMillis: Long,
 
 module.exports = {
   MARKER_SCHEDULING,
+  MARKER_SCHEDULING_LEGACY,
   IMPORT_LINES,
   TRIGGER_REPLACEMENT,
   SETUP_ALARM_REPLACEMENT,

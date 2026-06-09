@@ -15,6 +15,7 @@ import {
   ALARM_NOTIFICATION_ACTION_DISMISS,
   ALARM_NOTIFICATION_ACTION_SNOOZE,
 } from '@/lib/alarm-notification-constants';
+import { ensureAllAndroidAlarmChannelsAsync } from '@/lib/alarm-fire-scheduler';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
 import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
 import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/alarm-notification-response';
@@ -51,6 +52,7 @@ export function AlarmNotificationBootstrap() {
 
     void (async () => {
       await ensureAlarmFireCategoryRegistered().catch(() => undefined);
+      await ensureAllAndroidAlarmChannelsAsync().catch(() => undefined);
       await registerTaskAsync(RIPPLE_ALARM_HISTORY_BG_TASK).catch(() => undefined);
 
       try {

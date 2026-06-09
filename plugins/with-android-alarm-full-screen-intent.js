@@ -5,6 +5,7 @@ const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins')
 const { BLOCK_V4, MARKER_V4, OLD_BLOCK_REGEX } = require('../scripts/expo-notifications-alarm-fsi-patch-block');
 const {
   MARKER_SCHEDULING,
+  MARKER_SCHEDULING_LEGACY,
   IMPORT_LINES,
   TRIGGER_REPLACEMENT,
   SETUP_ALARM_REPLACEMENT,
@@ -20,6 +21,11 @@ const INSERT_NEEDLE = `    )
 
     if (notificationContent.containsImage()) {`;
 
+const TRIGGER_PATCHED_REGEX =
+  /  override fun triggerNotification\(identifier: String\) \{[\s\S]*?Ripple alarm scheduling v[1234][\s\S]*?^\  \}/m;
+const SETUP_PATCHED_REGEX =
+  /  private fun setupAlarm\(triggerAtMillis: Long, operation: PendingIntent, identifier: String = ""\) \{[\s\S]*?Ripple alarm scheduling v[1234][\s\S]*?^\  \}/m;
+
 function applySchedulingPatch(projectRoot) {
   const file = path.join(projectRoot, ...SCHEDULING_RELATIVE.split('/'));
   if (!fs.existsSync(file)) {
@@ -28,6 +34,27 @@ function applySchedulingPatch(projectRoot) {
   }
   let s = fs.readFileSync(file, 'utf8');
   if (s.includes(MARKER_SCHEDULING)) {
+    return;
+  }
+
+  for (const line of IMPORT_LINES) {
+    if (!s.includes(line)) {
+      s = s.replace(
+        'import expo.modules.notifications.service.interfaces.SchedulingDelegate',
+        `import expo.modules.notifications.service.interfaces.SchedulingDelegate\n${line}`,
+      );
+    }
+  }
+
+  if (MARKER_SCHEDULING_LEGACY.some((m) => s.includes(m))) {
+    if (TRIGGER_PATCHED_REGEX.test(s)) {
+      s = s.replace(TRIGGER_PATCHED_REGEX, TRIGGER_REPLACEMENT);
+    }
+    if (SETUP_PATCHED_REGEX.test(s)) {
+      s = s.replace(SETUP_PATCHED_REGEX, SETUP_ALARM_REPLACEMENT);
+    }
+    fs.writeFileSync(file, s, 'utf8');
+    console.log(`[with-android-alarm-fsi] Upgraded alarm scheduling patch (${MARKER_SCHEDULING}).`);
     return;
   }
 
@@ -68,15 +95,6 @@ function applySchedulingPatch(projectRoot) {
       )
     }
   }`;
-
-  for (const line of IMPORT_LINES) {
-    if (!s.includes(line)) {
-      s = s.replace(
-        'import expo.modules.notifications.service.interfaces.SchedulingDelegate',
-        `import expo.modules.notifications.service.interfaces.SchedulingDelegate\n${line}`,
-      );
-    }
-  }
 
   if (!s.includes(triggerOld)) {
     console.warn('[with-android-alarm-fsi] Scheduling triggerNotification block missing; skip.');
@@ -150,6 +168,15 @@ function withAndroidNotificationForwarderLockscreen(config) {
 /**
  * Patches expo-notifications at prebuild so alarm-fire notifications use Android full-screen intents.
  */
+function applyFsiPermissionPatch(projectRoot) {
+  try {
+    const { applyPatch } = require('../scripts/patch-expo-notifications-fsi-permission');
+    applyPatch(projectRoot);
+  } catch (e) {
+    console.warn('[with-android-alarm-fsi] FSI permission patch skipped:', e.message);
+  }
+}
+
 function withAndroidAlarmFullScreenIntent(config) {
   config = withAndroidNotificationForwarderLockscreen(config);
   return withDangerousMod(config, [
@@ -157,6 +184,7 @@ function withAndroidAlarmFullScreenIntent(config) {
     async (cfg) => {
       applyFullScreenIntentPatch(cfg.modRequest.projectRoot);
       applySchedulingPatch(cfg.modRequest.projectRoot);
+      applyFsiPermissionPatch(cfg.modRequest.projectRoot);
       return cfg;
     },
   ]);

@@ -1,13 +1,13 @@
 /**
  * Patches expo-notifications so alarm-fire notifications use Android full-screen intents
- * targeting MainActivity (lock-screen takeover → ring UI).
+ * targeting AlarmWakeActivity (instant native lock-screen UI).
  *
  * Idempotent — safe on every postinstall.
  */
 const fs = require('fs');
 const path = require('path');
 
-const { BLOCK_V4, MARKER_V4, OLD_BLOCK_REGEX } = require('./expo-notifications-alarm-fsi-patch-block');
+const { BLOCK_V4, MARKER_V4, MARKER_V4_LEGACY, OLD_BLOCK_REGEX } = require('./expo-notifications-alarm-fsi-patch-block');
 
 const RELATIVE =
   'node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt';
@@ -39,7 +39,10 @@ ${BLOCK_V4}
     if (notificationContent.containsImage()) {`;
   s = s.replace(INSERT_NEEDLE, replacement);
   fs.writeFileSync(file, s, 'utf8');
-  console.log(`[patch-expo-fsi] Applied alarm full-screen intent patch (${MARKER_V4}).`);
+  const upgraded = MARKER_V4_LEGACY.some((m) => m !== MARKER_V4 && s.includes(m));
+  console.log(
+    `[patch-expo-fsi] ${upgraded ? 'Upgraded' : 'Applied'} alarm full-screen intent patch (${MARKER_V4}).`,
+  );
 }
 
 applyFullScreenIntentPatch(path.join(__dirname, '..'));

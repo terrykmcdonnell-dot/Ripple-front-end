@@ -1,15 +1,25 @@
-import { PermissionsAndroid, Platform } from 'react-native';
+import { requireOptionalNativeModule } from 'expo-modules-core';
+import { Platform } from 'react-native';
 
-/** Android 14+: whether the user allowed full-screen intents for this app in system settings. */
+type FsiPermissionModule = {
+  canUseFullScreenIntentAsync?: () => Promise<boolean>;
+};
+
+/**
+ * Android 14+: whether the user allowed full-screen intents for this app.
+ * Uses NotificationManager.canUseFullScreenIntent() when available (accurate on Android 14+).
+ */
 export async function isAndroidFullScreenIntentGranted(): Promise<boolean> {
   if (Platform.OS !== 'android' || (Platform.Version as number) < 34) {
     return true;
   }
   try {
-    return await PermissionsAndroid.check(
-      'android.permission.USE_FULL_SCREEN_INTENT' as Parameters<typeof PermissionsAndroid.check>[0],
-    );
+    const mod = requireOptionalNativeModule<FsiPermissionModule>('ExpoNotificationPermissionsModule');
+    if (mod?.canUseFullScreenIntentAsync) {
+      return await mod.canUseFullScreenIntentAsync();
+    }
   } catch {
-    return false;
+    /* fall through */
   }
+  return true;
 }

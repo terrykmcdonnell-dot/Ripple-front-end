@@ -118,19 +118,40 @@ export async function cancelAlarmFireNotifications(): Promise<void> {
 }
 
 /**
- * `a2` = full-screen alarm channel revision.
+ * `a3` = full-screen alarm channel revision (IMPORTANCE_MAX + USAGE_ALARM).
  * Android caches channel importance/audio attributes forever, so bump this when lock-screen behavior changes.
  */
-async function ensureAndroidAlarmFireChannel(soundId: AlarmSoundId, vibrationEnabled: boolean): Promise<string> {
-  const channelId = `ripple_alarm_fire_a2_${soundId}_${vibrationEnabled ? 'vib' : 'still'}`;
+export async function ensureAndroidAlarmFireChannel(
+  soundId: AlarmSoundId,
+  vibrationEnabled: boolean,
+): Promise<string> {
+  const channelId = `ripple_alarm_fire_a3_${soundId}_${vibrationEnabled ? 'vib' : 'still'}`;
   const soundFile = bundledNotificationSoundFilename(soundId);
   await setAndroidAlarmStyleNotificationChannelAsync(channelId, {
-    name: 'Alarm alerts',
+    name: 'Medication Alarms',
     sound: soundFile,
     enableVibrate: vibrationEnabled,
     vibrationPattern: FIRE_VIBRATION_PATTERN,
   });
   return channelId;
+}
+
+/** Creates all alarm channels at startup so fired alarms never fall back to the "Other" channel. */
+export async function ensureAllAndroidAlarmChannelsAsync(): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  const vibrationEnabled = await loadDefaultVibrationEnabled();
+  const soundIds: AlarmSoundId[] = [
+    'gentle-rise',
+    'morning-glow',
+    'classic-bell',
+    'digital-beep',
+    'soft-piano',
+    'nature-birds',
+  ];
+  await Promise.all(soundIds.map((id) => ensureAndroidAlarmFireChannel(id, vibrationEnabled)));
+  await Promise.all(soundIds.map((id) => ensureAndroidAlarmFireChannel(id, !vibrationEnabled)));
 }
 
 /**
@@ -334,8 +355,10 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
           categoryIdentifier: ALARM_FIRE_CATEGORY_ID,
           ...(Platform.OS === 'android'
             ? {
-                sticky: false,
-                autoDismiss: true,
+                // Match alarm-app FSI requirements: ongoing + no auto-cancel so Android
+                // treats this as a full-screen alarm, not a dismissible heads-up banner.
+                sticky: true,
+                autoDismiss: false,
               }
             : {}),
           data: {

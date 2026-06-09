@@ -115,22 +115,40 @@ export default function AlarmRingScreen() {
     };
   }, [soundIdParam, liveParsed?.soundId, liveParsed]);
 
-  // Stop sound only when the app fully leaves the foreground (background state).
-  // 'inactive' is intentionally excluded on iOS: the system briefly sets the app
-  // to 'inactive' during the lock-screen-to-ring-screen transition (e.g. when an
-  // alarm fires while the phone is locked and the ring screen animates in over the
-  // keyguard). Stopping on 'inactive' would silence the alarm before the ring
-  // screen is even visible. 'background' is the correct signal that the user
-  // pressed Home or switched apps.
+  // AppState sound management:
+  // - On 'active': (re)start the alarm sound. Handles FSI / lock-screen-to-ring
+  //   transitions where Android briefly flips the app to 'background' then back
+  //   to 'active'. Without this restart the sound would silently die mid-transition.
+  // - On 'background': stop after a 4-second grace period so a transient FSI
+  //   transition doesn't kill the loop. If the app comes back active within 4 s
+  //   (normal for alarm launch) the pending stop is cancelled.
   // The 90-second auto-stop in ring-alarm-sound.ts is the last-resort safety net.
   useEffect(() => {
+    let backgroundTimer: ReturnType<typeof setTimeout> | null = null;
+
     const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'background') {
-        void stopRingAlarmSound();
+      if (nextState === 'active') {
+        if (backgroundTimer !== null) {
+          clearTimeout(backgroundTimer);
+          backgroundTimer = null;
+        }
+        // Restart in case it was stopped during a brief transition.
+        void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId);
+      } else if (nextState === 'background') {
+        backgroundTimer = setTimeout(() => {
+          backgroundTimer = null;
+          void stopRingAlarmSound();
+        }, 4000);
       }
     });
-    return () => sub.remove();
-  }, []);
+
+    return () => {
+      sub.remove();
+      if (backgroundTimer !== null) {
+        clearTimeout(backgroundTimer);
+      }
+    };
+  }, [soundIdParam, liveParsed?.soundId]);
 
   const onDismissPress = useCallback(() => {
     void stopRingAlarmSound();

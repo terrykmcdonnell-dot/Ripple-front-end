@@ -1,12 +1,13 @@
 /**
- * Patches expo-notifications so ripple alarm fires use setAlarmClock and launch
- * MainActivity directly when AlarmManager triggers (lock-screen ring UI).
+ * Patches expo-notifications so ripple alarm fires use setAlarmClock, AlarmSoundService,
+ * and AlarmWakeActivity (instant native full-screen) when AlarmManager triggers.
  */
 const fs = require('fs');
 const path = require('path');
 
 const {
   MARKER_SCHEDULING,
+  MARKER_SCHEDULING_LEGACY,
   IMPORT_LINES,
   TRIGGER_REPLACEMENT,
   SETUP_ALARM_REPLACEMENT,
@@ -56,6 +57,14 @@ const SETUP_ALARM_OLD = `  private fun setupAlarm(triggerAtMillis: Long, operati
 const SCHEDULE_CALL_OLD =
   'setupAlarm(nextTriggerDate.time, NotificationsService.createNotificationTrigger(context, request.identifier))';
 
+/** Replace a previously patched triggerNotification (v1–v3) with the latest block. */
+const TRIGGER_PATCHED_REGEX =
+  /  override fun triggerNotification\(identifier: String\) \{[\s\S]*?Ripple alarm scheduling v[1234][\s\S]*?^\  \}/m;
+
+/** Replace a previously patched setupAlarm with the latest block. */
+const SETUP_PATCHED_REGEX =
+  /  private fun setupAlarm\(triggerAtMillis: Long, operation: PendingIntent, identifier: String = ""\) \{[\s\S]*?Ripple alarm scheduling v[1234][\s\S]*?^\  \}/m;
+
 function applySchedulingPatch(projectRoot) {
   const file = path.join(projectRoot, ...RELATIVE.split('/'));
   if (!fs.existsSync(file)) {
@@ -74,6 +83,20 @@ function applySchedulingPatch(projectRoot) {
         `import expo.modules.notifications.service.interfaces.SchedulingDelegate\n${line}`,
       );
     }
+  }
+
+  if (MARKER_SCHEDULING_LEGACY.some((m) => s.includes(m))) {
+    if (!TRIGGER_PATCHED_REGEX.test(s)) {
+      console.error('[patch-expo-scheduling] Legacy scheduling patch found but block shape unknown.');
+      process.exit(1);
+    }
+    s = s.replace(TRIGGER_PATCHED_REGEX, TRIGGER_REPLACEMENT);
+    if (SETUP_PATCHED_REGEX.test(s)) {
+      s = s.replace(SETUP_PATCHED_REGEX, SETUP_ALARM_REPLACEMENT);
+    }
+    fs.writeFileSync(file, s, 'utf8');
+    console.log(`[patch-expo-scheduling] Upgraded alarm scheduling patch (${MARKER_SCHEDULING}).`);
+    return;
   }
 
   if (!s.includes(TRIGGER_OLD)) {

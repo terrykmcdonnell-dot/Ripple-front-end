@@ -63,6 +63,7 @@
         "android.permission.USE_EXACT_ALARM",
         "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.ACCESS_NOTIFICATION_POLICY"
       ]
     },
@@ -74,6 +75,8 @@
       "./plugins/with-android-notification-policy-permission",
       "./plugins/with-android-alarm-activity",
       "./plugins/with-android-alarm-full-screen-intent",
+      "./plugins/with-android-alarm-sound-service",
+      "./plugins/with-android-alarm-wake-activity",
       "expo-apple-authentication",
       "expo-router",
       [
