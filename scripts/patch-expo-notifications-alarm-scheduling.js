@@ -57,13 +57,13 @@ const SETUP_ALARM_OLD = `  private fun setupAlarm(triggerAtMillis: Long, operati
 const SCHEDULE_CALL_OLD =
   'setupAlarm(nextTriggerDate.time, NotificationsService.createNotificationTrigger(context, request.identifier))';
 
-/** Replace a previously patched triggerNotification (v1–v3) with the latest block. */
+/** Replace a previously patched triggerNotification (v1–v4) with the latest block. */
 const TRIGGER_PATCHED_REGEX =
-  /  override fun triggerNotification\(identifier: String\) \{[\s\S]*?Ripple alarm scheduling v[1234][\s\S]*?^\  \}/m;
+  /  override fun triggerNotification\(identifier: String\) \{[\s\S]*?Ripple alarm scheduling v[12345][\s\S]*?^\  \}/m;
 
 /** Replace a previously patched setupAlarm with the latest block. */
 const SETUP_PATCHED_REGEX =
-  /  private fun setupAlarm\(triggerAtMillis: Long, operation: PendingIntent, identifier: String = ""\) \{[\s\S]*?Ripple alarm scheduling v[1234][\s\S]*?^\  \}/m;
+  /  private fun setupAlarm\(triggerAtMillis: Long, operation: PendingIntent, identifier: String = ""\) \{[\s\S]*?Ripple alarm scheduling v[12345][\s\S]*?^\  \}/m;
 
 function applySchedulingPatch(projectRoot) {
   const file = path.join(projectRoot, ...RELATIVE.split('/'));
