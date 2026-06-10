@@ -14,6 +14,7 @@ const { KOTLIN_SOURCE } = require('../scripts/alarm-sound-service-block');
 const SERVICE_SHORT_NAME = '.AlarmSoundService';
 const FOREGROUND_PERMISSION = 'android.permission.FOREGROUND_SERVICE';
 const FOREGROUND_MEDIA_PERMISSION = 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK';
+const DISABLE_KEYGUARD_PERMISSION = 'android.permission.DISABLE_KEYGUARD';
 
 function getPackageName(config) {
   return (config.android && config.android.package) || 'com.terrykm.ripplealarm';
@@ -28,6 +29,7 @@ function withAndroidAlarmSoundService(config) {
 
     AndroidConfig.Permissions.ensurePermission(cfg.modResults, FOREGROUND_PERMISSION);
     AndroidConfig.Permissions.ensurePermission(cfg.modResults, FOREGROUND_MEDIA_PERMISSION);
+    AndroidConfig.Permissions.ensurePermission(cfg.modResults, DISABLE_KEYGUARD_PERMISSION);
 
     if (!application.service) application.service = [];
     const alreadyDeclared = application.service.some((s) => {

@@ -57,7 +57,15 @@ function applyPatch(projectRoot) {
 
   let source = fs.readFileSync(filePath, 'utf8');
 
-  if (source.includes(MARKER) || source.includes('Ripple alarm scheduling v2') || source.includes('Ripple alarm scheduling v3')) {
+  if (
+    source.includes(MARKER) ||
+    source.includes('Ripple alarm scheduling v2') ||
+    source.includes('Ripple alarm scheduling v3') ||
+    source.includes('Ripple alarm scheduling v4') ||
+    source.includes('Ripple alarm scheduling v5') ||
+    source.includes('Ripple alarm scheduling v6') ||
+    source.includes('Ripple alarm scheduling v7')
+  ) {
     console.log('[patch-alarm-svc] Already applied (or bundled in scheduling v2) — skipping.');
     return;
   }

@@ -25,9 +25,9 @@ const INSERT_NEEDLE = `    )
     if (notificationContent.containsImage()) {`;
 
 const TRIGGER_PATCHED_REGEX =
-  /  override fun triggerNotification\(identifier: String\) \{[\s\S]*?Ripple alarm scheduling v[12345][\s\S]*?^\  \}/m;
+  /  override fun triggerNotification\(identifier: String\) \{[\s\S]*?Ripple alarm scheduling v[1234567][\s\S]*?^\  \}/m;
 const SETUP_PATCHED_REGEX =
-  /  private fun setupAlarm\(triggerAtMillis: Long, operation: PendingIntent, identifier: String = ""\) \{[\s\S]*?Ripple alarm scheduling v[12345][\s\S]*?^\  \}/m;
+  /  private fun setupAlarm\(triggerAtMillis: Long, operation: PendingIntent, identifier: String = ""\) \{[\s\S]*?Ripple alarm scheduling v[1234567][\s\S]*?^\  \}/m;
 
 function applySchedulingPatch(projectRoot) {
   const file = path.join(projectRoot, ...SCHEDULING_RELATIVE.split('/'));

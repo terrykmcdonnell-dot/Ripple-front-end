@@ -2,15 +2,19 @@ package com.terrykm.ripplealarm
 
 import android.app.Activity
 import android.app.ActivityOptions
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import org.json.JSONObject
 
 /**
  * Native full-screen alarm presenter shown immediately on the lock screen.
@@ -66,19 +70,26 @@ class AlarmWakeActivity : Activity() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true)
       setTurnScreenOn(true)
+      val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+      keyguardManager.requestDismissKeyguard(this, null)
     } else {
       @Suppress("DEPRECATION")
       window.addFlags(
         WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+          WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD,
       )
     }
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   }
 
   private fun forwardToMainActivity(sourceIntent: Intent?) {
+    val payload = sourceIntent?.getStringExtra("alarmPayload")
+    val deepLink = buildAlarmRingDeepLink(payload)
     val forward = Intent().apply {
       setClassName(packageName, packageName + ".MainActivity")
+      action = Intent.ACTION_VIEW
+      deepLink?.let { data = it }
       sourceIntent?.extras?.let { putExtras(it) }
       putExtra("rippleAlarmFullScreen", true)
       addFlags(
@@ -95,6 +106,28 @@ class AlarmWakeActivity : Activity() {
       startActivity(forward, options.toBundle())
     } else {
       startActivity(forward)
+    }
+  }
+
+  private fun buildAlarmRingDeepLink(payload: String?): Uri? {
+    if (payload.isNullOrBlank()) return null
+    return try {
+      val json = JSONObject(payload)
+      val builder = Uri.Builder()
+        .scheme("alarm-app")
+        .authority("alarm-ring")
+      fun appendIfPresent(key: String, value: String?) {
+        if (!value.isNullOrBlank()) builder.appendQueryParameter(key, value)
+      }
+      appendIfPresent("alarmId", json.opt("alarmId")?.toString())
+      appendIfPresent("fireAt", json.optString("fireAt", ""))
+      appendIfPresent("label", json.optString("label", "Alarm"))
+      appendIfPresent("category", json.optString("category", ""))
+      appendIfPresent("soundId", json.optString("soundId", ""))
+      appendIfPresent("userId", json.opt("userId")?.toString())
+      builder.build()
+    } catch (_: Exception) {
+      null
     }
   }
 

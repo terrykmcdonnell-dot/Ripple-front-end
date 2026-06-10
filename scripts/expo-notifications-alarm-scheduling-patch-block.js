@@ -1,11 +1,13 @@
 /** Kotlin patches ExpoSchedulingDelegate.kt for lock-screen alarm takeover. */
-const MARKER_SCHEDULING = 'Ripple alarm scheduling v5';
+const MARKER_SCHEDULING = 'Ripple alarm scheduling v7';
 const MARKER_SCHEDULING_LEGACY = [
   'Ripple alarm scheduling v1',
   'Ripple alarm scheduling v2',
   'Ripple alarm scheduling v3',
   'Ripple alarm scheduling v4',
   'Ripple alarm scheduling v5',
+  'Ripple alarm scheduling v6',
+  'Ripple alarm scheduling v7',
 ];
 
 /**
@@ -18,6 +20,13 @@ const MARKER_SCHEDULING_LEGACY = [
 const IMPORT_LINES = [];
 
 /**
+ * v7: passes the serialized alarm payload to AlarmSoundService so the native
+ * wake activity can deep-link directly to /alarm-ring.
+ *
+ * v6: the alarm full-screen UI is now driven by AlarmSoundService's foreground
+ * full-screen alarm notification, with Expo's notification still posted for
+ * action/listener compatibility.
+ *
  * v5: the alarm full-screen UI is now driven entirely by the notification's
  * full-screen intent (see ExpoNotificationBuilder.kt v10), which targets the
  * always-present NotificationForwarderActivity -> MainActivity chain.
@@ -36,12 +45,16 @@ const IMPORT_LINES = [];
 const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: String) {
     try {
       val notificationRequest: NotificationRequest = store.getNotificationRequest(identifier)!!
-      // Ripple alarm scheduling v5 — start alarm sound, then post the FSI notification.
+      // Ripple alarm scheduling v7 — start native alarm FSI service, then post Expo notification.
       if (identifier.startsWith("ripple_alarm_fire_")) {
         try {
           val svcIntent = android.content.Intent().apply {
             setClassName(context.packageName, context.packageName + ".AlarmSoundService")
             putExtra("soundName", notificationRequest.content.soundName ?: "")
+            putExtra("alarmTitle", notificationRequest.content.title ?: "Alarm")
+            putExtra("alarmBody", notificationRequest.content.text ?: "Ringing")
+            putExtra("alarmIdentifier", identifier)
+            putExtra("alarmPayload", notificationRequest.content.body?.toString() ?: "")
           }
           if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             context.startForegroundService(svcIntent)
@@ -70,7 +83,7 @@ const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: Stri
   }`;
 
 const SETUP_ALARM_REPLACEMENT = `  private fun setupAlarm(triggerAtMillis: Long, operation: PendingIntent, identifier: String = "") {
-    // Ripple alarm scheduling v5 — register alarm fires as system alarm-clock alarms.
+    // Ripple alarm scheduling v7 — register alarm fires as system alarm-clock alarms.
     // This shows the OS alarm icon and grants the temporary power allowlist that lets
     // the full-screen intent fire reliably. The showIntent opens the app's MainActivity
     // (always present) — never a plugin-generated activity that might be missing.
