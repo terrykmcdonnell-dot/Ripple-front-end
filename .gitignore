@@ -13,6 +13,10 @@ web-build/
 expo-env.d.ts
 
 # Native
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
 .kotlin/
 *.orig.*
 *.jks
@@ -28,6 +32,10 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+debug.log
+installed*.apk
+installed*.zip
+apk-check/
 
 # macOS
 .DS_Store
