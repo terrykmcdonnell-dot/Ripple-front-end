@@ -36,6 +36,10 @@ debug.log
 installed*.apk
 installed*.zip
 apk-check/
+apk-check.zip
+done
+echo
+grep
 
 # macOS
 .DS_Store

@@ -8,7 +8,7 @@
 const path = require('path');
 const fs = require('fs');
 const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
-const { KOTLIN_SOURCE } = require('../scripts/alarm-wake-activity-block');
+const { ALARM_WAKE_ACTIVITY_KOTLIN } = require('../scripts/alarm-native-lockscreen-block');
 
 const ACTIVITY_SHORT_NAME = '.AlarmWakeActivity';
 
@@ -61,7 +61,7 @@ function withAndroidAlarmWakeActivity(config) {
       );
       fs.mkdirSync(dir, { recursive: true });
       const destFile = path.join(dir, 'AlarmWakeActivity.kt');
-      const contents = KOTLIN_SOURCE.replace(/PACKAGE_NAME/g, packageName);
+      const contents = ALARM_WAKE_ACTIVITY_KOTLIN.replace(/PACKAGE_NAME/g, packageName);
       fs.writeFileSync(destFile, contents, 'utf8');
       return cfg;
     },

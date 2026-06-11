@@ -18,6 +18,7 @@ import {
 import { ensureAllAndroidAlarmChannelsAsync } from '@/lib/alarm-fire-scheduler';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
 import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
+import { processPendingNativeAlarmActions } from '@/lib/android-native-alarm-actions';
 import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/alarm-notification-response';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
 
@@ -53,6 +54,7 @@ export function AlarmNotificationBootstrap() {
     void (async () => {
       await ensureAlarmFireCategoryRegistered().catch(() => undefined);
       await ensureAllAndroidAlarmChannelsAsync().catch(() => undefined);
+      await processPendingNativeAlarmActions().catch(() => undefined);
       await registerTaskAsync(RIPPLE_ALARM_HISTORY_BG_TASK).catch(() => undefined);
 
       try {

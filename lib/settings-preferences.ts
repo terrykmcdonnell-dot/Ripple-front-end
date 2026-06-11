@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { syncDefaultSnoozeMinutesToNative } from '@/lib/android-alarm-native-prefs';
+
 const DEFAULT_SNOOZE_KEY = 'ripple_default_snooze_minutes';
 
 /** Preset lengths shown in Settings → Default Snooze */
@@ -26,20 +28,26 @@ export async function loadDefaultSnoozeMinutes(): Promise<number> {
   try {
     const raw = await AsyncStorage.getItem(DEFAULT_SNOOZE_KEY);
     if (!raw) {
+      syncDefaultSnoozeMinutesToNative(DEFAULT_MINUTES);
       return DEFAULT_MINUTES;
     }
     const parsed = Number.parseInt(raw, 10);
     if (!Number.isFinite(parsed) || parsed <= 0) {
+      syncDefaultSnoozeMinutesToNative(DEFAULT_MINUTES);
       return DEFAULT_MINUTES;
     }
-    return snapToNearestPreset(parsed);
+    const snapped = snapToNearestPreset(parsed);
+    syncDefaultSnoozeMinutesToNative(snapped);
+    return snapped;
   } catch {
     return DEFAULT_MINUTES;
   }
 }
 
 export async function saveDefaultSnoozeMinutes(minutes: number): Promise<void> {
-  await AsyncStorage.setItem(DEFAULT_SNOOZE_KEY, String(Math.round(minutes)));
+  const rounded = Math.round(minutes);
+  await AsyncStorage.setItem(DEFAULT_SNOOZE_KEY, String(rounded));
+  syncDefaultSnoozeMinutesToNative(rounded);
 }
 
 const DEFAULT_SOUND_KEY = 'ripple_default_alarm_sound_id';

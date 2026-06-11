@@ -1,5 +1,5 @@
 /** Kotlin inserted into ExpoNotificationBuilder.kt for alarm lock-screen presentation. */
-const MARKER_V4 = 'Ripple alarm presentation v12';
+const MARKER_V4 = 'Ripple alarm presentation v13';
 const MARKER_V4_LEGACY = [
   'Ripple alarm presentation v7',
   'Ripple alarm presentation v8',
@@ -7,9 +7,14 @@ const MARKER_V4_LEGACY = [
   'Ripple alarm presentation v10',
   'Ripple alarm presentation v11',
   'Ripple alarm presentation v12',
+  'Ripple alarm presentation v13',
 ];
 
 /**
+ * v13: Lock-screen UI is native AlarmWakeActivity via AlarmSoundService FSI only.
+ * Expo's alarm-fire notification keeps alarm category/priority but no longer sets
+ * a competing full-screen intent that launches MainActivity (React Native).
+ *
  * v12: Drops ActivityOptions on full-screen PendingIntents — Android 14+ throws if
  * pendingIntentBackgroundActivityStartMode is set when creating a notification FSI.
  *
@@ -35,7 +40,7 @@ const BLOCK_V4 = `    val isRippleAlarmFire =
         (notificationContent.body?.toString()?.contains("\\"type\\":\\"ripple_alarm_fire\\"") == true) ||
         (notificationContent.body?.toString()?.contains("ripple_alarm_fire") == true)
     if (isRippleAlarmFire) {
-      // Ripple alarm presentation v12
+      // Ripple alarm presentation v13
       builder.setCategory(NotificationCompat.CATEGORY_ALARM)
       builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       builder.setPriority(NotificationCompat.PRIORITY_MAX)
@@ -45,35 +50,6 @@ const BLOCK_V4 = `    val isRippleAlarmFire =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         builder.setColorized(true)
       }
-      val fsiAction =
-        NotificationAction(NotificationResponse.DEFAULT_ACTION_IDENTIFIER, null, true)
-      val alarmLaunchIntent = android.content.Intent().apply {
-        setClassName(context.packageName, context.packageName + ".MainActivity")
-        action = "expo.modules.notifications.NOTIFICATION_EVENT"
-        putExtra("rippleAlarmFullScreen", true)
-        NotificationsService.setNotificationResponseToIntent(
-          this,
-          NotificationResponse(fsiAction, notification)
-        )
-        addFlags(
-          android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-            or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
-            or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
-        )
-      }
-      val fsiFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-      } else {
-        android.app.PendingIntent.FLAG_UPDATE_CURRENT
-      }
-      val fsiRequestCode = ("ripple_alarm_main_fsi_" + notification.notificationRequest.identifier).hashCode()
-      val fsiPending = android.app.PendingIntent.getActivity(
-        context,
-        fsiRequestCode,
-        alarmLaunchIntent,
-        fsiFlags
-      )
-      builder.setFullScreenIntent(fsiPending, true)
     }
 `;
 
