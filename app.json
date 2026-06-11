@@ -8,6 +8,13 @@
     "scheme": "alarm-app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-notifications"
+        ]
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,

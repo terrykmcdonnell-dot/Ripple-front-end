@@ -1,14 +1,18 @@
 /** Kotlin inserted into ExpoNotificationBuilder.kt for alarm lock-screen presentation. */
-const MARKER_V4 = 'Ripple alarm presentation v11';
+const MARKER_V4 = 'Ripple alarm presentation v12';
 const MARKER_V4_LEGACY = [
   'Ripple alarm presentation v7',
   'Ripple alarm presentation v8',
   'Ripple alarm presentation v9',
   'Ripple alarm presentation v10',
   'Ripple alarm presentation v11',
+  'Ripple alarm presentation v12',
 ];
 
 /**
+ * v12: Drops ActivityOptions on full-screen PendingIntents — Android 14+ throws if
+ * pendingIntentBackgroundActivityStartMode is set when creating a notification FSI.
+ *
  * v11: Full-screen intent launches the app's MainActivity directly.
  *
  * Why this is the fix: a full-screen intent must target an activity Android can
@@ -31,7 +35,7 @@ const BLOCK_V4 = `    val isRippleAlarmFire =
         (notificationContent.body?.toString()?.contains("\\"type\\":\\"ripple_alarm_fire\\"") == true) ||
         (notificationContent.body?.toString()?.contains("ripple_alarm_fire") == true)
     if (isRippleAlarmFire) {
-      // Ripple alarm presentation v11
+      // Ripple alarm presentation v12
       builder.setCategory(NotificationCompat.CATEGORY_ALARM)
       builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       builder.setPriority(NotificationCompat.PRIORITY_MAX)
@@ -63,26 +67,12 @@ const BLOCK_V4 = `    val isRippleAlarmFire =
         android.app.PendingIntent.FLAG_UPDATE_CURRENT
       }
       val fsiRequestCode = ("ripple_alarm_main_fsi_" + notification.notificationRequest.identifier).hashCode()
-      val fsiPending = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        val options = android.app.ActivityOptions.makeBasic()
-        options.setPendingIntentBackgroundActivityStartMode(
-          android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-        )
-        android.app.PendingIntent.getActivity(
-          context,
-          fsiRequestCode,
-          alarmLaunchIntent,
-          fsiFlags,
-          options.toBundle()
-        )
-      } else {
-        android.app.PendingIntent.getActivity(
-          context,
-          fsiRequestCode,
-          alarmLaunchIntent,
-          fsiFlags
-        )
-      }
+      val fsiPending = android.app.PendingIntent.getActivity(
+        context,
+        fsiRequestCode,
+        alarmLaunchIntent,
+        fsiFlags
+      )
       builder.setFullScreenIntent(fsiPending, true)
     }
 `;

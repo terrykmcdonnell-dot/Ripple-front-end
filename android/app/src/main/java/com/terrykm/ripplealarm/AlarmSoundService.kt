@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.app.ActivityOptions
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
@@ -146,15 +145,8 @@ class AlarmSoundService : Service() {
     else
       PendingIntent.FLAG_UPDATE_CURRENT
     val requestCode = (sourceIntent?.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: "ripple_alarm_fullscreen").hashCode()
-    val alarmPi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-      val options = ActivityOptions.makeBasic()
-      options.setPendingIntentBackgroundActivityStartMode(
-        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-      )
-      PendingIntent.getActivity(this, requestCode, alarmIntent, piFlags, options.toBundle())
-    } else {
-      PendingIntent.getActivity(this, requestCode, alarmIntent, piFlags)
-    }
+    // Full-screen notification PendingIntents must not set background-activity-start mode (Android 14+).
+    val alarmPi = PendingIntent.getActivity(this, requestCode, alarmIntent, piFlags)
     return NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
       .setContentTitle(title)
