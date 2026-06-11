@@ -1,5 +1,5 @@
 /** Kotlin patches ExpoSchedulingDelegate.kt for lock-screen alarm takeover. */
-const MARKER_SCHEDULING = 'Ripple alarm scheduling v7';
+const MARKER_SCHEDULING = 'Ripple alarm scheduling v9';
 const MARKER_SCHEDULING_LEGACY = [
   'Ripple alarm scheduling v1',
   'Ripple alarm scheduling v2',
@@ -8,6 +8,8 @@ const MARKER_SCHEDULING_LEGACY = [
   'Ripple alarm scheduling v5',
   'Ripple alarm scheduling v6',
   'Ripple alarm scheduling v7',
+  'Ripple alarm scheduling v8',
+  'Ripple alarm scheduling v9',
 ];
 
 /**
@@ -20,6 +22,13 @@ const MARKER_SCHEDULING_LEGACY = [
 const IMPORT_LINES = [];
 
 /**
+ * v9: Mark alarm occurrence delivered at fire time (native) so opening the app
+ * within the 90 s grace window does not schedule a duplicate ring.
+ *
+ * v8: Route alarm presentation by app state — foreground uses JS ring UI only (no
+ * banner), lock screen uses native FSI without heads-up banner, background shows
+ * a heads-up banner via AlarmSoundService (no duplicate Expo notification).
+ *
  * v7: passes the serialized alarm payload to AlarmSoundService so the native
  * wake activity can deep-link directly to /alarm-ring.
  *
@@ -45,27 +54,55 @@ const IMPORT_LINES = [];
 const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: String) {
     try {
       val notificationRequest: NotificationRequest = store.getNotificationRequest(identifier)!!
-      // Ripple alarm scheduling v7 — start native alarm FSI service, then post Expo notification.
+      // Ripple alarm scheduling v9 — mark delivered; route by foreground / lock screen / background.
       if (identifier.startsWith("ripple_alarm_fire_")) {
         try {
-          val svcIntent = android.content.Intent().apply {
-            setClassName(context.packageName, context.packageName + ".AlarmSoundService")
-            putExtra("soundName", notificationRequest.content.soundName ?: "")
-            putExtra("alarmTitle", notificationRequest.content.title ?: "Alarm")
-            putExtra("alarmBody", notificationRequest.content.text ?: "Ringing")
-            putExtra("alarmIdentifier", identifier)
-            putExtra("alarmPayload", notificationRequest.content.body?.toString() ?: "")
-          }
-          if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            context.startForegroundService(svcIntent)
-          } else {
-            context.startService(svcIntent)
-          }
+          val native = Class.forName(context.packageName + ".RippleAlarmNative")
+          native.getMethod(
+            "markAlarmFired",
+            android.content.Context::class.java,
+            String::class.java,
+            String::class.java,
+          ).invoke(
+            null,
+            context,
+            identifier,
+            notificationRequest.content.body?.toString() ?: "",
+          )
         } catch (e: Exception) {
-          Log.w("expo-notifications", "Ripple AlarmSoundService start skipped: " + e.message)
+          Log.w("expo-notifications", "Ripple markAlarmFired skipped: " + e.message)
         }
+        val isForeground = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState
+          .isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        val keyguardManager =
+          context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+        val isKeyguardLocked = keyguardManager.isKeyguardLocked
+        if (isForeground) {
+          NotificationsService.receive(context, Notification(notificationRequest))
+        } else {
+          try {
+            val presentationMode = if (isKeyguardLocked) "lockscreen" else "background"
+            val svcIntent = android.content.Intent().apply {
+              setClassName(context.packageName, context.packageName + ".AlarmSoundService")
+              putExtra("soundName", notificationRequest.content.soundName ?: "")
+              putExtra("alarmTitle", notificationRequest.content.title ?: "Alarm")
+              putExtra("alarmBody", notificationRequest.content.text ?: "Ringing")
+              putExtra("alarmIdentifier", identifier)
+              putExtra("alarmPayload", notificationRequest.content.body?.toString() ?: "")
+              putExtra("alarmPresentationMode", presentationMode)
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+              context.startForegroundService(svcIntent)
+            } else {
+              context.startService(svcIntent)
+            }
+          } catch (e: Exception) {
+            Log.w("expo-notifications", "Ripple AlarmSoundService start skipped: " + e.message)
+          }
+        }
+      } else {
+        NotificationsService.receive(context, Notification(notificationRequest))
       }
-      NotificationsService.receive(context, Notification(notificationRequest))
       NotificationsService.schedule(context, notificationRequest)
     } catch (e: ClassNotFoundException) {
       Log.e("expo-notifications", "An exception occurred while triggering notification " + identifier + ", removing. " + e.message)

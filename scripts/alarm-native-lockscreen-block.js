@@ -137,6 +137,7 @@ object RippleAlarmPrefs {
   private const val PREFS_NAME = "ripple_alarm_native"
   private const val KEY_SNOOZE_MINUTES = "default_snooze_minutes"
   private const val KEY_PENDING_ACTIONS = "pending_alarm_actions"
+  private const val KEY_DELIVERED = "alarm_fire_delivered"
   private const val DEFAULT_SNOOZE_MINUTES = 10
 
   fun getDefaultSnoozeMinutes(context: Context): Int {
@@ -164,6 +165,27 @@ object RippleAlarmPrefs {
     val existing = prefs.getString(KEY_PENDING_ACTIONS, "") ?: ""
     prefs.edit().remove(KEY_PENDING_ACTIONS).apply()
     return existing
+  }
+
+  fun markAlarmFireDelivered(context: Context, alarmId: Int, fireAtMs: Long) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val raw = prefs.getString(KEY_DELIVERED, "{}") ?: "{}"
+    val map = try {
+      org.json.JSONObject(raw)
+    } catch (_: Exception) {
+      org.json.JSONObject()
+    }
+    val key = alarmId.toString()
+    val existing = map.optLong(key, Long.MIN_VALUE)
+    if (existing < fireAtMs) {
+      map.put(key, fireAtMs)
+      prefs.edit().putString(KEY_DELIVERED, map.toString()).apply()
+    }
+  }
+
+  fun getDeliveredMapJson(context: Context): String {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_DELIVERED, "{}") ?: "{}"
   }
 }
 `;
@@ -200,6 +222,20 @@ object RippleAlarmNative {
     dismissExpoNotification(context, source?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
     queueAction(context, source, "snooze", minutes)
     scheduleNativeSnooze(context, source, minutes)
+  }
+
+  @JvmStatic
+  fun markAlarmFired(context: Context, identifier: String?, payloadJson: String?) {
+    if (identifier.isNullOrBlank() || !identifier.startsWith("ripple_alarm_fire_")) {
+      return
+    }
+    val parts = identifier.split("_")
+    if (parts.size < 5) {
+      return
+    }
+    val alarmId = parts[parts.size - 2].toIntOrNull() ?: return
+    val fireAtMs = parts.last().toLongOrNull() ?: return
+    RippleAlarmPrefs.markAlarmFireDelivered(context, alarmId, fireAtMs)
   }
 
   private fun stopAlarmSound(context: Context) {
@@ -334,6 +370,24 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
     } catch (e: Exception) {
       promise.reject("ERR_PENDING_ACTIONS", e.message, e)
     }
+  }
+
+  @ReactMethod
+  fun getDeliveredMapAsync(promise: Promise) {
+    try {
+      promise.resolve(RippleAlarmPrefs.getDeliveredMapJson(reactApplicationContext))
+    } catch (e: Exception) {
+      promise.reject("ERR_DELIVERED_MAP", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setAlarmFireDelivered(alarmId: Int, fireAtMs: Double) {
+    RippleAlarmPrefs.markAlarmFireDelivered(
+      reactApplicationContext,
+      alarmId,
+      fireAtMs.toLong(),
+    )
   }
 }
 `;

@@ -24,8 +24,8 @@ import androidx.core.app.NotificationCompat
 
 /**
  * Plays the alarm sound in a loop on STREAM_ALARM (bypasses ringer/silent mode).
- * Started by ExpoSchedulingDelegate when an alarm fires; stopped when MainActivity
- * opens so the ring screen's expo-av takes over.
+ * Started by ExpoSchedulingDelegate when an alarm fires in background or on lock screen.
+ * Presentation mode controls heads-up banner vs full-screen intent only.
  */
 class AlarmSoundService : Service() {
   private var mediaPlayer: MediaPlayer? = null
@@ -39,8 +39,12 @@ class AlarmSoundService : Service() {
     const val EXTRA_ALARM_BODY = "alarmBody"
     const val EXTRA_ALARM_IDENTIFIER = "alarmIdentifier"
     const val EXTRA_ALARM_PAYLOAD = "alarmPayload"
+    const val EXTRA_ALARM_PRESENTATION_MODE = "alarmPresentationMode"
+    const val MODE_LOCKSCREEN = "lockscreen"
+    const val MODE_BACKGROUND = "background"
     private const val FOREGROUND_NOTIF_ID = 9_001
-    private const val CHANNEL_ID = "ripple_alarm_fullscreen_v2"
+    private const val CHANNEL_LOCKSCREEN = "ripple_alarm_lockscreen_v1"
+    private const val CHANNEL_BACKGROUND = "ripple_alarm_background_v1"
     private const val AUTO_STOP_MS = 90_000L
   }
 
@@ -50,8 +54,14 @@ class AlarmSoundService : Service() {
       stopSelf()
       return START_NOT_STICKY
     }
-    ensureChannel()
-    val notification = buildNotification(intent)
+    val mode = intent?.getStringExtra(EXTRA_ALARM_PRESENTATION_MODE) ?: MODE_LOCKSCREEN
+    RippleAlarmNative.markAlarmFired(
+      this,
+      intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER),
+      intent?.getStringExtra(EXTRA_ALARM_PAYLOAD),
+    )
+    ensureChannels()
+    val notification = buildNotification(intent, mode)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(FOREGROUND_NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
     } else {
@@ -112,23 +122,35 @@ class AlarmSoundService : Service() {
     mediaPlayer = null
   }
 
-  private fun ensureChannel() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val chan = NotificationChannel(
-        CHANNEL_ID,
-        "Full-screen Alarms",
-        NotificationManager.IMPORTANCE_HIGH
-      ).apply {
-        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-        setSound(null, null)
-        enableVibration(false)
-      }
-      (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
-        .createNotificationChannel(chan)
+  private fun ensureChannels() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      return
     }
+    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+    val lockscreenChan = NotificationChannel(
+      CHANNEL_LOCKSCREEN,
+      "Lock-screen Alarms",
+      NotificationManager.IMPORTANCE_HIGH
+    ).apply {
+      lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+      setSound(null, null)
+      enableVibration(false)
+      setShowBadge(false)
+    }
+    val backgroundChan = NotificationChannel(
+      CHANNEL_BACKGROUND,
+      "Alarm Alerts",
+      NotificationManager.IMPORTANCE_HIGH
+    ).apply {
+      lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+      setSound(null, null)
+      enableVibration(true)
+    }
+    nm.createNotificationChannel(lockscreenChan)
+    nm.createNotificationChannel(backgroundChan)
   }
 
-  private fun buildNotification(sourceIntent: Intent?): Notification {
+  private fun buildNotification(sourceIntent: Intent?, mode: String): Notification {
     val title = sourceIntent?.getStringExtra(EXTRA_ALARM_TITLE)?.takeIf { it.isNotBlank() } ?: "Ripple Alarm"
     val body = sourceIntent?.getStringExtra(EXTRA_ALARM_BODY)?.takeIf { it.isNotBlank() } ?: "Alarm ringing"
     val alarmIntent = Intent().apply {
@@ -150,20 +172,30 @@ class AlarmSoundService : Service() {
     else
       PendingIntent.FLAG_UPDATE_CURRENT
     val requestCode = (sourceIntent?.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: "ripple_alarm_fullscreen").hashCode()
-    // Full-screen notification PendingIntents must not set background-activity-start mode (Android 14+).
     val alarmPi = PendingIntent.getActivity(this, requestCode, alarmIntent, piFlags)
-    return NotificationCompat.Builder(this, CHANNEL_ID)
+    val isBackground = mode == MODE_BACKGROUND
+    val channelId = if (isBackground) CHANNEL_BACKGROUND else CHANNEL_LOCKSCREEN
+    val builder = NotificationCompat.Builder(this, channelId)
       .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
       .setContentTitle(title)
       .setContentText(body)
-      .setPriority(NotificationCompat.PRIORITY_MAX)
       .setCategory(NotificationCompat.CATEGORY_ALARM)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-      .setFullScreenIntent(alarmPi, true)
       .setOngoing(true)
       .setAutoCancel(false)
       .setContentIntent(alarmPi)
-      .build()
+    if (isBackground) {
+      builder
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
+    } else {
+      // Lock screen: native FSI only — no heads-up banner peek.
+      builder
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setSilent(true)
+        .setFullScreenIntent(alarmPi, true)
+    }
+    return builder.build()
   }
 
   override fun onDestroy() {

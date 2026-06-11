@@ -1,12 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
-import { getPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
-import {
-  AndroidNotificationPriority,
-  SchedulableTriggerInputTypes,
-} from 'expo-notifications/build/Notifications.types';
-import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
 import { Platform } from 'react-native';
+
+import { getNativeAlarmFireDeliveredMap, syncNativeAlarmFireDelivered } from '@/lib/android-alarm-native-prefs';
+import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
 
 import { fetchAlarms } from '@/lib/alarm-api';
 import type { AlarmListItem } from '@/lib/alarm-format';
@@ -60,15 +55,41 @@ export async function markAlarmFireDelivered(alarmId: number, fireAtMs: number):
     const map: Record<string, number> = raw ? (JSON.parse(raw) as Record<string, number>) : {};
     map[String(alarmId)] = fireAtMs;
     await AsyncStorage.setItem(DELIVERED_KEY, JSON.stringify(map));
+    syncNativeAlarmFireDelivered(alarmId, fireAtMs);
   } catch {
     /* ignore storage errors */
   }
 }
 
+/** True when this alarm occurrence already fired (native lock screen, ring screen, or prior sync). */
+export async function isAlarmFireOccurrenceDelivered(
+  alarmId: number,
+  fireAtMs: number,
+): Promise<boolean> {
+  const map = await loadDeliveredMap();
+  const last = map[String(alarmId)];
+  return typeof last === 'number' && last >= fireAtMs;
+}
+
 async function loadDeliveredMap(): Promise<Record<string, number>> {
   try {
     const raw = await AsyncStorage.getItem(DELIVERED_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    let map: Record<string, number> = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    if (Platform.OS === 'android') {
+      const nativeMap = await getNativeAlarmFireDeliveredMap();
+      let changed = false;
+      for (const [key, value] of Object.entries(nativeMap)) {
+        const prev = map[key];
+        if (prev === undefined || value > prev) {
+          map[key] = value;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await AsyncStorage.setItem(DELIVERED_KEY, JSON.stringify(map));
+      }
+    }
+    return map;
   } catch {
     return {};
   }

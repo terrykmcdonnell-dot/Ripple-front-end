@@ -1,9 +1,3 @@
-# Local Gradle/Android build cache — not needed on EAS; can lock files during upload
-android/.gradle/
-android/build/
-android/app/build/
-android/app/.cxx/
-
 # Expo / Metro caches
 .expo/
 dist/

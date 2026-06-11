@@ -34,26 +34,9 @@ function NotificationPresentationBootstrap() {
         const data = notification.request.content.data as Record<string, unknown> | undefined;
         const isAlarmFire = data?.type === ALARM_FIRE_DATA_TYPE;
         if (isAlarmFire) {
-          // setNotificationHandler runs only while the app is in the foreground.
-          // AlarmNotificationBootstrap opens the in-app ring screen from the received listener.
-          //
-          // Android: must set shouldShowList (or shouldShowBanner) true so shouldPresentAlert
-          // is true. If both are false, expo-notifications skips posting the real notification
-          // and plays sound via RingtoneManager on the NOTIFICATION stream — which is silent
-          // when the ringer is muted. shouldShowList true forces the USAGE_ALARM channel +
-          // full-screen intent path even in this handler. Tray entry is dismissed in the
-          // received listener after the ring screen opens.
-          //
-          // iOS: shouldPlaySound false — expo-av uses playsInSilentModeIOS on the ring screen.
-          // OS notification sound does not bypass the hardware mute switch without Critical Alerts.
-          if (Platform.OS === 'android') {
-            return {
-              shouldShowBanner: false,
-              shouldShowList: true,
-              shouldPlaySound: true,
-              shouldSetBadge: false,
-            };
-          }
+          // Foreground: open ring screen via received listener only — no banner, tray row, or OS sound.
+          // Native AlarmSoundService is not started while foreground (scheduling patch v8).
+          // Ring screen expo-av handles alarm audio.
           return {
             shouldShowBanner: false,
             shouldShowList: false,
