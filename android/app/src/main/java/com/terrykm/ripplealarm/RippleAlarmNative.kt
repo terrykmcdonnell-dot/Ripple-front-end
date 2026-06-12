@@ -11,6 +11,8 @@ import expo.modules.notifications.service.NotificationsService
 import org.json.JSONObject
 
 object RippleAlarmNative {
+  const val ACTION_DISMISS = "com.terrykm.ripplealarm.ALARM_ACTION_DISMISS"
+  const val ACTION_SNOOZE = "com.terrykm.ripplealarm.ALARM_ACTION_SNOOZE"
   const val EXTRA_SOUND_NAME = "soundName"
   const val EXTRA_ALARM_TITLE = "alarmTitle"
   const val EXTRA_ALARM_BODY = "alarmBody"
@@ -30,6 +32,11 @@ object RippleAlarmNative {
     dismissExpoNotification(context, source?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
     queueAction(context, source, "snooze", minutes)
     scheduleNativeSnooze(context, source, minutes)
+  }
+
+  fun handleMissed(context: Context, source: Intent?) {
+    dismissExpoNotification(context, source?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
+    queueAction(context, source, "missed", 0)
   }
 
   /** Marks an alarm occurrence as delivered so sync does not re-fire it in the grace window. */

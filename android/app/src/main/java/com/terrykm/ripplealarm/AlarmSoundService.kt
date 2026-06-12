@@ -25,7 +25,12 @@ import androidx.core.app.NotificationCompat
 class AlarmSoundService : Service() {
   private var mediaPlayer: MediaPlayer? = null
   private val handler = Handler(Looper.getMainLooper())
-  private val autoStopRunnable = Runnable { stopSelf() }
+  private var activeAlarmIntent: Intent? = null
+  private val autoStopRunnable = Runnable {
+    RippleAlarmNative.handleMissed(this, activeAlarmIntent)
+    activeAlarmIntent = null
+    stopSelf()
+  }
 
   companion object {
     const val ACTION_STOP = "com.terrykm.ripplealarm.STOP_ALARM_SOUND"
@@ -40,15 +45,17 @@ class AlarmSoundService : Service() {
     private const val FOREGROUND_NOTIF_ID = 9_001
     private const val CHANNEL_LOCKSCREEN = "ripple_alarm_lockscreen_v1"
     private const val CHANNEL_BACKGROUND = "ripple_alarm_background_v1"
-    private const val AUTO_STOP_MS = 90_000L
+    private const val AUTO_STOP_MS = 5 * 60 * 1_000L
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent?.action == ACTION_STOP) {
+      activeAlarmIntent = null
       stopPlayback()
       stopSelf()
       return START_NOT_STICKY
     }
+    activeAlarmIntent = intent?.let { Intent(it) }
     val mode = intent?.getStringExtra(EXTRA_ALARM_PRESENTATION_MODE) ?: MODE_LOCKSCREEN
     RippleAlarmNative.markAlarmFired(
       this,
@@ -179,6 +186,16 @@ class AlarmSoundService : Service() {
       .setOngoing(true)
       .setAutoCancel(false)
       .setContentIntent(alarmPi)
+      .addAction(
+        android.R.drawable.ic_media_pause,
+        "Snooze",
+        buildActionPendingIntent(sourceIntent, RippleAlarmNative.ACTION_SNOOZE, "snooze"),
+      )
+      .addAction(
+        android.R.drawable.ic_menu_close_clear_cancel,
+        "Dismiss",
+        buildActionPendingIntent(sourceIntent, RippleAlarmNative.ACTION_DISMISS, "dismiss"),
+      )
     if (isBackground) {
       builder
         .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -190,6 +207,19 @@ class AlarmSoundService : Service() {
         .setFullScreenIntent(alarmPi, true)
     }
     return builder.build()
+  }
+
+  private fun buildActionPendingIntent(sourceIntent: Intent?, action: String, suffix: String): PendingIntent {
+    val actionIntent = Intent(this, AlarmActionReceiver::class.java).apply {
+      this.action = action
+      sourceIntent?.extras?.let { putExtras(it) }
+    }
+    val piFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    else
+      PendingIntent.FLAG_UPDATE_CURRENT
+    val requestCode = ((sourceIntent?.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: "ripple_alarm") + "_" + suffix).hashCode()
+    return PendingIntent.getBroadcast(this, requestCode, actionIntent, piFlags)
   }
 
   override fun onDestroy() {

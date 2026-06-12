@@ -1,12 +1,16 @@
 import { Platform } from 'react-native';
 
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
-import { recordAlarmHistoryDismissed, recordAlarmHistorySnoozed } from '@/lib/alarm-history-sync';
+import {
+  recordAlarmHistoryDismissed,
+  recordAlarmHistoryMissed,
+  recordAlarmHistorySnoozed,
+} from '@/lib/alarm-history-sync';
 import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { consumeNativePendingAlarmActionsRaw } from '@/lib/android-alarm-native-prefs';
 
 type PendingNativeAlarmAction = {
-  type: 'dismiss' | 'snooze';
+  type: 'dismiss' | 'missed' | 'snooze';
   alarmId: number;
   fireAt: string;
   label: string;
@@ -24,7 +28,14 @@ function parsePendingLine(line: string): PendingNativeAlarmAction | null {
     if (!Number.isFinite(alarmId) || !fireAt) {
       return null;
     }
-    const type = raw.type === 'snooze' ? 'snooze' : raw.type === 'dismiss' ? 'dismiss' : null;
+    const type =
+      raw.type === 'snooze'
+        ? 'snooze'
+        : raw.type === 'dismiss'
+          ? 'dismiss'
+          : raw.type === 'missed'
+            ? 'missed'
+            : null;
     if (!type) {
       return null;
     }
@@ -75,6 +86,8 @@ export async function processPendingNativeAlarmActions(): Promise<void> {
     }
     if (action.type === 'dismiss') {
       await recordAlarmHistoryDismissed(parsed);
+    } else if (action.type === 'missed') {
+      await recordAlarmHistoryMissed(parsed);
     } else {
       await recordAlarmHistorySnoozed(parsed, action.snoozeMinutes ?? 10);
     }

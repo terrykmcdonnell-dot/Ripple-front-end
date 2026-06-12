@@ -203,6 +203,8 @@ import expo.modules.notifications.service.NotificationsService
 import org.json.JSONObject
 
 object RippleAlarmNative {
+  const val ACTION_DISMISS = "PACKAGE_NAME.ALARM_ACTION_DISMISS"
+  const val ACTION_SNOOZE = "PACKAGE_NAME.ALARM_ACTION_SNOOZE"
   const val EXTRA_SOUND_NAME = "soundName"
   const val EXTRA_ALARM_TITLE = "alarmTitle"
   const val EXTRA_ALARM_BODY = "alarmBody"
@@ -222,6 +224,11 @@ object RippleAlarmNative {
     dismissExpoNotification(context, source?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
     queueAction(context, source, "snooze", minutes)
     scheduleNativeSnooze(context, source, minutes)
+  }
+
+  fun handleMissed(context: Context, source: Intent?) {
+    dismissExpoNotification(context, source?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
+    queueAction(context, source, "missed", 0)
   }
 
   @JvmStatic
@@ -311,6 +318,30 @@ object RippleAlarmNative {
       }
     } catch (e: Exception) {
       Log.w("RippleAlarmNative", "Schedule snooze failed: " + e.message)
+    }
+  }
+}
+`;
+
+const ALARM_ACTION_RECEIVER_KOTLIN = `package PACKAGE_NAME
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+
+class AlarmActionReceiver : BroadcastReceiver() {
+  override fun onReceive(context: Context, intent: Intent) {
+    when (intent.action) {
+      RippleAlarmNative.ACTION_DISMISS -> {
+        RippleAlarmNative.handleDismiss(context, intent)
+      }
+      RippleAlarmNative.ACTION_SNOOZE -> {
+        RippleAlarmNative.handleSnooze(
+          context,
+          intent,
+          RippleAlarmPrefs.getDefaultSnoozeMinutes(context),
+        )
+      }
     }
   }
 }
@@ -414,6 +445,7 @@ module.exports = {
   ALARM_WAKE_ACTIVITY_KOTLIN,
   RIPPLE_ALARM_PREFS_KOTLIN,
   RIPPLE_ALARM_NATIVE_KOTLIN,
+  ALARM_ACTION_RECEIVER_KOTLIN,
   ALARM_SNOOZE_RECEIVER_KOTLIN,
   RIPPLE_ALARM_PREFS_MODULE_KOTLIN,
   RIPPLE_ALARM_PREFS_PACKAGE_KOTLIN,

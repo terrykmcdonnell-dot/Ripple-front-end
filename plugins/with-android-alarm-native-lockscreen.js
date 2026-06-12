@@ -9,12 +9,14 @@ const {
   ALARM_WAKE_ACTIVITY_KOTLIN,
   RIPPLE_ALARM_PREFS_KOTLIN,
   RIPPLE_ALARM_NATIVE_KOTLIN,
+  ALARM_ACTION_RECEIVER_KOTLIN,
   ALARM_SNOOZE_RECEIVER_KOTLIN,
   RIPPLE_ALARM_PREFS_MODULE_KOTLIN,
   RIPPLE_ALARM_PREFS_PACKAGE_KOTLIN,
 } = require('../scripts/alarm-native-lockscreen-block');
 
 const RECEIVER_SHORT_NAME = '.AlarmSnoozeReceiver';
+const ACTION_RECEIVER_SHORT_NAME = '.AlarmActionReceiver';
 
 function getPackageName(config) {
   return (config.android && config.android.package) || 'com.terrykm.ripplealarm';
@@ -46,6 +48,18 @@ function withAndroidAlarmNativeLockscreen(config) {
         },
       });
     }
+    const actionAlready = application.receiver.some((r) => {
+      const name = r.$?.['android:name'] ?? '';
+      return String(name).includes('AlarmActionReceiver');
+    });
+    if (!actionAlready) {
+      application.receiver.push({
+        $: {
+          'android:name': ACTION_RECEIVER_SHORT_NAME,
+          'android:exported': 'false',
+        },
+      });
+    }
     return cfg;
   });
 
@@ -67,6 +81,7 @@ function withAndroidAlarmNativeLockscreen(config) {
       writeKotlinFile(dir, 'AlarmWakeActivity.kt', ALARM_WAKE_ACTIVITY_KOTLIN, packageName);
       writeKotlinFile(dir, 'RippleAlarmPrefs.kt', RIPPLE_ALARM_PREFS_KOTLIN, packageName);
       writeKotlinFile(dir, 'RippleAlarmNative.kt', RIPPLE_ALARM_NATIVE_KOTLIN, packageName);
+      writeKotlinFile(dir, 'AlarmActionReceiver.kt', ALARM_ACTION_RECEIVER_KOTLIN, packageName);
       writeKotlinFile(dir, 'AlarmSnoozeReceiver.kt', ALARM_SNOOZE_RECEIVER_KOTLIN, packageName);
       writeKotlinFile(dir, 'RippleAlarmPrefsModule.kt', RIPPLE_ALARM_PREFS_MODULE_KOTLIN, packageName);
       writeKotlinFile(dir, 'RippleAlarmPrefsPackage.kt', RIPPLE_ALARM_PREFS_PACKAGE_KOTLIN, packageName);

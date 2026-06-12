@@ -15,7 +15,11 @@ import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { notifyAuthMessage } from '@/lib/auth-notify';
 import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
-import { recordAlarmHistoryDismissed, recordAlarmHistorySnoozed } from '@/lib/alarm-history-sync';
+import {
+  recordAlarmHistoryDismissed,
+  recordAlarmHistoryMissed,
+  recordAlarmHistorySnoozed,
+} from '@/lib/alarm-history-sync';
 import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 
 function paramOne(v: string | string[] | undefined): string | undefined {
@@ -115,6 +119,21 @@ export default function AlarmRingScreen() {
     };
   }, [soundIdParam, liveParsed?.soundId, liveParsed]);
 
+  useEffect(() => {
+    if (!liveParsed) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      void (async () => {
+        await stopRingAlarmSound();
+        await recordAlarmHistoryMissed(liveParsed).catch(() => undefined);
+        await syncAlarmFireNotifications();
+        router.replace('/alarm');
+      })();
+    }, 5 * 60 * 1_000);
+    return () => clearTimeout(timeout);
+  }, [liveParsed, router]);
+
   // AppState sound management:
   // - On 'active': (re)start the alarm sound. Handles FSI / lock-screen-to-ring
   //   transitions where Android briefly flips the app to 'background' then back
@@ -122,7 +141,7 @@ export default function AlarmRingScreen() {
   // - On 'background': stop after a 4-second grace period so a transient FSI
   //   transition doesn't kill the loop. If the app comes back active within 4 s
   //   (normal for alarm launch) the pending stop is cancelled.
-  // The 90-second auto-stop in ring-alarm-sound.ts is the last-resort safety net.
+  // The 5-minute auto-stop in ring-alarm-sound.ts is the last-resort safety net.
   useEffect(() => {
     let backgroundTimer: ReturnType<typeof setTimeout> | null = null;
 

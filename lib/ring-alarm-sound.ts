@@ -14,8 +14,8 @@ const ALARM_SOUND_SOURCES: Record<AlarmSoundId, number> = {
   'nature-birds': require('../assets/sounds/nature_birds.wav'),
 };
 
-/** Maximum ring duration before auto-stop even if user doesn't interact (90 seconds). */
-const MAX_RING_DURATION_MS = 90_000;
+/** Maximum ring duration before auto-stop even if user doesn't interact (5 minutes). */
+const MAX_RING_DURATION_MS = 5 * 60 * 1_000;
 
 let activeRingSound: Audio.Sound | null = null;
 let activeRingSoundId: AlarmSoundId | null = null;
@@ -84,7 +84,7 @@ export async function stopRingAlarmSound(): Promise<void> {
 
 /**
  * Loops the selected alarm sound until {@link stopRingAlarmSound} is called
- * or the 90-second auto-stop fires.
+ * or the 5-minute auto-stop fires.
  *
  * - `playsInSilentModeIOS: true` — iOS hardware mute switch is overridden.
  * - `staysActiveInBackground: true` — audio continues while app is backgrounded
@@ -192,7 +192,7 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
     activeRingSound = sound;
     activeRingSoundId = id;
 
-    // Hard stop after 90 seconds regardless of user interaction.
+    // Hard stop after 5 minutes regardless of user interaction.
     autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
   } catch {
     // createAsync failed — release audio session if we are still the active load.

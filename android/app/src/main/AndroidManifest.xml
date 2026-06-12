@@ -30,6 +30,7 @@
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATE_URL" android:value="https://u.expo.dev/7073624f-7686-47a1-b177-cac58f1b04d6"/>
     <service android:name=".AlarmSoundService" android:exported="false" android:foregroundServiceType="mediaPlayback"/>
+    <receiver android:name=".AlarmActionReceiver" android:exported="false"/>
     <receiver android:name=".AlarmSnoozeReceiver" android:exported="false"/>
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait" android:showWhenLocked="true" android:turnScreenOn="true">
       <intent-filter>
