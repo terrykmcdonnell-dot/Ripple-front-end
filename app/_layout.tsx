@@ -9,8 +9,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
-import { AndroidDndAccessBootstrap } from '@/components/bootstrap/AndroidDndAccessBootstrap';
-import { AndroidFsiPermissionBootstrap } from '@/components/bootstrap/AndroidFsiPermissionBootstrap';
+import { AndroidAlarmPermissionsBootstrap } from '@/components/bootstrap/AndroidAlarmPermissionsBootstrap';
 import { AppVersionCheckBootstrap } from '@/components/bootstrap/AppVersionCheckBootstrap';
 import { IosNotificationPermissionBootstrap } from '@/components/bootstrap/IosNotificationPermissionBootstrap';
 import { NotificationAccessBootstrap } from '@/components/bootstrap/NotificationAccessBootstrap';
@@ -98,8 +97,7 @@ export default function RootLayout() {
             <RevenueCatBootstrap />
             <IosNotificationPermissionBootstrap />
             <NotificationAccessBootstrap />
-            <AndroidFsiPermissionBootstrap />
-            <AndroidDndAccessBootstrap />
+            <AndroidAlarmPermissionsBootstrap />
             <AlarmNotificationBootstrap />
             <NotificationPresentationBootstrap />
             <Stack>

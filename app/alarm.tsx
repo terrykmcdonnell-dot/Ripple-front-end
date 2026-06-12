@@ -35,6 +35,7 @@ import { getAuthErrorDisplayText, notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { stashAlarmForEdit } from '@/lib/alarm-navigation-cache';
 import { promptAndroidFullScreenAlarmPermissionIfNeeded } from '@/lib/android-alarm-full-screen-setup';
+import { hasAndroidAlarmPermissionWarnings } from '@/lib/android-alarm-permissions-status';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import {
   nextCanonicalAlarmFire,
@@ -265,6 +266,13 @@ export default function AlarmScreen() {
       await patchAlarm(alarm.id, { is_enabled: next });
       void syncUpcomingReminderNotifications();
       if (next) {
+        void hasAndroidAlarmPermissionWarnings().then((needsSetup) => {
+          if (needsSetup) {
+            showToast(
+              'Lock-screen alarm permissions are off. Check the banner at the top of Alarms to enable full-screen intent and Do Not Disturb access.',
+            );
+          }
+        });
         void syncAlarmFireNotifications().then(() => {
           void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
         });

@@ -13,6 +13,7 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
+import { canInstallTemplatePack } from '@/lib/subscription-access';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { installTemplatePack, uninstallTemplatePack } from '@/lib/install-template-pack';
@@ -120,7 +121,8 @@ export default function TemplatesScreen() {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const { showToast } = useAppToast();
-  const { limitsApply } = useSubscriptionStatus();
+  const { isSubscriber } = useSubscriptionStatus();
+  const templateGalleryLocked = !canInstallTemplatePack(isSubscriber);
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [packAlarmIds, setPackAlarmIds] = useState<Record<string, number[]>>({});
@@ -195,8 +197,8 @@ export default function TemplatesScreen() {
         if (installed) {
           await uninstallTemplatePack(packId, ids);
         } else {
-          if (limitsApply) {
-            showToast('Template packs are included with Ripple Pro.');
+          if (templateGalleryLocked) {
+            showToast('Template gallery is included with Ripple Pro.');
             router.push('/paywall');
             return;
           }
@@ -209,7 +211,7 @@ export default function TemplatesScreen() {
         setBusyPackId(null);
       }
     },
-    [busyPackId, limitsApply, packAlarmIds, refreshPackState, router, showToast],
+    [busyPackId, templateGalleryLocked, packAlarmIds, refreshPackState, router, showToast],
   );
 
   return (
@@ -259,7 +261,7 @@ export default function TemplatesScreen() {
               }))}
               installed={(packAlarmIds[item.id]?.length ?? 0) > 0}
               installBusy={busyPackId === item.id}
-              premiumLocked={limitsApply}
+              premiumLocked={templateGalleryLocked}
               onToggleInstall={() => void onTogglePack(item.id)}
             />
           ))

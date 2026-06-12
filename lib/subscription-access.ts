@@ -111,7 +111,7 @@ export function isActiveSubscriber(info: CustomerInfo | null | undefined): boole
 }
 
 /**
- * When true, enforce free-tier limits (alarm cap, template install, premium themes).
+ * When true, enforce free-tier limits (alarm cap, template gallery install, premium themes).
  * Web and builds without an RC key skip limits so local/dev keeps working.
  */
 export function limitsApply(isSubscriber: boolean): boolean {
@@ -129,6 +129,11 @@ export function canAddAlarm(alarmCount: number, isSubscriber: boolean): boolean 
     return true;
   }
   return alarmCount < FREE_TIER_MAX_ALARMS;
+}
+
+/** Template gallery packs require Ripple Pro on mobile builds with RevenueCat configured. */
+export function canInstallTemplatePack(isSubscriber: boolean): boolean {
+  return !limitsApply(isSubscriber);
 }
 
 /** Fresh read before creating an alarm (avoids stale hook state). */

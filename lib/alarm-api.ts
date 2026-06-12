@@ -2,8 +2,34 @@ import { Platform } from 'react-native';
 
 import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
 
-const RIPPLE_FETCH_TIMEOUT_MS = 25_000;
+const RIPPLE_FETCH_TIMEOUT_MS = 30_000;
 const RIPPLE_WRITE_TIMEOUT_MS = 45_000;
+const RIPPLE_FETCH_MAX_ATTEMPTS = 4;
+const RIPPLE_FETCH_RETRY_BASE_MS = 1_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientHttpStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function isTransientRippleFetchError(err: unknown): boolean {
+  if (err instanceof RippleApiError) {
+    return isTransientHttpStatus(err.status);
+  }
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (err.name === 'AbortError' || msg.includes('aborted') || msg.includes('timed out')) {
+      return true;
+    }
+    if (msg.includes('network request failed') || msg.includes('failed to fetch')) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /** Thrown when the Ripple FastAPI responds with a non-2xx status (carries HTTP status for UI mapping). */
 export class RippleApiError extends Error {
@@ -87,7 +113,42 @@ async function rippleTimedFetch(
   }
 }
 
+async function rippleApiFetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < RIPPLE_FETCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await rippleTimedFetch(url, init, RIPPLE_FETCH_TIMEOUT_MS);
+      if (res.ok || !isTransientHttpStatus(res.status)) {
+        return res;
+      }
+      let detail = '';
+      try {
+        detail = await res.text();
+      } catch {
+        /* ignore */
+      }
+      lastError = new RippleApiError(
+        parseRippleApiErrorBody(detail, res.status) || `Request failed (${res.status}).`,
+        res.status,
+      );
+    } catch (err) {
+      lastError = err;
+      if (!isTransientRippleFetchError(err)) {
+        throw err;
+      }
+    }
+    if (attempt < RIPPLE_FETCH_MAX_ATTEMPTS - 1) {
+      await sleep(RIPPLE_FETCH_RETRY_BASE_MS * (attempt + 1));
+    }
+  }
+  throw lastError;
+}
+
 async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const method = init?.method?.toUpperCase() ?? 'GET';
+  if (method === 'GET') {
+    return rippleApiFetchWithRetry(url, init);
+  }
   return rippleTimedFetch(url, init, RIPPLE_FETCH_TIMEOUT_MS);
 }
 

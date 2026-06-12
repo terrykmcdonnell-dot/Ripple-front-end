@@ -1,81 +1,94 @@
-import { useEffect, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useMemo, useState } from 'react';
+import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAlarmTheme } from '@/components/alarms/theme';
-import { isAndroidFullScreenIntentGranted } from '@/lib/android-full-screen-intent-granted';
-import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
+import {
+  getAndroidAlarmPermissionWarnings,
+  type AndroidAlarmPermissionWarning,
+} from '@/lib/android-alarm-permissions-status';
 
 /**
- * Android 14+: warns when full-screen lock-screen alarms are disabled in system settings.
+ * Persistent banner on the Alarms screen when full-screen intent and/or DND access is disabled.
  */
 export function AndroidLockScreenAlarmBanner() {
   const palette = useAlarmTheme();
-  const [needsPermission, setNeedsPermission] = useState(false);
+  const [warnings, setWarnings] = useState<AndroidAlarmPermissionWarning[]>([]);
 
-  useEffect(() => {
-    if (Platform.OS !== 'android' || (Platform.Version as number) < 34) {
+  const refresh = useCallback(async () => {
+    if (Platform.OS !== 'android') {
+      setWarnings([]);
       return;
     }
-
-    let cancelled = false;
-    const refresh = async () => {
-      const granted = await isAndroidFullScreenIntentGranted();
-      if (!cancelled) {
-        setNeedsPermission(!granted);
-      }
-    };
-
-    void refresh();
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        void refresh();
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      sub.remove();
-    };
+    setWarnings(await getAndroidAlarmPermissionWarnings());
   }, []);
 
-  if (!needsPermission) {
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          void refresh();
+        }
+      });
+      return () => sub.remove();
+    }, [refresh]),
+  );
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        wrap: {
+          marginHorizontal: 16,
+          marginBottom: 8,
+          gap: 8,
+        },
+        banner: {
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          borderRadius: 10,
+          backgroundColor: palette.amberDim,
+          borderWidth: 1,
+          borderColor: palette.amber,
+        },
+        title: {
+          color: palette.text,
+          fontSize: 13,
+          fontWeight: '700',
+          marginBottom: 4,
+        },
+        text: {
+          color: palette.text,
+          fontSize: 12,
+          lineHeight: 17,
+        },
+        action: {
+          color: palette.accentBright,
+          fontWeight: '700',
+          marginTop: 6,
+          fontSize: 12,
+        },
+      }),
+    [palette],
+  );
+
+  if (warnings.length === 0) {
     return null;
   }
 
-  const styles = StyleSheet.create({
-    banner: {
-      marginHorizontal: 16,
-      marginBottom: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderRadius: 10,
-      backgroundColor: palette.amberDim,
-      borderWidth: 1,
-      borderColor: palette.amber,
-    },
-    text: {
-      color: palette.text,
-      fontSize: 12,
-      lineHeight: 17,
-    },
-    action: {
-      color: palette.accentBright,
-      fontWeight: '700',
-      marginTop: 4,
-      fontSize: 12,
-    },
-  });
-
   return (
-    <Pressable
-      accessibilityRole="button"
-      style={styles.banner}
-      onPress={() => void openAndroidFullScreenAlarmPermissionSettings()}>
-      <Text style={styles.text}>
-        Lock-screen alarms need &quot;Full screen intents&quot; enabled. Without it you only get a small
-        notification banner.
-      </Text>
-      <Text style={styles.action}>Tap to open Settings → turn Ripple ON</Text>
-    </Pressable>
+    <View style={styles.wrap}>
+      {warnings.map((warning) => (
+        <Pressable
+          key={warning.id}
+          accessibilityRole="button"
+          style={styles.banner}
+          onPress={() => void warning.openSettings()}>
+          <Text style={styles.title}>{warning.title}</Text>
+          <Text style={styles.text}>{warning.body}</Text>
+          <Text style={styles.action}>{warning.actionLabel}</Text>
+        </Pressable>
+      ))}
+    </View>
   );
 }

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+import { isAndroidFullScreenIntentGranted } from '@/lib/android-full-screen-intent-granted';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 
 const FSI_PROMPT_LAST_SHOWN_KEY = 'ripple_android_fsi_prompt_last_shown_v2';
@@ -20,6 +21,9 @@ export async function promptAndroidFullScreenAlarmPermissionIfNeeded(
   showToast: (message: string) => void,
 ): Promise<void> {
   if (Platform.OS !== 'android' || (Platform.Version as number) < 34) {
+    return;
+  }
+  if (await isAndroidFullScreenIntentGranted()) {
     return;
   }
   const now = Date.now();

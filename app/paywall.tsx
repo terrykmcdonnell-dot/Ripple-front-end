@@ -38,7 +38,11 @@ import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import Purchases from 'react-native-purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
 
-const PRO_PLAN_FEATURES = ['Unlimited alarms — no cap, ever', 'Premium themes'] as const;
+const PRO_PLAN_FEATURES = [
+  'Unlimited alarms — no cap, ever',
+  'Template gallery — install ready-made alarm packs',
+  'Premium themes',
+] as const;
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -671,7 +675,7 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, premium themes, and more — billed through {Platform.OS === 'ios' ? 'Apple' : 'Google'} via
+          Unlimited alarms, template gallery, premium themes, and more — billed through {Platform.OS === 'ios' ? 'Apple' : 'Google'} via
           RevenueCat.
         </Text>
 
