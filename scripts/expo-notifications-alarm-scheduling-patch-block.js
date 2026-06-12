@@ -1,5 +1,5 @@
 /** Kotlin patches ExpoSchedulingDelegate.kt for lock-screen alarm takeover. */
-const MARKER_SCHEDULING = 'Ripple alarm scheduling v9';
+const MARKER_SCHEDULING = 'Ripple alarm scheduling v10';
 const MARKER_SCHEDULING_LEGACY = [
   'Ripple alarm scheduling v1',
   'Ripple alarm scheduling v2',
@@ -10,6 +10,7 @@ const MARKER_SCHEDULING_LEGACY = [
   'Ripple alarm scheduling v7',
   'Ripple alarm scheduling v8',
   'Ripple alarm scheduling v9',
+  'Ripple alarm scheduling v10',
 ];
 
 /**
@@ -22,6 +23,10 @@ const MARKER_SCHEDULING_LEGACY = [
 const IMPORT_LINES = [];
 
 /**
+ * v10: Lock screen wins over foreground lifecycle state. Some devices can report
+ * the process as RESUMED while keyguard is showing, and that must still start the
+ * native full-screen alarm service.
+ *
  * v9: Mark alarm occurrence delivered at fire time (native) so opening the app
  * within the 90 s grace window does not schedule a duplicate ring.
  *
@@ -54,7 +59,7 @@ const IMPORT_LINES = [];
 const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: String) {
     try {
       val notificationRequest: NotificationRequest = store.getNotificationRequest(identifier)!!
-      // Ripple alarm scheduling v9 — mark delivered; route by foreground / lock screen / background.
+      // Ripple alarm scheduling v10 — mark delivered; route by keyguard / foreground / background.
       if (identifier.startsWith("ripple_alarm_fire_")) {
         try {
           val native = Class.forName(context.packageName + ".RippleAlarmNative")
@@ -72,12 +77,12 @@ const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: Stri
         } catch (e: Exception) {
           Log.w("expo-notifications", "Ripple markAlarmFired skipped: " + e.message)
         }
-        val isForeground = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState
-          .isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
         val keyguardManager =
           context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
         val isKeyguardLocked = keyguardManager.isKeyguardLocked
-        if (isForeground) {
+        val isForeground = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState
+          .isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        if (!isKeyguardLocked && isForeground) {
           NotificationsService.receive(context, Notification(notificationRequest))
         } else {
           try {

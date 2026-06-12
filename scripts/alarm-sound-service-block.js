@@ -189,10 +189,9 @@ class AlarmSoundService : Service() {
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
     } else {
-      // Lock screen: native FSI only — no heads-up banner peek.
+      // Lock screen: keep the alarm notification strong enough for Android to launch FSI.
       builder
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setSilent(true)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
         .setFullScreenIntent(alarmPi, true)
     }
     return builder.build()
