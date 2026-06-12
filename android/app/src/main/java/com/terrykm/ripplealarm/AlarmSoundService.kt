@@ -1,9 +1,4 @@
-/**
- * Kotlin source for AlarmSoundService — plays alarm audio on STREAM_ALARM
- * (bypasses Android ringer/silent mode) in a foreground service so the alarm
- * rings even when the ring screen hasn't fully mounted yet or FSI is blocked.
- */
-const KOTLIN_SOURCE = `package PACKAGE_NAME
+package com.terrykm.ripplealarm
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -33,7 +28,7 @@ class AlarmSoundService : Service() {
   private val autoStopRunnable = Runnable { stopSelf() }
 
   companion object {
-    const val ACTION_STOP = "PACKAGE_NAME.STOP_ALARM_SOUND"
+    const val ACTION_STOP = "com.terrykm.ripplealarm.STOP_ALARM_SOUND"
     const val EXTRA_SOUND_NAME = "soundName"
     const val EXTRA_ALARM_TITLE = "alarmTitle"
     const val EXTRA_ALARM_BODY = "alarmBody"
@@ -86,7 +81,7 @@ class AlarmSoundService : Service() {
     }
     val resId = resources.getIdentifier(baseName, "raw", packageName)
     if (resId == 0) {
-      Log.w("AlarmSoundService", "Sound resource not found: ${"$"}baseName")
+      Log.w("AlarmSoundService", "Sound resource not found: $baseName")
       return
     }
     try {
@@ -110,9 +105,9 @@ class AlarmSoundService : Service() {
       mp.prepare()
       mp.start()
       mediaPlayer = mp
-      Log.d("AlarmSoundService", "Playing ${"$"}baseName on STREAM_ALARM.")
+      Log.d("AlarmSoundService", "Playing $baseName on STREAM_ALARM.")
     } catch (e: Exception) {
-      Log.e("AlarmSoundService", "Playback error: ${"$"}{e.message}")
+      Log.e("AlarmSoundService", "Playback error: ${e.message}")
     }
   }
 
@@ -206,8 +201,3 @@ class AlarmSoundService : Service() {
 
   override fun onBind(intent: Intent?): IBinder? = null
 }
-`;
-
-const ACTION_STOP_SUFFIX = 'STOP_ALARM_SOUND';
-
-module.exports = { KOTLIN_SOURCE, ACTION_STOP_SUFFIX };

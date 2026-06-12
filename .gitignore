@@ -54,5 +54,5 @@ grep
 
 app-example
 
-/ios/
-/android/
+# /ios/
+# /android/

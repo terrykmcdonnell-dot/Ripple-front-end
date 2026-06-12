@@ -1,14 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
-import { getPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
-import {
-  AndroidNotificationPriority,
-  SchedulableTriggerInputTypes,
-} from 'expo-notifications/build/Notifications.types';
-import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
 import { Platform } from 'react-native';
 
 import { getNativeAlarmFireDeliveredMap, syncNativeAlarmFireDelivered } from '@/lib/android-alarm-native-prefs';
+import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
 
 import { fetchAlarms } from '@/lib/alarm-api';
 import type { AlarmListItem } from '@/lib/alarm-format';
