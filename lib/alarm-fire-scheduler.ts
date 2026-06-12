@@ -33,6 +33,7 @@ import { isOsNotificationAllowed } from '@/lib/notification-os-status';
 import { nextCanonicalAlarmFire } from '@/lib/upcoming-reminder-scheduler';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alarm-notification-channel';
+import { getIosAlarmInterruptionLevel } from '@/lib/ios-alarm-notification-options';
 
 const STORAGE_IDS_KEY = 'ripple_alarm_fire_scheduled_notification_ids';
 
@@ -190,10 +191,8 @@ export async function ensureAllAndroidAlarmChannelsAsync(): Promise<void> {
  * **Android:** Alarm channels use **USAGE_ALARM**, **enforceAudibility**, and
  * **bypassDnd** so rings follow the **alarm** volume stream and bypass silent /
  * vibrate mode and Do Not Disturb on all OEMs that honour it.
- * **iOS:** notifications use `interruptionLevel: 'critical'` which bypasses
- * both the hardware mute switch and Focus/DND, provided the user has granted
- * the critical-alerts permission and the app has the
- * `com.apple.developer.usernotifications.critical-alerts` entitlement.
+ * **iOS:** notifications use Time Sensitive delivery by default, or Critical
+ * Alerts when the build is configured with Apple's critical-alerts entitlement.
  * The foreground in-app sound uses `playsInSilentModeIOS: true` (expo-av).
  *
  * A module-level mutex ensures only one sync runs at a time. Any concurrent
@@ -410,12 +409,7 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
             : {}),
           ...(Platform.OS === 'ios'
             ? {
-                // 'timeSensitive' bypasses Focus/DND but not the hardware mute switch.
-                // Switch to 'critical' once Apple approves the
-                // com.apple.developer.usernotifications.critical-alerts entitlement
-                // and the provisioning profile includes it — then also add back the
-                // entitlement to app.json ios.entitlements.
-                interruptionLevel: 'timeSensitive' as const,
+                interruptionLevel: getIosAlarmInterruptionLevel(),
               }
             : {}),
         },

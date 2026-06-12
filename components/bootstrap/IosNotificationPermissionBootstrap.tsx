@@ -4,11 +4,13 @@ import { Platform } from 'react-native';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import { IosAuthorizationStatus } from 'expo-notifications/build/NotificationPermissions.types';
 
+import { areIosCriticalAlertsConfigured } from '@/lib/ios-alarm-notification-options';
+
 /**
  * iOS notification permission on app open:
- * - First install: request alert + sound + critical alerts together.
- * - Existing users who allowed notifications before critical was added: re-request
- *   critical-only so muted-switch alarms can use interruptionLevel "critical".
+ * - First install: request alert + sound.
+ * - Critical Alerts are requested only when the build is configured with Apple's
+ *   critical-alerts entitlement; otherwise iOS uses Time Sensitive alarms.
  */
 export function IosNotificationPermissionBootstrap() {
   useEffect(() => {
@@ -31,6 +33,7 @@ export function IosNotificationPermissionBootstrap() {
           return;
         }
 
+        const criticalAlertsConfigured = areIosCriticalAlertsConfigured();
         const criticalGranted = ios?.allowsCriticalAlerts === true;
 
         if (iosStatus === IosAuthorizationStatus.NOT_DETERMINED) {
@@ -39,8 +42,19 @@ export function IosNotificationPermissionBootstrap() {
               allowAlert: true,
               allowBadge: true,
               allowSound: true,
-              // allowCriticalAlerts: true — add back once Apple approves the
-              // critical-alerts entitlement and it is included in the provisioning profile.
+              ...(criticalAlertsConfigured ? { allowCriticalAlerts: true } : {}),
+            },
+          });
+          return;
+        }
+
+        if (criticalAlertsConfigured && current.granted && !criticalGranted) {
+          await requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+              allowCriticalAlerts: true,
             },
           });
         }

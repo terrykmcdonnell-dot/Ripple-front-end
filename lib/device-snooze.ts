@@ -12,6 +12,7 @@ import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alar
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { ALARM_FIRE_CATEGORY_ID, ALARM_FIRE_DATA_TYPE } from '@/lib/alarm-notification-constants';
+import { getIosAlarmInterruptionLevel } from '@/lib/ios-alarm-notification-options';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { loadDefaultAlarmSoundId, loadDefaultVibrationEnabled, loadNotificationsMasterEnabled } from '@/lib/settings-preferences';
 
@@ -163,11 +164,9 @@ export async function scheduleSnoozeNotification(params: {
               },
             }
           : {}),
-          ...(Platform.OS === 'ios'
+        ...(Platform.OS === 'ios'
           ? {
-              // 'timeSensitive' bypasses Focus/DND. Switch to 'critical' once Apple
-              // approves the critical-alerts entitlement and it is in the provisioning profile.
-              interruptionLevel: 'timeSensitive' as const,
+              interruptionLevel: getIosAlarmInterruptionLevel(),
             }
           : {}),
       },
