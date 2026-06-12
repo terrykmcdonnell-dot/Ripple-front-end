@@ -1,5 +1,5 @@
 /** Kotlin patches ExpoSchedulingDelegate.kt for lock-screen alarm takeover. */
-const MARKER_SCHEDULING = 'Ripple alarm scheduling v9';
+const MARKER_SCHEDULING = 'Ripple alarm scheduling v11';
 const MARKER_SCHEDULING_LEGACY = [
   'Ripple alarm scheduling v1',
   'Ripple alarm scheduling v2',
@@ -10,6 +10,8 @@ const MARKER_SCHEDULING_LEGACY = [
   'Ripple alarm scheduling v7',
   'Ripple alarm scheduling v8',
   'Ripple alarm scheduling v9',
+  'Ripple alarm scheduling v10',
+  'Ripple alarm scheduling v11',
 ];
 
 /**
@@ -22,6 +24,13 @@ const MARKER_SCHEDULING_LEGACY = [
 const IMPORT_LINES = [];
 
 /**
+ * v11: Reliable lock-screen detection — isKeyguardLocked alone mis-classifies many
+ * devices as "background" (heads-up banner only). Use isDeviceLocked + screen state.
+ *
+ * v10: Do not mark delivered in triggerNotification — that blocked the foreground
+ * ring screen (native mark ran before JS receive listener). Delivered is marked
+ * in AlarmSoundService (lock/background) and JS receive listener (foreground).
+ *
  * v9: Mark alarm occurrence delivered at fire time (native) so opening the app
  * within the 90 s grace window does not schedule a duplicate ring.
  *
@@ -54,34 +63,31 @@ const IMPORT_LINES = [];
 const TRIGGER_REPLACEMENT = `  override fun triggerNotification(identifier: String) {
     try {
       val notificationRequest: NotificationRequest = store.getNotificationRequest(identifier)!!
-      // Ripple alarm scheduling v9 — mark delivered; route by foreground / lock screen / background.
+      // Ripple alarm scheduling v11 — route by foreground / lock screen / background.
       if (identifier.startsWith("ripple_alarm_fire_")) {
-        try {
-          val native = Class.forName(context.packageName + ".RippleAlarmNative")
-          native.getMethod(
-            "markAlarmFired",
-            android.content.Context::class.java,
-            String::class.java,
-            String::class.java,
-          ).invoke(
-            null,
-            context,
-            identifier,
-            notificationRequest.content.body?.toString() ?: "",
-          )
-        } catch (e: Exception) {
-          Log.w("expo-notifications", "Ripple markAlarmFired skipped: " + e.message)
-        }
         val isForeground = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState
           .isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
         val keyguardManager =
           context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-        val isKeyguardLocked = keyguardManager.isKeyguardLocked
+        val powerManager =
+          context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        val isScreenInteractive = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT_WATCH) {
+          powerManager.isInteractive
+        } else {
+          @Suppress("DEPRECATION")
+          powerManager.isScreenOn
+        }
+        val isDeviceLocked = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+          keyguardManager.isDeviceLocked
+        } else {
+          keyguardManager.isKeyguardLocked
+        }
+        val useLockScreenPresentation = isDeviceLocked || !isScreenInteractive
         if (isForeground) {
           NotificationsService.receive(context, Notification(notificationRequest))
         } else {
           try {
-            val presentationMode = if (isKeyguardLocked) "lockscreen" else "background"
+            val presentationMode = if (useLockScreenPresentation) "lockscreen" else "background"
             val svcIntent = android.content.Intent().apply {
               setClassName(context.packageName, context.packageName + ".AlarmSoundService")
               putExtra("soundName", notificationRequest.content.soundName ?: "")

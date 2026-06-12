@@ -80,6 +80,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/with-expo-notifications-build-from-source",
       "./plugins/with-android-notification-policy-permission",
       "./plugins/with-android-alarm-activity",
       "./plugins/with-android-alarm-full-screen-intent",

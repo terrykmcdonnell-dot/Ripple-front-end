@@ -189,9 +189,9 @@ class AlarmSoundService : Service() {
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
     } else {
-      // Lock screen: native FSI only — no heads-up banner peek.
+      // Lock screen: native FSI — PRIORITY_MAX required for reliable full-screen intent.
       builder
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
         .setSilent(true)
         .setFullScreenIntent(alarmPi, true)
     }
