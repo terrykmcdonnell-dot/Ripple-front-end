@@ -86,6 +86,7 @@
       "./plugins/with-android-alarm-sound-service",
       "./plugins/with-android-alarm-wake-activity",
       "./plugins/with-android-alarm-native-lockscreen",
+      "./plugins/with-ios-google-modular-headers",
       "expo-apple-authentication",
       "expo-router",
       [
