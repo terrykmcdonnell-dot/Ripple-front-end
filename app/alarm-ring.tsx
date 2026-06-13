@@ -113,6 +113,7 @@ export default function AlarmRingScreen() {
       if (Number.isFinite(fireAtMs)) {
         void markAlarmFireDelivered(liveParsed.alarmId, fireAtMs);
       }
+      void recordAlarmHistoryMissed(liveParsed);
     }
     return () => {
       void stopRingAlarmSound();

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import {
   addNotificationReceivedListener,
@@ -21,6 +21,7 @@ import { processPendingNativeAlarmActions } from '@/lib/android-native-alarm-act
 import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/alarm-notification-response';
 import { isAlarmFireOccurrenceDelivered, markAlarmFireDelivered } from '@/lib/alarm-fire-scheduler';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
+import { flushPendingAlarmHistoryWrites, recordAlarmHistoryMissed } from '@/lib/alarm-history-sync';
 
 async function ensureAlarmFireCategoryRegistered(): Promise<void> {
   await setNotificationCategoryAsync(ALARM_FIRE_CATEGORY_ID, [
@@ -50,10 +51,17 @@ export function AlarmNotificationBootstrap() {
     let cancelled = false;
     let receivedSub: ReturnType<typeof addNotificationReceivedListener> | undefined;
     let responseSub: ReturnType<typeof addNotificationResponseReceivedListener> | undefined;
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void flushPendingAlarmHistoryWrites();
+        void processPendingNativeAlarmActions();
+      }
+    });
 
     void (async () => {
       await ensureAlarmFireCategoryRegistered().catch(() => undefined);
       await ensureAllAndroidAlarmChannelsAsync().catch(() => undefined);
+      await flushPendingAlarmHistoryWrites().catch(() => undefined);
       await processPendingNativeAlarmActions().catch(() => undefined);
       await registerTaskAsync(RIPPLE_ALARM_HISTORY_BG_TASK).catch(() => undefined);
 
@@ -86,12 +94,9 @@ export function AlarmNotificationBootstrap() {
             }
             await markAlarmFireDelivered(parsed.alarmId, fireAtMs);
           }
-          // Do NOT record "missed" here. addNotificationReceivedListener fires only
-          // in the foreground, where the ring screen always opens and the user can
-          // dismiss or snooze. Recording "missed" immediately and "dismissed" shortly
-          // after creates a race where the slower upsert overwrites the correct status.
-          // The background task (RIPPLE_ALARM_HISTORY_BG_TASK) handles truly-missed
-          // alarms when the app is backgrounded or terminated.
+          // Create a durable History row as soon as the alarm is delivered. Later
+          // Dismiss/Snooze actions upsert the same occurrence and replace Missed.
+          await recordAlarmHistoryMissed(parsed);
           openAlarmRingScreen(parsed);
         })();
       });
@@ -105,6 +110,7 @@ export function AlarmNotificationBootstrap() {
       cancelled = true;
       receivedSub?.remove();
       responseSub?.remove();
+      appStateSub.remove();
     };
   }, []);
 

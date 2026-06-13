@@ -17,6 +17,7 @@ import { categoryIdToChipKey } from '@/lib/alarm-format';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { fetchAlarmHistory, type AlarmHistoryApiRow } from '@/lib/alarm-history-api';
+import { flushPendingAlarmHistoryWrites, loadPendingAlarmHistoryRows } from '@/lib/alarm-history-sync';
 import {
   buildHistoryGroups,
   monthlyComplianceFromHistory,
@@ -35,6 +36,17 @@ const tabs = [
   { key: 'work', label: `${createCategoryIcons.work} Work` },
   { key: 'custom', label: `${createCategoryIcons.custom} Custom` },
 ] as const;
+
+function mergeHistoryRows(serverRows: AlarmHistoryApiRow[], pendingRows: AlarmHistoryApiRow[]): AlarmHistoryApiRow[] {
+  const merged = new Map<string, AlarmHistoryApiRow>();
+  for (const row of serverRows) {
+    merged.set(`${row.user_id}:${row.alarm_id ?? 'null'}:${row.scheduled_fire_at}`, row);
+  }
+  for (const row of pendingRows) {
+    merged.set(`${row.user_id}:${row.alarm_id ?? 'null'}:${row.scheduled_fire_at}`, row);
+  }
+  return [...merged.values()];
+}
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -106,8 +118,12 @@ export default function HistoryScreen() {
     }
 
     try {
-      const next = await fetchAlarmHistory(userId);
-      setRows(next);
+      await flushPendingAlarmHistoryWrites().catch(() => undefined);
+      const [next, pending] = await Promise.all([
+        fetchAlarmHistory(userId),
+        loadPendingAlarmHistoryRows(userId),
+      ]);
+      setRows(mergeHistoryRows(next, pending));
       setListError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load history.';

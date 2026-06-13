@@ -12,6 +12,7 @@ import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
 import {
   loadSnoozeMinutesForHistory,
+  recordAlarmHistoryMissed,
   recordAlarmHistoryDismissed,
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
@@ -23,6 +24,7 @@ import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound'
 /** Full-screen ring UI. Use `replace` so a cold start from a notification is not overwritten by `/alarm`. */
 export function openAlarmRingScreen(parsed: ParsedAlarmFireData): void {
   void startRingAlarmSound(parsed.soundId);
+  void recordAlarmHistoryMissed(parsed);
   router.replace({
     pathname: '/alarm-ring',
     params: {

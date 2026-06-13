@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import {
+  flushPendingAlarmHistoryWrites,
   recordAlarmHistoryDismissed,
   recordAlarmHistoryMissed,
   recordAlarmHistorySnoozed,
@@ -85,12 +86,13 @@ export async function processPendingNativeAlarmActions(): Promise<void> {
       await markAlarmFireDelivered(parsed.alarmId, fireAtMs);
     }
     if (action.type === 'dismiss') {
-      await recordAlarmHistoryDismissed(parsed);
+      await recordAlarmHistoryDismissed(parsed).catch(() => undefined);
     } else if (action.type === 'missed') {
-      await recordAlarmHistoryMissed(parsed);
+      await recordAlarmHistoryMissed(parsed).catch(() => undefined);
     } else {
-      await recordAlarmHistorySnoozed(parsed, action.snoozeMinutes ?? 10);
+      await recordAlarmHistorySnoozed(parsed, action.snoozeMinutes ?? 10).catch(() => undefined);
     }
   }
+  await flushPendingAlarmHistoryWrites().catch(() => undefined);
   await syncAlarmFireNotifications();
 }
