@@ -64,6 +64,19 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.terrykm.ripplealarm",
       "googleServicesFile": "./google-services.json",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "usesFeatures": [
+        {
+          "name": "android.hardware.microphone",
+          "required": false
+        },
+        {
+          "name": "android.hardware.touchscreen",
+          "required": false
+        }
+      ],
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.SCHEDULE_EXACT_ALARM",
