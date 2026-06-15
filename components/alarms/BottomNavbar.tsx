@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 
@@ -14,6 +15,21 @@ type BottomNavbarProps = {
   items: NavItem[];
 };
 
+/** Icon + label block inside the tab bar (excludes safe-area padding). */
+export const TAB_BAR_INNER_HEIGHT = 56;
+
+function bottomNavInset(insets: { bottom: number }): number {
+  // edgeToEdgeEnabled can report 0 while the 3-button nav bar still overlaps content.
+  const minBottom = Platform.OS === 'android' ? 32 : 8;
+  return Math.max(insets.bottom, minBottom);
+}
+
+/** Scroll/toast offset so content clears the tab bar on any device. */
+export function useTabBarReservedHeight(): number {
+  const insets = useSafeAreaInsets();
+  return TAB_BAR_INNER_HEIGHT + 10 + bottomNavInset(insets) + 6;
+}
+
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
     nav: {
@@ -21,7 +37,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       bottom: 0,
       left: 0,
       right: 0,
-      height: 80,
       backgroundColor: alarmTheme.navBarBg,
       borderTopWidth: 1,
       borderTopColor: alarmTheme.border,
@@ -29,13 +44,14 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       alignItems: 'center',
       justifyContent: 'space-around',
       paddingHorizontal: 10,
-      paddingBottom: 15,
+      paddingTop: 10,
     },
     item: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       gap: 4,
+      minHeight: TAB_BAR_INNER_HEIGHT,
     },
     icon: {
       fontSize: alarmTypography.titleSm,
@@ -54,10 +70,13 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 
 export function BottomNavbar({ items }: BottomNavbarProps) {
   const alarmTheme = useAlarmTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
+  const navPadBottom = bottomNavInset(insets) + 6;
+  const safeAreaExtra = Math.max(0, navPadBottom - insets.bottom);
 
   return (
-    <View style={styles.nav}>
+    <SafeAreaView edges={['bottom']} style={[styles.nav, safeAreaExtra > 0 ? { paddingBottom: safeAreaExtra } : null]}>
       {items.map((item) => {
         const isCurrent = item.active === true;
         return (
@@ -72,6 +91,6 @@ export function BottomNavbar({ items }: BottomNavbarProps) {
           </Pressable>
         );
       })}
-    </View>
+    </SafeAreaView>
   );
 }

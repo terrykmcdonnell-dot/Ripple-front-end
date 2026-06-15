@@ -1,6 +1,9 @@
+import { withDeadline } from '@/lib/async-deadline';
 import { ensureUsersRowFromAuthUser } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
 import { isExpiredJwtOrSessionError, refreshOrSignOutOnExpiredSession } from '@/lib/auth-session-errors';
+
+const USER_ROW_FETCH_TIMEOUT_MS = 25_000;
 
 function coerceNumericId(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -21,6 +24,15 @@ async function selectUsersRowByEmail(email: string) {
 
 /** `public.users.id` for the signed-in user (matched by Auth email ↔ `users.email`). */
 export async function fetchCurrentUserRowId(): Promise<{ id: number | null; error: Error | null }> {
+  try {
+    return await withDeadline(resolveCurrentUserRowId(), USER_ROW_FETCH_TIMEOUT_MS, 'Loading your profile');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not load your profile.';
+    return { id: null, error: new Error(message) };
+  }
+}
+
+async function resolveCurrentUserRowId(): Promise<{ id: number | null; error: Error | null }> {
   const {
     data: { session },
   } = await supabase.auth.getSession();

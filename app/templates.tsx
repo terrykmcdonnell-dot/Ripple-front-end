@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { templatesIcons } from '@/assets/icons/templates-icons';
-import { BottomNavbar } from '@/components/alarms/BottomNavbar';
+import { BottomNavbar, useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { TemplateCard } from '@/components/templates/TemplateCard';
 import { TemplateCategoryTabs } from '@/components/templates/TemplateCategoryTabs';
@@ -98,9 +98,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       flex: 1,
       paddingHorizontal: 16,
     },
-    scrollContent: {
-      paddingBottom: 94,
-    },
+    scrollContent: {},
     emptySearch: {
       paddingVertical: 28,
       paddingHorizontal: 16,
@@ -119,6 +117,7 @@ export default function TemplatesScreen() {
   useRequireAuth();
   const router = useRouter();
   const alarmTheme = useAlarmTheme();
+  const tabBarPad = useTabBarReservedHeight();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const { showToast } = useAppToast();
   const { isSubscriber } = useSubscriptionStatus();
@@ -241,7 +240,10 @@ export default function TemplatesScreen() {
 
       <TemplateCategoryTabs categories={categories} activeKey={activeCategory} onSelect={setActiveCategory} />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPad }]}
+        showsVerticalScrollIndicator={false}>
         {filteredPacks.length === 0 ? (
           <View style={styles.emptySearch}>
             <Text style={styles.emptySearchText}>{emptyListMessage}</Text>

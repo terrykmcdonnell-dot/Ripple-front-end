@@ -1,10 +1,13 @@
 import { Platform } from 'react-native';
 
+import { withDeadline } from '@/lib/async-deadline';
 import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
 
 const RIPPLE_FETCH_TIMEOUT_MS = 30_000;
+const RIPPLE_BODY_READ_TIMEOUT_MS = 20_000;
+const RIPPLE_GET_TOTAL_TIMEOUT_MS = 60_000;
 const RIPPLE_WRITE_TIMEOUT_MS = 45_000;
-const RIPPLE_FETCH_MAX_ATTEMPTS = 4;
+const RIPPLE_FETCH_MAX_ATTEMPTS = 3;
 const RIPPLE_FETCH_RETRY_BASE_MS = 1_000;
 
 function sleep(ms: number): Promise<void> {
@@ -97,6 +100,18 @@ function throwRippleFetchError(err: unknown, timeoutMs: number): never {
   throw err;
 }
 
+async function rippleReadResponseText(res: Response): Promise<string> {
+  try {
+    return await withDeadline(res.text(), RIPPLE_BODY_READ_TIMEOUT_MS, 'Ripple API response');
+  } catch {
+    return '';
+  }
+}
+
+async function rippleReadResponseJson(res: Response): Promise<unknown> {
+  return withDeadline(res.json(), RIPPLE_BODY_READ_TIMEOUT_MS, 'Ripple API response');
+}
+
 async function rippleTimedFetch(
   url: string,
   init?: RequestInit,
@@ -113,7 +128,7 @@ async function rippleTimedFetch(
   }
 }
 
-async function rippleApiFetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
+async function rippleApiFetchWithRetryAttempts(url: string, init?: RequestInit): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 0; attempt < RIPPLE_FETCH_MAX_ATTEMPTS; attempt++) {
     try {
@@ -121,12 +136,7 @@ async function rippleApiFetchWithRetry(url: string, init?: RequestInit): Promise
       if (res.ok || !isTransientHttpStatus(res.status)) {
         return res;
       }
-      let detail = '';
-      try {
-        detail = await res.text();
-      } catch {
-        /* ignore */
-      }
+      const detail = await rippleReadResponseText(res);
       lastError = new RippleApiError(
         parseRippleApiErrorBody(detail, res.status) || `Request failed (${res.status}).`,
         res.status,
@@ -144,12 +154,33 @@ async function rippleApiFetchWithRetry(url: string, init?: RequestInit): Promise
   throw lastError;
 }
 
+async function rippleApiFetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
+  return withDeadline(
+    rippleApiFetchWithRetryAttempts(url, init),
+    RIPPLE_GET_TOTAL_TIMEOUT_MS,
+    'Ripple API request',
+  );
+}
+
 async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
   const method = init?.method?.toUpperCase() ?? 'GET';
   if (method === 'GET') {
     return rippleApiFetchWithRetry(url, init);
   }
   return rippleTimedFetch(url, init, RIPPLE_FETCH_TIMEOUT_MS);
+}
+
+/** GET with retry, per-attempt timeout, body-read timeout, and a hard total deadline. */
+export async function rippleApiGetJson(url: string): Promise<unknown> {
+  const res = await rippleApiFetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const detail = await rippleReadResponseText(res);
+    throwRippleApiHttpError(res.status, detail, `Request failed (${res.status}).`);
+  }
+  return rippleReadResponseJson(res);
 }
 
 export type CreateAlarmPayload = {
@@ -189,12 +220,7 @@ export async function createAlarm(payload: CreateAlarmPayload): Promise<void> {
     return;
   }
 
-  let detail = '';
-  try {
-    detail = await res.text();
-  } catch {
-    /* ignore */
-  }
+  const detail = await rippleReadResponseText(res);
   throwRippleApiHttpError(res.status, detail, `Could not create alarm (${res.status}).`);
 }
 
@@ -228,12 +254,7 @@ export async function patchAlarm(alarmId: number, body: AlarmPatchPayload): Prom
   if (res.ok) {
     return;
   }
-  let detail = '';
-  try {
-    detail = await res.text();
-  } catch {
-    /* ignore */
-  }
+  const detail = await rippleReadResponseText(res);
   throwRippleApiHttpError(
     res.status,
     detail,
@@ -251,12 +272,7 @@ export async function deleteAlarm(alarmId: number): Promise<void> {
   if (res.ok || res.status === 204) {
     return;
   }
-  let detail = '';
-  try {
-    detail = await res.text();
-  } catch {
-    /* ignore */
-  }
+  const detail = await rippleReadResponseText(res);
   throwRippleApiHttpError(res.status, detail, `Could not delete alarm (${res.status}).`);
 }
 
@@ -270,16 +286,11 @@ export async function fetchAlarms(userId: number): Promise<AlarmListItem[]> {
   });
 
   if (!res.ok) {
-    let detail = '';
-    try {
-      detail = await res.text();
-    } catch {
-      /* ignore */
-    }
+    const detail = await rippleReadResponseText(res);
     throwRippleApiHttpError(res.status, detail, `Could not load alarms (${res.status}).`);
   }
 
-  const body = (await res.json()) as unknown;
+  const body = (await rippleReadResponseJson(res)) as unknown;
   let rawItems: unknown[] = [];
   if (Array.isArray(body)) {
     rawItems = body;
@@ -319,15 +330,10 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
     return null;
   }
   if (!res.ok) {
-    let detail = '';
-    try {
-      detail = await res.text();
-    } catch {
-      /* ignore */
-    }
+    const detail = await rippleReadResponseText(res);
     throwRippleApiHttpError(res.status, detail, `Could not load alarm (${res.status}).`);
   }
-  const body = (await res.json()) as Record<string, unknown>;
+  const body = (await rippleReadResponseJson(res)) as Record<string, unknown>;
   const ownerId = body.user_id ?? body.userId;
   if (Number(ownerId) !== userId) {
     return null;

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
 import { historyIcons } from '@/assets/icons/history-icons';
-import { BottomNavbar } from '@/components/alarms/BottomNavbar';
+import { BottomNavbar, useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
 import { type AlarmThemePalette, alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
 import { ComplianceBanner } from '@/components/history/ComplianceBanner';
 import { HistoryFilterTabs } from '@/components/history/HistoryFilterTabs';
@@ -66,7 +66,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     title: { color: alarmTheme.text, fontSize: alarmTypography.title, fontWeight: '800', letterSpacing: -0.4 },
     list: { flex: 1, paddingHorizontal: 16 },
-    listContent: { paddingBottom: 94, flexGrow: 1 },
+    listContent: { flexGrow: 1 },
     group: { marginBottom: 16 },
     groupLabel: {
       color: alarmTheme.muted,
@@ -91,48 +91,65 @@ export default function HistoryScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>(FILTER_ALL);
   const alarmTheme = useAlarmTheme();
+  const tabBarPad = useTabBarReservedHeight();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
   const [rows, setRows] = useState<AlarmHistoryApiRow[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
   const firstFocus = useRef(true);
+  const loadGenRef = useRef(0);
 
   const loadHistory = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
-    if (!silent) {
-      setListError(null);
-    }
-
-    const { id: userId, error: userErr } = await fetchCurrentUserRowId();
-    if (userErr || userId == null) {
-      if (await shouldSkipAuthFailureAlerts()) {
-        setRows([]);
-        setListError(null);
+    const gen = ++loadGenRef.current;
+    const finishLoading = () => {
+      if (loadGenRef.current === gen) {
         setInitialLoad(false);
-        return;
       }
-      setListError(userErr?.message ?? 'Could not resolve your profile.');
-      setInitialLoad(false);
-      return;
-    }
+    };
 
     try {
+      if (!silent) {
+        setListError(null);
+      }
+
+      const { id: userId, error: userErr } = await fetchCurrentUserRowId();
+      if (userErr || userId == null) {
+        if (await shouldSkipAuthFailureAlerts()) {
+          if (loadGenRef.current === gen) {
+            setRows([]);
+            setListError(null);
+          }
+          return;
+        }
+        if (loadGenRef.current === gen) {
+          setListError(userErr?.message ?? 'Could not resolve your profile.');
+        }
+        return;
+      }
+
       await flushPendingAlarmHistoryWrites().catch(() => undefined);
       const [next, pending] = await Promise.all([
         fetchAlarmHistory(userId),
         loadPendingAlarmHistoryRows(userId),
       ]);
+      if (loadGenRef.current !== gen) {
+        return;
+      }
       setRows(mergeHistoryRows(next, pending));
       setListError(null);
     } catch (e) {
+      if (loadGenRef.current !== gen) {
+        return;
+      }
       const msg = e instanceof Error ? e.message : 'Failed to load history.';
       setListError(msg);
       if (!silent) {
         notifyAuthError('History', e);
       }
     } finally {
-      setInitialLoad(false);
+      finishLoading();
     }
   }, []);
 
@@ -140,6 +157,9 @@ export default function HistoryScreen() {
     useCallback(() => {
       void loadHistory({ silent: !firstFocus.current });
       firstFocus.current = false;
+      return () => {
+        loadGenRef.current += 1;
+      };
     }, [loadHistory]),
   );
 
@@ -171,7 +191,10 @@ export default function HistoryScreen() {
         detailText={compliance.detailText}
       />
 
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarPad }]}
+        showsVerticalScrollIndicator={false}>
         {listError ? (
           <Text style={styles.empty}>{listError}</Text>
         ) : filteredGroups.length === 0 ? (

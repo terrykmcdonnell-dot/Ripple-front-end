@@ -16,7 +16,7 @@ import { navIcons } from '@/assets/icons/alarm-icons';
 import { AlarmCard } from '@/components/alarms/AlarmCard';
 import { AndroidLockScreenAlarmBanner } from '@/components/alarms/AndroidLockScreenAlarmBanner';
 import { NotificationsDisabledBanner } from '@/components/alarms/NotificationsDisabledBanner';
-import { BottomNavbar } from '@/components/alarms/BottomNavbar';
+import { BottomNavbar, useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
 import { RichWordText } from '@/components/alarms/RichWordText';
 import { isAlarmPaletteDark, alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { useAppToast } from '@/components/ui/AppToastProvider';
@@ -152,6 +152,7 @@ export default function AlarmScreen() {
   const [patchingIds, setPatchingIds] = useState<number[]>([]);
   const patchingIdsRef = useRef<Set<number>>(new Set());
   const firstFocus = useRef(true);
+  const loadGenRef = useRef(0);
 
   const [clockTick, setClockTick] = useState(() => Date.now());
   useEffect(() => {
@@ -186,30 +187,42 @@ export default function AlarmScreen() {
   }, [alarms, now]);
 
   const palette = useAlarmTheme();
+  const tabBarPad = useTabBarReservedHeight();
   const styles = useMemo(() => createAlarmStyles(palette), [palette]);
 
   const loadAlarms = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
-    if (!silent) {
-      setListError(null);
-    }
-
-    const { id: userId, error: userErr } = await fetchCurrentUserRowId();
-    if (userErr || userId == null) {
-      if (await shouldSkipAuthFailureAlerts()) {
+    const gen = ++loadGenRef.current;
+    const finishLoading = () => {
+      if (loadGenRef.current === gen) {
         setInitialLoad(false);
         setRefreshing(false);
-        return;
       }
-      if (!silent) {
-        notifyAuthError('Alarms', userErr ?? new Error('Missing user profile.'));
-      }
-      setListError(userErr?.message ?? 'Could not resolve your profile.');
-      return;
-    }
+    };
 
     try {
+      if (!silent) {
+        setListError(null);
+      }
+
+      const { id: userId, error: userErr } = await fetchCurrentUserRowId();
+      if (userErr || userId == null) {
+        if (await shouldSkipAuthFailureAlerts()) {
+          return;
+        }
+        if (!silent) {
+          notifyAuthError('Alarms', userErr ?? new Error('Missing user profile.'));
+        }
+        if (loadGenRef.current === gen) {
+          setListError(userErr?.message ?? 'Could not resolve your profile.');
+        }
+        return;
+      }
+
       const rows = await fetchAlarms(userId);
+      if (loadGenRef.current !== gen) {
+        return;
+      }
       setAlarms(rows);
       setListError(null);
       void syncUpcomingReminderNotifications(rows);
@@ -217,13 +230,15 @@ export default function AlarmScreen() {
         void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
       });
     } catch (e) {
+      if (loadGenRef.current !== gen) {
+        return;
+      }
       setListError(getAuthErrorDisplayText(e));
       if (!silent) {
         notifyAuthError('Alarms', e);
       }
     } finally {
-      setInitialLoad(false);
-      setRefreshing(false);
+      finishLoading();
     }
   }, [showToast]);
 
@@ -233,6 +248,9 @@ export default function AlarmScreen() {
       invalidateSubscriptionCache();
       void loadAlarms({ silent: !firstFocus.current });
       firstFocus.current = false;
+      return () => {
+        loadGenRef.current += 1;
+      };
     }, [loadAlarms]),
   );
 
@@ -332,7 +350,7 @@ export default function AlarmScreen() {
 
       <ScrollView
         style={styles.list}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarPad }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -484,7 +502,6 @@ function createAlarmStyles(alarmTheme: AlarmThemePalette) {
   },
   listContent: {
     gap: 12,
-    paddingBottom: 94,
     flexGrow: 1,
   },
   errorText: {

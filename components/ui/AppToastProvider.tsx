@@ -9,13 +9,10 @@ import {
   useState,
 } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { setAuthToastHandler, type AuthToastVariant } from '@/lib/auth-notify';
-
-/** Matches typical scroll `paddingBottom` above `BottomNavbar`. */
-const TOAST_ABOVE_TAB_BAR = 94;
 
 type ToastContextValue = {
   showToast: (message: string, variant?: AuthToastVariant) => void;
@@ -33,7 +30,6 @@ export function useAppToast(): ToastContextValue {
 
 export function AppToastProvider({ children }: { children: ReactNode }) {
   const alarmTheme = useAlarmTheme();
-  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createToastStyles(alarmTheme), [alarmTheme]);
 
   const [toast, setToast] = useState<{ message: string; variant: AuthToastVariant } | null>(null);
@@ -128,7 +124,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
 
   const ctxValue = useMemo(() => ({ showToast }), [showToast]);
 
-  const bottomPad = TOAST_ABOVE_TAB_BAR + Math.max(insets.bottom, 8);
+  const bottomPad = useTabBarReservedHeight();
 
   const bubbleStyle = useMemo(() => {
     if (!toast) {

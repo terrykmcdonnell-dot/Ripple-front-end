@@ -1,4 +1,4 @@
-import { rippleApiBaseUrl } from '@/lib/alarm-api';
+import { rippleApiBaseUrl, rippleApiGetJson } from '@/lib/alarm-api';
 
 export type AlarmHistoryStatus = 'missed' | 'dismissed' | 'snoozed';
 
@@ -17,20 +17,7 @@ export type AlarmHistoryApiRow = {
 export async function fetchAlarmHistory(userId: number): Promise<AlarmHistoryApiRow[]> {
   const qs = new URLSearchParams({ user_id: String(userId), limit: '500' });
   const url = `${rippleApiBaseUrl()}/api/alarm-history/?${qs.toString()}`;
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) {
-    let detail = '';
-    try {
-      detail = await res.text();
-    } catch {
-      /* ignore */
-    }
-    throw new Error(detail || `Could not load history (${res.status}).`);
-  }
-  const body = (await res.json()) as unknown;
+  const body = (await rippleApiGetJson(url)) as unknown;
   if (!Array.isArray(body)) {
     return [];
   }

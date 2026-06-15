@@ -11,7 +11,7 @@ import Purchases from 'react-native-purchases';
 
 import { settingsIcons } from '@/assets/icons/settings-icons';
 import { AlarmToggle } from '@/components/alarms/AlarmToggle';
-import { BottomNavbar } from '@/components/alarms/BottomNavbar';
+import { BottomNavbar, useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
 import { type AlarmThemePalette, alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
 import { NotificationsHubSheet } from '@/components/settings/NotificationsHubSheet';
 import { NotificationsMasterRow } from '@/components/settings/NotificationsMasterRow';
@@ -95,6 +95,7 @@ export default function SettingScreen() {
     }
   }, [managementURL]);
   const palette = useAlarmTheme();
+  const tabBarPad = useTabBarReservedHeight();
   const styles = useMemo(() => createSettingStyles(palette), [palette]);
 
   const reportPatch = useCallback(
@@ -398,7 +399,10 @@ export default function SettingScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPad }]}
+        showsVerticalScrollIndicator={false}>
         <LinearGradient
           colors={
             isSubscriber && !subLoading
@@ -756,9 +760,7 @@ function createSettingStyles(alarmTheme: AlarmThemePalette) {
     flex: 1,
     paddingHorizontal: 16,
   },
-  scrollContent: {
-    paddingBottom: 94,
-  },
+  scrollContent: {},
   proBanner: {
     borderWidth: 1,
     borderColor: 'rgba(6,182,212,0.3)',
