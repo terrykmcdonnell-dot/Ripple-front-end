@@ -15,6 +15,7 @@ import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { isValidEmail, sanitizeEmailInput } from '@/lib/auth-validation';
 import { deriveProfileNameFromAuthUser, syncUserProfileToTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -37,7 +38,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     contentContainer: {
       paddingTop: 60,
       paddingHorizontal: 24,
-      paddingBottom: 32,
     },
     logoWrap: {
       alignItems: 'center',
@@ -167,6 +167,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 export default function SignInScreen() {
   useRedirectIfAuthenticated();
   const alarmTheme = useAlarmTheme();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const { appleLoading, onApplePress } = useAppleAuthWithSupabase();
@@ -254,7 +255,10 @@ export default function SignInScreen() {
         style={styles.glowBg}
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.logoWrap}>
           <View style={styles.logoIcon}>
             <Text style={styles.logoRing}>◌</Text>

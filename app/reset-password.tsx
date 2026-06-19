@@ -16,6 +16,7 @@ import { isValidPassword } from '@/lib/auth-validation';
 import { sendPasswordResetOtp } from '@/lib/auth-password-reset-otp';
 import { syncPasswordToUsersTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 
 const OTP_LENGTH = 6;
 const CODE_TTL_SECONDS = 10 * 60;
@@ -41,7 +42,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     contentContainer: {
       paddingTop: 52,
       paddingHorizontal: 24,
-      paddingBottom: 36,
     },
     topRow: {
       flexDirection: 'row',
@@ -151,6 +151,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 
 export default function ResetPasswordScreen() {
   const alarmTheme = useAlarmTheme();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const { showToast } = useAppToast();
@@ -309,7 +310,10 @@ export default function ResetPasswordScreen() {
         style={styles.glowBg}
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <Pressable
             style={styles.backBtn}

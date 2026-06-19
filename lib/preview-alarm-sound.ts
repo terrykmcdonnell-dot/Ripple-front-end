@@ -2,7 +2,8 @@ import { Audio, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
 import type { AlarmSoundId } from '@/lib/settings-preferences';
-import { coerceAlarmSoundId } from '@/lib/settings-preferences';
+import { coerceAlarmSoundId, loadDefaultAlarmSoundId, loadDefaultVolumePercent } from '@/lib/settings-preferences';
+import { applyAlarmVolumePreferenceToDevice } from '@/lib/alarm-system-volume';
 
 /** Bundled WAVs (same files as `app.json` → expo-notifications `sounds`). */
 const ALARM_SOUND_SOURCES: Record<AlarmSoundId, number> = {
@@ -43,7 +44,7 @@ export async function stopAlarmSoundPreview(): Promise<void> {
  * Plays a short preview of the bundled alarm sound (native only).
  * Safe to call repeatedly; stops any in-flight preview first.
  */
-export async function previewAlarmSoundId(rawId: string): Promise<void> {
+export async function previewAlarmSoundId(rawId: string, volumePercent = 100): Promise<void> {
   if (Platform.OS === 'web') {
     return;
   }
@@ -53,6 +54,8 @@ export async function previewAlarmSoundId(rawId: string): Promise<void> {
   if (source == null) {
     return;
   }
+
+  const volume = Math.max(0, Math.min(1, Math.round(volumePercent) / 100));
 
   await stopAlarmSoundPreview();
 
@@ -70,7 +73,7 @@ export async function previewAlarmSoundId(rawId: string): Promise<void> {
   }
 
   try {
-    const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true, volume: 1 });
+    const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true, volume });
     lastPreview = sound;
 
     lastPreviewTimeout = setTimeout(() => {
@@ -80,4 +83,25 @@ export async function previewAlarmSoundId(rawId: string): Promise<void> {
   } catch {
     await stopAlarmSoundPreview();
   }
+}
+
+/** Preview the user's default alarm sound at a chosen volume (Settings volume picker). */
+export async function previewDefaultAlarmSoundAtVolume(volumePercent: number): Promise<boolean> {
+  let applied = true;
+  if (Platform.OS !== 'web') {
+    applied = await applyAlarmVolumePreferenceToDevice(volumePercent);
+  }
+  const id = await loadDefaultAlarmSoundId();
+  await previewAlarmSoundId(id, volumePercent);
+  return applied;
+}
+
+/** Resolve the volume percent used for in-app alarm sound previews. */
+export async function resolveAlarmPreviewVolumePercent(
+  overridePercent?: number,
+): Promise<number> {
+  if (overridePercent != null) {
+    return Math.max(0, Math.min(100, Math.round(overridePercent)));
+  }
+  return loadDefaultVolumePercent();
 }

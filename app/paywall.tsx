@@ -23,6 +23,7 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { derivePremiumPlan, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import {
   configureRevenueCat,
   getRevenueCatApiKey,
@@ -89,7 +90,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     contentContainer: {
       paddingTop: 54,
       paddingHorizontal: 24,
-      paddingBottom: 36,
     },
     proIconWrap: {
       alignItems: 'center',
@@ -263,6 +263,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 export default function PaywallScreen() {
   useRequireAuth();
   const alarmTheme = useAlarmTheme();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const { showToast } = useAppToast();
@@ -506,7 +507,9 @@ export default function PaywallScreen() {
         <Pressable style={styles.closeBtn} onPress={onClose}>
           <Text style={styles.closeText}>{paywallIcons.close}</Text>
         </Pressable>
-        <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingTop: 100 }]}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={[styles.contentContainer, { paddingTop: 100, paddingBottom: bottomPad }]}>
           <Text style={styles.headline}>Ripple Pro</Text>
           <View style={styles.noticeBox}>
             <Text style={styles.noticeTitle}>Mobile subscriptions</Text>
@@ -549,7 +552,10 @@ export default function PaywallScreen() {
           <Text style={styles.closeText}>{paywallIcons.close}</Text>
         </Pressable>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomPad }]}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.proIconWrap}>
             <View style={styles.proIconCircle}>
               <Text style={styles.proIcon}>{paywallIcons.pro}</Text>
@@ -660,7 +666,10 @@ export default function PaywallScreen() {
         <Text style={styles.closeText}>{paywallIcons.close}</Text>
       </Pressable>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomPad }]}
+          showsVerticalScrollIndicator={false}>
         <View style={styles.proIconWrap}>
           <View style={styles.proIconCircle}>
             <Text style={styles.proIcon}>{paywallIcons.pro}</Text>

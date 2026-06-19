@@ -10,7 +10,7 @@ import {
   formatVolumePercentLabel,
   labelForAlarmSoundId,
 } from '@/lib/settings-preferences';
-import type { AlarmSoundId } from '@/lib/settings-preferences';
+import { useBottomSheetPadding } from '@/lib/screen-safe-area';
 
 type NotificationsHubSheetProps = {
   visible: boolean;
@@ -39,6 +39,7 @@ export function NotificationsHubSheet({
 }: NotificationsHubSheetProps) {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createNotificationsHubStyles(palette), [palette]);
+  const sheetPadBottom = useBottomSheetPadding();
   const rowTap = () => void Haptics.selectionAsync();
 
   return (
@@ -50,7 +51,7 @@ export function NotificationsHubSheet({
       onRequestClose={onClose}>
       <View style={styles.modalRoot}>
         <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: sheetPadBottom }]}>
           <Text style={styles.sheetTitle}>Notifications</Text>
           <Text style={styles.sheetHint}>
             Snooze, sound & vibration. Alarm volume (Android) targets the alarm stream so rings track your chosen level even when notification volume is low.
@@ -153,7 +154,6 @@ function createNotificationsHubStyles(t: AlarmThemePalette) {
     },
     sheet: {
       backgroundColor: t.surface,
-      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
       paddingHorizontal: 22,
       paddingTop: 22,
       borderTopLeftRadius: 18,

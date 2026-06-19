@@ -18,6 +18,7 @@ import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticate
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { EMAIL_ALREADY_REGISTERED_MESSAGE, startEmailSignUp } from '@/lib/auth-sign-up';
 import { isValidEmail, isValidPassword, sanitizeEmailInput } from '@/lib/auth-validation';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import { savePendingSignUp } from '@/lib/pending-signup';
 import { syncUserProfileToTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
@@ -43,7 +44,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     contentContainer: {
       paddingTop: 58,
       paddingHorizontal: 24,
-      paddingBottom: 28,
     },
     title: {
       color: alarmTheme.text,
@@ -116,6 +116,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 export default function SignUpScreen() {
   useRedirectIfAuthenticated();
   const alarmTheme = useAlarmTheme();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const { appleLoading, onApplePress: startAppleOAuth } = useAppleAuthWithSupabase();
@@ -242,7 +243,10 @@ export default function SignUpScreen() {
         style={styles.glowBg}
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}>
         <TopBrandRow onBack={() => router.push('/signin')} />
 
         <Text style={styles.title}>Create account</Text>

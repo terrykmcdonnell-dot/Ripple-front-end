@@ -40,10 +40,16 @@ function historyKey(userId: number | null, alarmId: number, fireAt: string): str
 }
 
 function shouldReplacePending(existing: PendingHistoryWrite, next: PendingHistoryWrite): boolean {
-  if (existing.status === 'missed') {
-    return true;
+  // Terminal outcomes (dismissed/snoozed) are written once — never overwrite with a later event
+  // (e.g. swiping the notification from the tray hours after the user already dismissed).
+  if (existing.status === 'dismissed' || existing.status === 'snoozed') {
+    return false;
   }
-  return next.status !== 'missed';
+  // Upgrade the initial "missed" placeholder when the user actually dismisses or snoozes.
+  if (existing.status === 'missed') {
+    return next.status === 'dismissed' || next.status === 'snoozed';
+  }
+  return false;
 }
 
 async function loadPendingHistoryWrites(): Promise<PendingHistoryWrite[]> {
@@ -133,9 +139,14 @@ async function enqueueAlarmHistory(parsed: ParsedAlarmFireData, status: AlarmHis
 
   if (existingIndex >= 0) {
     const existing = rows[existingIndex];
-    if (shouldReplacePending(existing, next)) {
-      rows[existingIndex] = next;
+    if (!shouldReplacePending(existing, next)) {
+      return;
     }
+    rows[existingIndex] = {
+      ...next,
+      // Keep the first user-action timestamp if we ever merge terminal states.
+      action_at: next.action_at ?? existing.action_at,
+    };
   } else {
     rows.push(next);
   }

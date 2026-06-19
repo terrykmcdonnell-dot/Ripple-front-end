@@ -12,6 +12,7 @@ import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticate
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { isValidEmail, sanitizeEmailInput } from '@/lib/auth-validation';
 import { sendPasswordResetOtp } from '@/lib/auth-password-reset-otp';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -34,7 +35,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     contentContainer: {
       paddingTop: 52,
       paddingHorizontal: 24,
-      paddingBottom: 32,
     },
     topRow: {
       flexDirection: 'row',
@@ -97,6 +97,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 export default function ForgotPasswordScreen() {
   useRedirectIfAuthenticated();
   const alarmTheme = useAlarmTheme();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -150,7 +151,10 @@ export default function ForgotPasswordScreen() {
         style={styles.glowBg}
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back">
             <Text style={styles.backIcon}>{verifyIcons.back}</Text>

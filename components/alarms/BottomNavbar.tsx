@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { resolveBottomSafeInset } from '@/lib/screen-safe-area';
 
 type NavItem = {
   icon: string;
@@ -18,16 +19,10 @@ type BottomNavbarProps = {
 /** Icon + label block inside the tab bar (excludes safe-area padding). */
 export const TAB_BAR_INNER_HEIGHT = 56;
 
-function bottomNavInset(insets: { bottom: number }): number {
-  // edgeToEdgeEnabled can report 0 while the 3-button nav bar still overlaps content.
-  const minBottom = Platform.OS === 'android' ? 32 : 8;
-  return Math.max(insets.bottom, minBottom);
-}
-
 /** Scroll/toast offset so content clears the tab bar on any device. */
 export function useTabBarReservedHeight(): number {
   const insets = useSafeAreaInsets();
-  return TAB_BAR_INNER_HEIGHT + 10 + bottomNavInset(insets) + 6;
+  return TAB_BAR_INNER_HEIGHT + 10 + resolveBottomSafeInset(insets) + 6;
 }
 
 function createStyles(alarmTheme: AlarmThemePalette) {
@@ -72,7 +67,7 @@ export function BottomNavbar({ items }: BottomNavbarProps) {
   const alarmTheme = useAlarmTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
-  const navPadBottom = bottomNavInset(insets) + 6;
+  const navPadBottom = resolveBottomSafeInset(insets) + 6;
   const safeAreaExtra = Math.max(0, navPadBottom - insets.bottom);
 
   return (

@@ -7,6 +7,7 @@ import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme
 import { WidgetMediumCard } from '@/components/widget/WidgetMediumCard';
 import { WidgetSmallCard } from '@/components/widget/WidgetSmallCard';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 
 function createDockStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -71,7 +72,6 @@ function createDockStyles(alarmTheme: AlarmThemePalette) {
       position: 'absolute',
       left: 20,
       right: 20,
-      bottom: 20,
       borderRadius: 24,
       backgroundColor: 'rgba(255,255,255,0.1)',
       paddingVertical: 12,
@@ -105,6 +105,7 @@ function createDockStyles(alarmTheme: AlarmThemePalette) {
 export default function WidgetScreen() {
   useRequireAuth();
   const alarmTheme = useAlarmTheme();
+  const dockBottom = useBottomSafePadding(20);
   const styles = useMemo(() => createDockStyles(alarmTheme), [alarmTheme]);
   const [smallToggleOn, setSmallToggleOn] = useState(true);
 
@@ -168,7 +169,7 @@ export default function WidgetScreen() {
         <WidgetMediumCard alarms={mediumAlarms} />
       </View>
 
-      <View style={styles.dock}>
+      <View style={[styles.dock, { bottom: dockBottom }]}>
         <View style={styles.dockIcon}>
           <Text style={styles.dockIconText}>{widgetIcons.camera}</Text>
         </View>

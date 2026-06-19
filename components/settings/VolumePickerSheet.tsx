@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { AppModal } from '@/components/ui/AppModal';
 import { formatVolumePercentLabel } from '@/lib/settings-preferences';
+import { useBottomSheetPadding } from '@/lib/screen-safe-area';
 
 type VolumePickerSheetProps = {
   visible: boolean;
@@ -23,6 +24,7 @@ export function VolumePickerSheet({
 }: VolumePickerSheetProps) {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createVolumePickerStyles(palette), [palette]);
+  const sheetPadBottom = useBottomSheetPadding();
 
   const pick = (percent: number) => {
     void Haptics.selectionAsync();
@@ -39,7 +41,7 @@ export function VolumePickerSheet({
       onRequestClose={onClose}>
       <View style={styles.modalRoot}>
         <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: sheetPadBottom }]}>
           <Text style={styles.sheetTitle}>Volume preference</Text>
           <Text style={styles.sheetHint}>
             {Platform.OS === 'android'
@@ -89,7 +91,6 @@ function createVolumePickerStyles(t: AlarmThemePalette) {
     },
     sheet: {
       backgroundColor: t.surface,
-      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
       paddingHorizontal: 22,
       paddingTop: 22,
       borderTopLeftRadius: 18,

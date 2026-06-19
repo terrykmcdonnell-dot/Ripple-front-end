@@ -2,7 +2,7 @@ import { Audio, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
 import type { AlarmSoundId } from '@/lib/settings-preferences';
-import { coerceAlarmSoundId, loadDefaultAlarmSoundId } from '@/lib/settings-preferences';
+import { coerceAlarmSoundId, loadDefaultAlarmSoundId, loadDefaultVolumePercent } from '@/lib/settings-preferences';
 
 /** Bundled WAVs (same files as `app.json` → expo-notifications `sounds`). */
 const ALARM_SOUND_SOURCES: Record<AlarmSoundId, number> = {
@@ -104,12 +104,18 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
     return; // stop() was called while we were reading AsyncStorage → abort
   }
 
+  const volumePercent = await loadDefaultVolumePercent();
+  if (myGen !== _soundGen) {
+    return;
+  }
+  const volume = Math.max(0, Math.min(1, volumePercent / 100));
+
   const source = ALARM_SOUND_SOURCES[id];
   if (source == null) {
     return;
   }
 
-  // Already playing the same sound — refresh auto-stop timer, no reload needed.
+  // Already playing the same sound — refresh auto-stop timer and apply latest volume.
   if (activeRingSound && activeRingSoundId === id) {
     try {
       const status = await activeRingSound.getStatusAsync();
@@ -117,6 +123,11 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
         return; // stop() called between the getStatus await and here → abort
       }
       if (status.isLoaded && status.isPlaying) {
+        try {
+          await activeRingSound.setVolumeAsync(volume);
+        } catch {
+          /* ignore */
+        }
         clearAutoStopTimer();
         autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
         return;
@@ -169,7 +180,7 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
   try {
     const { sound } = await Audio.Sound.createAsync(source, {
       shouldPlay: true,
-      volume: 1,
+      volume,
       isLooping: true,
     });
 

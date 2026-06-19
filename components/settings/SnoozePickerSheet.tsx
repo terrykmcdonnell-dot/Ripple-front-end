@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { AppModal } from '@/components/ui/AppModal';
 import { formatSnoozeMinutesLabel } from '@/lib/settings-preferences';
+import { useBottomSheetPadding } from '@/lib/screen-safe-area';
 
 type SnoozePickerSheetProps = {
   visible: boolean;
@@ -29,6 +30,7 @@ export function SnoozePickerSheet({
 }: SnoozePickerSheetProps) {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createSnoozePickerStyles(palette), [palette]);
+  const sheetPadBottom = useBottomSheetPadding();
 
   const pick = (minutes: number) => {
     void Haptics.selectionAsync();
@@ -45,7 +47,7 @@ export function SnoozePickerSheet({
       onRequestClose={onClose}>
       <View style={styles.modalRoot}>
         <Pressable style={styles.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss" />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: sheetPadBottom }]}>
           <Text style={styles.sheetTitle}>{sheetTitle}</Text>
           <Text style={styles.sheetHint}>{sheetHint}</Text>
           <View style={styles.optionList}>
@@ -89,7 +91,6 @@ function createSnoozePickerStyles(t: AlarmThemePalette) {
     },
     sheet: {
       backgroundColor: t.surface,
-      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
       paddingHorizontal: 22,
       paddingTop: 22,
       borderTopLeftRadius: 18,

@@ -7,6 +7,7 @@ import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
 import { RingPulse } from '@/components/alarm-ring/RingPulse';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import { useDefaultSnoozeMinutes } from '@/hooks/use-default-snooze-minutes';
 import { useDefaultVibrationEnabled } from '@/hooks/use-default-vibration-enabled';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -98,6 +99,7 @@ export default function AlarmRingScreen() {
   }, [liveParsed]);
 
   const palette = useAlarmTheme();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createRingStyles(palette), [palette]);
 
   const soundIdParam = paramOne(rawParams.soundId);
@@ -214,7 +216,7 @@ export default function AlarmRingScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.content, { backgroundColor: palette.accentDim }]}>
+      <View style={[styles.content, { backgroundColor: palette.accentDim, paddingBottom: bottomPad }]}>
         <RingPulse icon={ringIcons.alarm} />
 
         <Text style={styles.alarmLabel}>Alarm</Text>
@@ -264,7 +266,6 @@ function createRingStyles(alarmTheme: AlarmThemePalette) {
     justifyContent: 'center',
     paddingTop: 60,
     paddingHorizontal: 32,
-    paddingBottom: 40,
   },
   alarmLabel: {
     color: alarmTheme.muted,

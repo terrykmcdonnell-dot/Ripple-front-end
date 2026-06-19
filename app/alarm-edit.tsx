@@ -41,6 +41,7 @@ import { HEADER_NAV_HIT_SLOP } from '@/lib/header-hit-slop';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import {
   type AlarmSoundId,
   coerceAlarmSoundId,
@@ -91,6 +92,7 @@ export default function AlarmEditScreen() {
 
   const palette = useAlarmTheme();
   const { showToast } = useAppToast();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createAlarmEditStyles(palette), [palette]);
 
   const applyAlarmFieldsToForm = useCallback(
@@ -400,7 +402,7 @@ export default function AlarmEditScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
             showsVerticalScrollIndicator={false}>
             <SectionField label="Label" errorMessage={labelError ?? undefined}>
               <TextInput
@@ -654,9 +656,7 @@ function createAlarmEditStyles(alarmTheme: AlarmThemePalette) {
     flex: 1,
     paddingHorizontal: 20,
   },
-  scrollContent: {
-    paddingBottom: 20,
-  },
+  scrollContent: {},
   input: {
     width: '100%',
     backgroundColor: alarmTheme.surface2,

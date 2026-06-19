@@ -4,7 +4,8 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { AppModal } from '@/components/ui/AppModal';
-import { previewAlarmSoundId, stopAlarmSoundPreview } from '@/lib/preview-alarm-sound';
+import { previewAlarmSoundId, resolveAlarmPreviewVolumePercent, stopAlarmSoundPreview } from '@/lib/preview-alarm-sound';
+import { useBottomSheetPadding } from '@/lib/screen-safe-area';
 
 export type SoundPickerOption = { id: string; label: string };
 
@@ -17,6 +18,8 @@ type SoundPickerSheetProps = {
   onSelectSoundId: (id: string) => void;
   sheetTitle?: string;
   sheetHint?: string;
+  /** When set, sound previews use this level instead of loading from storage. */
+  previewVolumePercent?: number;
 };
 
 export function SoundPickerSheet({
@@ -27,9 +30,11 @@ export function SoundPickerSheet({
   onSelectSoundId,
   sheetTitle = 'Default Sound',
   sheetHint = 'Sounds preview when you open this sheet and when you tap a row. Tap OK to apply.',
+  previewVolumePercent,
 }: SoundPickerSheetProps) {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createSoundPickerStyles(palette), [palette]);
+  const sheetPadBottom = useBottomSheetPadding();
 
   const [pendingId, setPendingId] = useState(selectedId);
   const committedOnOpenRef = useRef(selectedId);
@@ -41,8 +46,11 @@ export function SoundPickerSheet({
     }
     committedOnOpenRef.current = selectedId;
     setPendingId(selectedId);
-    void previewAlarmSoundId(selectedId);
-  }, [visible, selectedId]);
+    void (async () => {
+      const volume = await resolveAlarmPreviewVolumePercent(previewVolumePercent);
+      await previewAlarmSoundId(selectedId, volume);
+    })();
+  }, [visible, selectedId, previewVolumePercent]);
 
   const dismiss = () => {
     void stopAlarmSoundPreview();
@@ -52,7 +60,8 @@ export function SoundPickerSheet({
   const onRowPress = async (id: string) => {
     void Haptics.selectionAsync();
     setPendingId(id);
-    await previewAlarmSoundId(id);
+    const volume = await resolveAlarmPreviewVolumePercent(previewVolumePercent);
+    await previewAlarmSoundId(id, volume);
   };
 
   const onConfirm = () => {
@@ -73,7 +82,7 @@ export function SoundPickerSheet({
       onRequestClose={dismiss}>
       <View style={styles.modalRoot}>
         <Pressable style={styles.modalDismiss} onPress={dismiss} accessibilityRole="button" accessibilityLabel="Dismiss" />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: sheetPadBottom }]}>
           <Text style={styles.sheetTitle}>{sheetTitle}</Text>
           <Text style={styles.sheetHint}>{sheetHint}</Text>
           <View style={styles.optionList}>
@@ -118,7 +127,6 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     },
     sheet: {
       backgroundColor: t.surface,
-      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
       paddingHorizontal: 22,
       paddingTop: 22,
       borderTopLeftRadius: 18,

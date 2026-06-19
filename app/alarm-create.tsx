@@ -29,6 +29,7 @@ import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 import { canAddAlarmFresh, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import { useBottomSafePadding } from '@/lib/screen-safe-area';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 const categories = [
@@ -54,6 +55,7 @@ export default function AlarmCreateScreen() {
   const [labelError, setLabelError] = useState<string | null>(null);
 
   const palette = useAlarmTheme();
+  const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createAlarmCreateStyles(palette), [palette]);
 
   useEffect(() => {
@@ -170,7 +172,7 @@ export default function AlarmCreateScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
@@ -325,9 +327,7 @@ function createAlarmCreateStyles(alarmTheme: AlarmThemePalette) {
     flex: 1,
     paddingHorizontal: 20,
   },
-  scrollContent: {
-    paddingBottom: 100,
-  },
+  scrollContent: {},
   input: {
     width: '100%',
     backgroundColor: alarmTheme.surface2,

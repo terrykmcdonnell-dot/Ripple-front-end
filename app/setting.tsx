@@ -67,7 +67,7 @@ import { AppModal } from '@/components/ui/AppModal';
 import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings, type UserSettingsDbRow } from '@/lib/sync-user-settings-db';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
-import { applyAlarmVolumePreferenceToDevice } from '@/lib/alarm-system-volume';
+import { previewDefaultAlarmSoundAtVolume } from '@/lib/preview-alarm-sound';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 import { openAndroidNotificationPolicyAccessSettings } from '@/lib/open-android-notification-policy-access-settings';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
@@ -237,7 +237,7 @@ export default function SettingScreen() {
     async (percent: number) => {
       setDefaultVolumePercent(percent);
       await saveDefaultVolumePercent(percent);
-      const applied = await applyAlarmVolumePreferenceToDevice(percent);
+      const applied = await previewDefaultAlarmSoundAtVolume(percent);
       if (!applied && Platform.OS !== 'web') {
         showToast('Could not change system volume. Use device controls or system Settings. Level saved in Ripple.');
       } else {
@@ -661,6 +661,7 @@ export default function SettingScreen() {
         onClose={() => setSoundPickerOpen(false)}
         options={DEFAULT_ALARM_SOUND_OPTIONS}
         selectedId={defaultSoundId}
+        previewVolumePercent={defaultVolumePercent}
         sheetHint="Preview plays when this opens and when you tap a sound. Tap OK to save as your default."
         onSelectSoundId={(id) => void applyDefaultSound(id as AlarmSoundId)}
       />
