@@ -19,7 +19,16 @@ type PendingNativeAlarmAction = {
   soundId?: string;
   userId?: number | null;
   snoozeMinutes?: number;
+  actionAt?: string;
 };
+
+function parseActionAt(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return undefined;
+  }
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
+}
 
 function parsePendingLine(line: string): PendingNativeAlarmAction | null {
   try {
@@ -49,6 +58,7 @@ function parsePendingLine(line: string): PendingNativeAlarmAction | null {
       soundId: typeof raw.soundId === 'string' ? raw.soundId : undefined,
       userId: typeof raw.userId === 'number' ? raw.userId : null,
       snoozeMinutes: typeof raw.snoozeMinutes === 'number' ? raw.snoozeMinutes : undefined,
+      actionAt: parseActionAt(raw.actionAt),
     };
   } catch {
     return null;
@@ -86,11 +96,11 @@ export async function processPendingNativeAlarmActions(): Promise<void> {
       await markAlarmFireDelivered(parsed.alarmId, fireAtMs);
     }
     if (action.type === 'dismiss') {
-      await recordAlarmHistoryDismissed(parsed).catch(() => undefined);
+      await recordAlarmHistoryDismissed(parsed, action.actionAt).catch(() => undefined);
     } else if (action.type === 'missed') {
       await recordAlarmHistoryMissed(parsed).catch(() => undefined);
     } else {
-      await recordAlarmHistorySnoozed(parsed, action.snoozeMinutes ?? 10).catch(() => undefined);
+      await recordAlarmHistorySnoozed(parsed, action.snoozeMinutes ?? 10, action.actionAt).catch(() => undefined);
     }
   }
   await flushPendingAlarmHistoryWrites().catch(() => undefined);

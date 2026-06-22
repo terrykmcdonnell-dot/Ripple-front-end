@@ -5,6 +5,12 @@ import { isExpiredJwtOrSessionError, refreshOrSignOutOnExpiredSession } from '@/
 
 const USER_ROW_FETCH_TIMEOUT_MS = 25_000;
 
+let cachedUserRowId: { email: string; id: number } | null = null;
+
+export function invalidateCurrentUserRowIdCache(): void {
+  cachedUserRowId = null;
+}
+
 function coerceNumericId(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -40,6 +46,10 @@ async function resolveCurrentUserRowId(): Promise<{ id: number | null; error: Er
   const email = session?.user?.email?.trim().toLowerCase();
   if (!email) {
     return { id: null, error: new Error('You must be signed in to save alarms.') };
+  }
+
+  if (cachedUserRowId?.email === email) {
+    return { id: cachedUserRowId.id, error: null };
   }
 
   let { data, error } = await selectUsersRowByEmail(email);
@@ -88,5 +98,6 @@ async function resolveCurrentUserRowId(): Promise<{ id: number | null; error: Er
     };
   }
 
+  cachedUserRowId = { email, id: resolvedId };
   return { id: resolvedId, error: null };
 }

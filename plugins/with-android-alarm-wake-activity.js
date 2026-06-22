@@ -13,7 +13,7 @@ const { ALARM_WAKE_ACTIVITY_KOTLIN } = require('../scripts/alarm-native-lockscre
 const ACTIVITY_SHORT_NAME = '.AlarmWakeActivity';
 
 function getPackageName(config) {
-  return (config.android && config.android.package) || 'com.terrykm.ripplealarm';
+  return (config.android && config.android.package) || 'com.terrykm.ripplealarmapp';
 }
 
 function withAndroidAlarmWakeActivity(config) {

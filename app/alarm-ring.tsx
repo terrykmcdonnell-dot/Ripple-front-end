@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { AppState, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
@@ -138,13 +138,11 @@ export default function AlarmRingScreen() {
   }, [liveParsed, router]);
 
   // AppState sound management:
-  // - On 'active': (re)start the alarm sound. Handles FSI / lock-screen-to-ring
-  //   transitions where Android briefly flips the app to 'background' then back
-  //   to 'active'. Without this restart the sound would silently die mid-transition.
-  // - On 'background': stop after a 4-second grace period so a transient FSI
-  //   transition doesn't kill the loop. If the app comes back active within 4 s
-  //   (normal for alarm launch) the pending stop is cancelled.
-  // The 5-minute auto-stop in ring-alarm-sound.ts is the last-resort safety net.
+  // - On 'active': (re)start the alarm sound if it died during a transition.
+  // - Android only — on 'background': stop after a 4 s grace period so a transient
+  //   FSI launch (background → active) does not leave audio playing forever.
+  // - iOS: keep ringing in background/lock screen (UIBackgroundModes: audio +
+  //   staysActiveInBackground) until dismiss/snooze or the 5-minute auto-stop.
   useEffect(() => {
     let backgroundTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -154,9 +152,11 @@ export default function AlarmRingScreen() {
           clearTimeout(backgroundTimer);
           backgroundTimer = null;
         }
-        // Restart in case it was stopped during a brief transition.
         void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId);
-      } else if (nextState === 'background') {
+        return;
+      }
+
+      if (Platform.OS === 'android' && nextState === 'background') {
         backgroundTimer = setTimeout(() => {
           backgroundTimer = null;
           void stopRingAlarmSound();

@@ -1,4 +1,4 @@
-package com.terrykm.ripplealarm
+package com.terrykm.ripplealarmapp
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -33,7 +33,7 @@ class AlarmSoundService : Service() {
   }
 
   companion object {
-    const val ACTION_STOP = "com.terrykm.ripplealarm.STOP_ALARM_SOUND"
+    const val ACTION_STOP = "com.terrykm.ripplealarmapp.STOP_ALARM_SOUND"
     const val EXTRA_SOUND_NAME = "soundName"
     const val EXTRA_ALARM_TITLE = "alarmTitle"
     const val EXTRA_ALARM_BODY = "alarmBody"

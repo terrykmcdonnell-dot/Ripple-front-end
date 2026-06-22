@@ -190,6 +190,7 @@ export type CreateAlarmPayload = {
   interval: number;
   unit: string;
   category: string;
+  category_id?: number;
   /** Human-readable sound name (matches bundled presets / Settings labels). */
   sound: string;
 };
@@ -232,6 +233,7 @@ export type AlarmPatchPayload = {
   interval?: number;
   unit?: string;
   category?: string;
+  category_id?: number;
   sound?: string;
   is_enabled?: boolean;
 };
@@ -316,8 +318,8 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
   label: string;
   interval: number;
   unit: string;
-  /** Pass-through for {@link categoryIdToChipKey} (`string` label or FK `number`). */
   categoryId: string | number;
+  categoryName: string;
   sound?: string;
   isEnabled: boolean;
 } | null> {
@@ -347,7 +349,8 @@ export async function fetchAlarmForEdit(alarmId: number, userId: number): Promis
     label: row.label,
     interval: row.interval,
     unit: row.unit,
-    categoryId: row.category,
+    categoryId: Number(body.category_id ?? body.categoryId) || row.category,
+    categoryName: row.category,
     sound: row.sound,
     isEnabled: row.isEnabled,
   };

@@ -8,7 +8,7 @@ export async function openAndroidFullScreenAlarmPermissionSettings(): Promise<vo
   if (Platform.OS !== 'android' || Platform.Version < 34) {
     return;
   }
-  const pkg = Constants.expoConfig?.android?.package?.trim() || 'com.terrykm.ripplealarm';
+  const pkg = Constants.expoConfig?.android?.package?.trim() || 'com.terrykm.ripplealarmapp';
   if (!pkg) {
     return;
   }

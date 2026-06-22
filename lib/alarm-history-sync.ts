@@ -39,6 +39,14 @@ function historyKey(userId: number | null, alarmId: number, fireAt: string): str
   return `${userId ?? 'pending'}:${alarmId}:${fireAt}`;
 }
 
+function normalizeActionAt(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
 function shouldReplacePending(existing: PendingHistoryWrite, next: PendingHistoryWrite): boolean {
   // Terminal outcomes (dismissed/snoozed) are written once — never overwrite with a later event
   // (e.g. swiping the notification from the tray hours after the user already dismissed).
@@ -114,8 +122,14 @@ export async function loadPendingAlarmHistoryRows(userId: number): Promise<Alarm
     .map((row) => pendingWriteToHistoryRow(row, userId));
 }
 
-async function enqueueAlarmHistory(parsed: ParsedAlarmFireData, status: AlarmHistoryStatus, snoozeMinutes: number | null) {
+async function enqueueAlarmHistory(
+  parsed: ParsedAlarmFireData,
+  status: AlarmHistoryStatus,
+  snoozeMinutes: number | null,
+  actionAt?: string | null,
+) {
   const userId = await resolveHistoryUserId(parsed);
+  const normalizedActionAt = normalizeActionAt(actionAt);
   const next: PendingHistoryWrite = {
     key: historyKey(userId, parsed.alarmId, parsed.fireAt),
     user_id: userId,
@@ -124,7 +138,7 @@ async function enqueueAlarmHistory(parsed: ParsedAlarmFireData, status: AlarmHis
     status,
     label: parsed.label,
     category: parsed.category,
-    action_at: status === 'missed' ? null : new Date().toISOString(),
+    action_at: status === 'missed' ? null : (normalizedActionAt ?? new Date().toISOString()),
     snooze_minutes: snoozeMinutes,
     queued_at: new Date().toISOString(),
   };
@@ -215,12 +229,16 @@ export async function recordAlarmHistoryMissed(parsed: ParsedAlarmFireData): Pro
   await enqueueAlarmHistory(parsed, 'missed', null).catch(() => undefined);
 }
 
-export async function recordAlarmHistoryDismissed(parsed: ParsedAlarmFireData): Promise<void> {
-  await enqueueAlarmHistory(parsed, 'dismissed', null).catch(() => undefined);
+export async function recordAlarmHistoryDismissed(parsed: ParsedAlarmFireData, actionAt?: string | null): Promise<void> {
+  await enqueueAlarmHistory(parsed, 'dismissed', null, actionAt).catch(() => undefined);
 }
 
-export async function recordAlarmHistorySnoozed(parsed: ParsedAlarmFireData, minutes: number): Promise<void> {
-  await enqueueAlarmHistory(parsed, 'snoozed', minutes).catch(() => undefined);
+export async function recordAlarmHistorySnoozed(
+  parsed: ParsedAlarmFireData,
+  minutes: number,
+  actionAt?: string | null,
+): Promise<void> {
+  await enqueueAlarmHistory(parsed, 'snoozed', minutes, actionAt).catch(() => undefined);
 }
 
 /** Loads default snooze minutes from settings (same source as the Snooze notification action). */

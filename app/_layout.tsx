@@ -108,7 +108,10 @@ export default function RootLayout() {
               <Stack.Screen name="reset-password" options={{ headerShown: false }} />
               <Stack.Screen name="signup" options={{ headerShown: false }} />
               <Stack.Screen name="verify" options={{ headerShown: false }} />
-              <Stack.Screen name="alarm" options={{ headerShown: false }} />
+              <Stack.Screen name="alarm" options={{ headerShown: false, animation: 'none' }} />
+              <Stack.Screen name="history" options={{ headerShown: false, animation: 'none' }} />
+              <Stack.Screen name="templates" options={{ headerShown: false, animation: 'none' }} />
+              <Stack.Screen name="setting" options={{ headerShown: false, animation: 'none' }} />
               <Stack.Screen name="alarm-ring" options={{ headerShown: false }} />
               <Stack.Screen name="paywall" options={{ headerShown: false }} />
             </Stack>

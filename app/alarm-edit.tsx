@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { createCategoryIcons, createSoundIcon } from '@/assets/icons/alarm-create-icons';
+import { createSoundIcon } from '@/assets/icons/alarm-create-icons';
 import { editActionIcons } from '@/assets/icons/alarm-edit-icons';
 import { AlarmTimePickRow } from '@/components/alarms-create/AlarmTimePickRow';
 import { DangerActionButton } from '@/components/alarms-create/DangerActionButton';
@@ -29,7 +29,7 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
 import { parseAlarmDate, toAlarmIsoString } from '@/lib/alarm-date';
-import { categoryIdToChipKey, coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
+import { coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
 import { peekStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
 import {
   computeScheduledAtAfterSkipNext,
@@ -42,6 +42,7 @@ import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { useBottomSafePadding } from '@/lib/screen-safe-area';
+import { findCategoryByName, findDefaultCategory, useAlarmCategories } from '@/lib/alarm-categories';
 import {
   type AlarmSoundId,
   coerceAlarmSoundId,
@@ -50,14 +51,6 @@ import {
 } from '@/lib/settings-preferences';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
-const categories = [
-  { key: 'health', label: 'Health', icon: createCategoryIcons.health },
-  { key: 'plants', label: 'Plants', icon: createCategoryIcons.plants },
-  { key: 'maintenance', label: 'Maintenance', icon: createCategoryIcons.maintenance },
-  { key: 'pets', label: 'Pets', icon: createCategoryIcons.pets },
-  { key: 'work', label: 'Work', icon: createCategoryIcons.work },
-  { key: 'custom', label: 'Custom', icon: createCategoryIcons.custom },
-] as const;
 
 export default function AlarmEditScreen() {
   useRequireAuth();
@@ -76,7 +69,8 @@ export default function AlarmEditScreen() {
   const [label, setLabel] = useState('');
   const [interval, setInterval] = useState(1);
   const [unit, setUnit] = useState<(typeof units)[number]>('Days');
-  const [category, setCategory] = useState<(typeof categories)[number]['key']>('health');
+  const { categories } = useAlarmCategories();
+  const [categoryId, setCategoryId] = useState(1);
   const [alarmEnabled, setAlarmEnabled] = useState(true);
   const [selectedSoundId, setSelectedSoundId] = useState<AlarmSoundId>('gentle-rise');
   const [soundPickerOpen, setSoundPickerOpen] = useState(false);
@@ -102,6 +96,7 @@ export default function AlarmEditScreen() {
       interval: number;
       unit: string;
       categoryRef: unknown;
+      categoryName?: string;
       sound?: string;
       isEnabled?: boolean;
     }) => {
@@ -109,12 +104,15 @@ export default function AlarmEditScreen() {
       setLabel(payload.label);
       setInterval(payload.interval > 0 ? payload.interval : 1);
       setUnit(coerceAlarmUnit(payload.unit));
-      setCategory(categoryIdToChipKey(payload.categoryRef));
+      const id = typeof payload.categoryRef === 'number' && Number.isFinite(payload.categoryRef)
+        ? payload.categoryRef
+        : findCategoryByName(categories, payload.categoryName ?? String(payload.categoryRef))?.id;
+      setCategoryId(id ?? findDefaultCategory(categories).id);
       setSelectedSoundId(coerceAlarmSoundId(payload.sound));
       setAlarmEnabled(typeof payload.isEnabled === 'boolean' ? payload.isEnabled : true);
       setError(null);
     },
-    [],
+    [categories],
   );
 
   const skipScheduleFromForm = useMemo(
@@ -163,13 +161,14 @@ export default function AlarmEditScreen() {
 
     setIsSaving(true);
     try {
-      const categoryLabel = categories.find((item) => item.key === category)?.label ?? 'Health';
+      const selectedCategory = categories.find((item) => item.id === categoryId) ?? findDefaultCategory(categories);
       await patchAlarm(alarmIdParsed, {
         label: labelValue,
         scheduled_at: scheduledAtIso,
         interval,
         unit,
-        category: categoryLabel,
+        category: selectedCategory.name,
+        category_id: selectedCategory.id,
         sound: selectedSoundLabel,
         is_enabled: alarmEnabled,
       });
@@ -187,7 +186,8 @@ export default function AlarmEditScreen() {
     alarmIdOk,
     alarmIdParsed,
     alarmTime,
-    category,
+    categoryId,
+    categories,
     interval,
     isSkipping,
     label,
@@ -302,6 +302,7 @@ export default function AlarmEditScreen() {
         interval: alarm.interval,
         unit: alarm.unit,
         categoryRef: alarm.categoryId,
+        categoryName: alarm.categoryName,
         sound: alarm.sound,
         isEnabled: alarm.isEnabled,
       });
@@ -328,7 +329,8 @@ export default function AlarmEditScreen() {
         label: stashed.label,
         interval: stashed.interval,
         unit: stashed.unit,
-        categoryRef: stashed.category,
+        categoryRef: stashed.categoryId ?? stashed.category,
+        categoryName: stashed.category,
         sound: stashed.sound,
         isEnabled: stashed.isEnabled,
       });
@@ -444,12 +446,12 @@ export default function AlarmEditScreen() {
               <View style={styles.chipRow}>
                 {categories.map((item) => (
                   <SegmentButton
-                    key={item.key}
-                    label={item.label}
+                    key={item.id}
+                    label={item.name}
                     withIcon={item.icon}
                     rounded
-                    active={category === item.key}
-                    onPress={() => setCategory(item.key)}
+                    active={categoryId === item.id}
+                    onPress={() => setCategoryId(item.id)}
                   />
                 ))}
               </View>

@@ -43,6 +43,7 @@ import {
 } from '@/lib/upcoming-reminder-scheduler';
 import { canAddAlarm, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
+import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 function formatDeviceClock(now: Date): { time: string; ampm: 'AM' | 'PM' } {
@@ -373,6 +374,8 @@ export default function AlarmScreen() {
             alarm.category,
             alarm.isEnabled,
             palette,
+            alarm.categoryIcon,
+            alarm.categoryColorKey,
           );
           return (
             <AlarmCard
@@ -402,10 +405,10 @@ export default function AlarmScreen() {
 
       <BottomNavbar
         items={[
-          { icon: navIcons.alarms, label: 'Alarms', active: true, onPress: () => router.push('/alarm') },
-          { icon: navIcons.history, label: 'History', onPress: () => router.push('/history') },
-          { icon: navIcons.templates, label: 'Templates', onPress: () => router.push('/templates') },
-          { icon: navIcons.settings, label: 'Settings', onPress: () => router.push('/setting') },
+          { icon: navIcons.alarms, label: 'Alarms', active: true, onPress: () => navigateToMainTab(router, '/alarm') },
+          { icon: navIcons.history, label: 'History', onPress: () => navigateToMainTab(router, '/history') },
+          { icon: navIcons.templates, label: 'Templates', onPress: () => navigateToMainTab(router, '/templates') },
+          { icon: navIcons.settings, label: 'Settings', onPress: () => navigateToMainTab(router, '/setting') },
         ]}
       />
     </View>

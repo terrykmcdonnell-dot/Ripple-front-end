@@ -13,8 +13,8 @@
 ## Google Cloud Console
 
 1. **Web client** — same client as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; used for token audience / Supabase.
-2. **iOS client** — bundle ID `com.terrykm.ripplealarm` (see [`app.json`](app.json) `ios.bundleIdentifier`).
-3. **Android client** — package `com.terrykm.ripplealarm` + debug/release **SHA-1/SHA-256** for the keystore that signs your app.
+2. **iOS client** — bundle ID `com.terrykm.ripplealarmapp` (see [`app.json`](app.json) `ios.bundleIdentifier`).
+3. **Android client** — package `com.terrykm.ripplealarmapp` + debug/release **SHA-1/SHA-256** for the keystore that signs your app.
 
 ## Platform notes
 
@@ -36,7 +36,7 @@ Google Sign-In fails with **code 10** most often when:
 
 2. **SHA-1 mismatch** — The fingerprint registered under the **Android** OAuth client must match the keystore **actually signing** the APK you run (often debug keystore for `expo run:android` debug). Re-run `./gradlew signingReport` if you switched machines or release vs debug.
 
-3. **Package name typo** — Must match [`app.json`](app.json) `android.package` / Gradle `applicationId` exactly (`com.terrykm.ripplealarm`).
+3. **Package name typo** — Must match [`app.json`](app.json) `android.package` / Gradle `applicationId` exactly (`com.terrykm.ripplealarmapp`).
 
 Supabase still expects tokens minted against your **Web** client audience when verifying Google login.
 

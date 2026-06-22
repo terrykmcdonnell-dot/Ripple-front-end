@@ -1,4 +1,4 @@
-package com.terrykm.ripplealarm
+package com.terrykm.ripplealarmapp
 
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext

@@ -14,6 +14,7 @@ import { AlarmToggle } from '@/components/alarms/AlarmToggle';
 import { BottomNavbar, useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
 import { type AlarmThemePalette, alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
 import { NotificationsHubSheet } from '@/components/settings/NotificationsHubSheet';
+import { CategoryManagerSheet } from '@/components/settings/CategoryManagerSheet';
 import { NotificationsMasterRow } from '@/components/settings/NotificationsMasterRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { SettingsRow } from '@/components/settings/SettingsRow';
@@ -66,11 +67,15 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { AppModal } from '@/components/ui/AppModal';
 import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings, type UserSettingsDbRow } from '@/lib/sync-user-settings-db';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
+import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { previewDefaultAlarmSoundAtVolume } from '@/lib/preview-alarm-sound';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 import { openAndroidNotificationPolicyAccessSettings } from '@/lib/open-android-notification-policy-access-settings';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
+import { invalidateAlarmCategoryCache } from '@/lib/alarm-categories';
+import { invalidateCurrentUserRowIdCache } from '@/lib/users-table';
+import { invalidateAlarmHistoryCache } from '@/lib/alarm-history-cache';
 import { closeAccount } from '@/lib/close-account-api';
 import { clearLocalAccountData } from '@/lib/clear-local-account-data';
 
@@ -122,6 +127,7 @@ export default function SettingScreen() {
   const [volumePickerOpen, setVolumePickerOpen] = useState(false);
   const [upcomingLeadPickerOpen, setUpcomingLeadPickerOpen] = useState(false);
   const [notificationHubOpen, setNotificationHubOpen] = useState(false);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [notifOsAllowed, setNotifOsAllowed] = useState(false);
   const [notifCanAskAgain, setNotifCanAskAgain] = useState(true);
   const notificationsMasterEnabled = true;
@@ -360,6 +366,9 @@ export default function SettingScreen() {
     }
     setSigningOut(true);
     await clearPendingSignUp();
+    invalidateCurrentUserRowIdCache();
+    invalidateAlarmCategoryCache();
+    invalidateAlarmHistoryCache();
     const { error } = await supabase.auth.signOut();
     setSigningOut(false);
     if (error) {
@@ -514,6 +523,18 @@ export default function SettingScreen() {
           </View>
         </SettingsGroup>
 
+        <Text style={styles.sectionLabel}>Personalization</Text>
+        <SettingsGroup>
+          <SettingsRow
+            icon="🏷️"
+            title="Categories"
+            value="Add, edit, or delete custom alarm categories"
+            right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
+            onPress={() => setCategoryManagerOpen(true)}
+            noBorder
+          />
+        </SettingsGroup>
+
         <Text style={styles.sectionLabel}>Notifications</Text>
         <SettingsGroup>
           <NotificationsMasterRow
@@ -648,6 +669,8 @@ export default function SettingScreen() {
         onToggleVibration={(enabled) => void applyVibration(enabled)}
       />
 
+      <CategoryManagerSheet visible={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
+
       <SnoozePickerSheet
         visible={snoozePickerOpen}
         onClose={() => setSnoozePickerOpen(false)}
@@ -722,10 +745,10 @@ export default function SettingScreen() {
 
       <BottomNavbar
         items={[
-          { icon: settingsIcons.alarms, label: 'Alarms', onPress: () => router.push('/alarm') },
-          { icon: settingsIcons.history, label: 'History', onPress: () => router.push('/history') },
-          { icon: settingsIcons.templates, label: 'Templates', onPress: () => router.push('/templates') },
-          { icon: settingsIcons.settings, label: 'Settings', active: true, onPress: () => router.push('/setting') },
+          { icon: settingsIcons.alarms, label: 'Alarms', onPress: () => navigateToMainTab(router, '/alarm') },
+          { icon: settingsIcons.history, label: 'History', onPress: () => navigateToMainTab(router, '/history') },
+          { icon: settingsIcons.templates, label: 'Templates', onPress: () => navigateToMainTab(router, '/templates') },
+          { icon: settingsIcons.settings, label: 'Settings', active: true, onPress: () => navigateToMainTab(router, '/setting') },
         ]}
       />
       <FullScreenLoadingOverlay visible={signingOut || closingAccount} />

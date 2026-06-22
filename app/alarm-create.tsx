@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { createCategoryIcons, createSoundIcon } from '@/assets/icons/alarm-create-icons';
+import { createSoundIcon } from '@/assets/icons/alarm-create-icons';
 import { AlarmTimePickRow } from '@/components/alarms-create/AlarmTimePickRow';
 import { IntervalControl } from '@/components/alarms-create/IntervalControl';
 import { SectionField } from '@/components/alarms-create/SectionField';
@@ -30,16 +30,9 @@ import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-sched
 import { canAddAlarmFresh, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { useBottomSafePadding } from '@/lib/screen-safe-area';
+import { findDefaultCategory, useAlarmCategories } from '@/lib/alarm-categories';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
-const categories = [
-  { key: 'health', label: 'Health', icon: createCategoryIcons.health },
-  { key: 'plants', label: 'Plants', icon: createCategoryIcons.plants },
-  { key: 'maintenance', label: 'Maintenance', icon: createCategoryIcons.maintenance },
-  { key: 'pets', label: 'Pets', icon: createCategoryIcons.pets },
-  { key: 'work', label: 'Work', icon: createCategoryIcons.work },
-  { key: 'custom', label: 'Custom', icon: createCategoryIcons.custom },
-] as const;
 
 export default function AlarmCreateScreen() {
   useRequireAuth();
@@ -48,7 +41,8 @@ export default function AlarmCreateScreen() {
   const [label, setLabel] = useState('');
   const [interval, setInterval] = useState(3);
   const [unit, setUnit] = useState<(typeof units)[number]>('Days');
-  const [category, setCategory] = useState<(typeof categories)[number]['key']>('health');
+  const { categories } = useAlarmCategories();
+  const [categoryId, setCategoryId] = useState(1);
   const [selectedSoundId, setSelectedSoundId] = useState<AlarmSoundId>('gentle-rise');
   const [soundPickerOpen, setSoundPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -69,6 +63,12 @@ export default function AlarmCreateScreen() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!categories.some((item) => item.id === categoryId)) {
+      setCategoryId(findDefaultCategory(categories).id);
+    }
+  }, [categories, categoryId]);
 
   const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);
 
@@ -98,7 +98,7 @@ export default function AlarmCreateScreen() {
         return;
       }
 
-      const categoryLabel = categories.find((item) => item.key === category)?.label ?? 'Health';
+      const selectedCategory = categories.find((item) => item.id === categoryId) ?? findDefaultCategory(categories);
 
       const existing = await fetchAlarms(userId);
       if (!(await canAddAlarmFresh(existing.length))) {
@@ -116,7 +116,8 @@ export default function AlarmCreateScreen() {
         scheduled_at: scheduledAtIso,
         interval,
         unit,
-        category: categoryLabel,
+        category: selectedCategory.name,
+        category_id: selectedCategory.id,
         sound: selectedSoundLabel,
       });
 
@@ -216,12 +217,12 @@ export default function AlarmCreateScreen() {
           <View style={styles.chipRow}>
             {categories.map((item) => (
               <SegmentButton
-                key={item.key}
-                label={item.label}
+                key={item.id}
+                label={item.name}
                 withIcon={item.icon}
                 rounded
-                active={category === item.key}
-                onPress={() => setCategory(item.key)}
+                active={categoryId === item.id}
+                onPress={() => setCategoryId(item.id)}
               />
             ))}
           </View>

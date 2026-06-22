@@ -1,5 +1,6 @@
 import { getPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import type { NotificationPermissionsStatus } from 'expo-notifications/build/NotificationPermissions.types';
+import { PermissionStatus } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
@@ -25,8 +26,9 @@ export async function getNotificationAccessStatus(): Promise<NotificationAccessS
 
   let permission: NotificationPermissionsStatus = {
     granted: false,
-    status: 'undetermined',
+    status: PermissionStatus.UNDETERMINED,
     canAskAgain: true,
+    expires: 'never',
   };
   try {
     permission = await getPermissionsAsync();

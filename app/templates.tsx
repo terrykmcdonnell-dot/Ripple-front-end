@@ -18,6 +18,7 @@ import { notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { installTemplatePack, uninstallTemplatePack } from '@/lib/install-template-pack';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
+import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { TEMPLATE_PACK_DEFINITIONS, type TemplatePackDefinition, type TemplatePackId } from '@/lib/template-packs-data';
 import { getAllPackAlarmIds, reconcilePackAlarmIdsWithServer } from '@/lib/template-packs-storage';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
@@ -272,10 +273,10 @@ export default function TemplatesScreen() {
 
       <BottomNavbar
         items={[
-          { icon: templatesIcons.alarms, label: 'Alarms', onPress: () => router.push('/alarm') },
-          { icon: templatesIcons.history, label: 'History', onPress: () => router.push('/history') },
-          { icon: templatesIcons.templates, label: 'Templates', active: true, onPress: () => router.push('/templates') },
-          { icon: templatesIcons.settings, label: 'Settings', onPress: () => router.push('/setting') },
+          { icon: templatesIcons.alarms, label: 'Alarms', onPress: () => navigateToMainTab(router, '/alarm') },
+          { icon: templatesIcons.history, label: 'History', onPress: () => navigateToMainTab(router, '/history') },
+          { icon: templatesIcons.templates, label: 'Templates', active: true, onPress: () => navigateToMainTab(router, '/templates') },
+          { icon: templatesIcons.settings, label: 'Settings', onPress: () => navigateToMainTab(router, '/setting') },
         ]}
       />
 

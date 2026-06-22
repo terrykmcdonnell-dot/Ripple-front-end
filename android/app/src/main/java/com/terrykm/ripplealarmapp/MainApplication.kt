@@ -1,4 +1,4 @@
-package com.terrykm.ripplealarm
+package com.terrykm.ripplealarmapp
 
 import android.app.Application
 import android.content.res.Configuration

@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.terrykm.ripplealarm",
+      "bundleIdentifier": "com.terrykm.ripplealarmapp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -33,7 +33,7 @@
           "action": "VIEW",
           "data": [
             {
-              "scheme": "com.terrykm.ripplealarm"
+              "scheme": "com.terrykm.ripplealarmapp"
             }
           ],
           "category": [
@@ -62,7 +62,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.terrykm.ripplealarm",
+      "package": "com.terrykm.ripplealarmapp",
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"

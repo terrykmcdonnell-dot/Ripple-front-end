@@ -17,7 +17,7 @@ const FOREGROUND_MEDIA_PERMISSION = 'android.permission.FOREGROUND_SERVICE_MEDIA
 const DISABLE_KEYGUARD_PERMISSION = 'android.permission.DISABLE_KEYGUARD';
 
 function getPackageName(config) {
-  return (config.android && config.android.package) || 'com.terrykm.ripplealarm';
+  return (config.android && config.android.package) || 'com.terrykm.ripplealarmapp';
 }
 
 function withAndroidAlarmSoundService(config) {

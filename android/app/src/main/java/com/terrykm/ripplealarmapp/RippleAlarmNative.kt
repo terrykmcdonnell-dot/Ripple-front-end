@@ -1,4 +1,4 @@
-package com.terrykm.ripplealarm
+package com.terrykm.ripplealarmapp
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -8,17 +8,21 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.AlarmManagerCompat
 import expo.modules.notifications.service.NotificationsService
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import org.json.JSONObject
 
 object RippleAlarmNative {
-  const val ACTION_DISMISS = "com.terrykm.ripplealarm.ALARM_ACTION_DISMISS"
-  const val ACTION_SNOOZE = "com.terrykm.ripplealarm.ALARM_ACTION_SNOOZE"
+  const val ACTION_DISMISS = "com.terrykm.ripplealarmapp.ALARM_ACTION_DISMISS"
+  const val ACTION_SNOOZE = "com.terrykm.ripplealarmapp.ALARM_ACTION_SNOOZE"
   const val EXTRA_SOUND_NAME = "soundName"
   const val EXTRA_ALARM_TITLE = "alarmTitle"
   const val EXTRA_ALARM_BODY = "alarmBody"
   const val EXTRA_ALARM_IDENTIFIER = "alarmIdentifier"
   const val EXTRA_ALARM_PAYLOAD = "alarmPayload"
-  const val ACTION_STOP = "com.terrykm.ripplealarm.STOP_ALARM_SOUND"
+  const val ACTION_STOP = "com.terrykm.ripplealarmapp.STOP_ALARM_SOUND"
   private const val SNOOZE_REQUEST_CODE = 880_012
 
   fun handleDismiss(context: Context, source: Intent?) {
@@ -88,12 +92,19 @@ object RippleAlarmNative {
         .put("soundId", json.optString("soundId", ""))
         .put("userId", json.opt("userId"))
         .put("snoozeMinutes", snoozeMinutes)
+        .put("actionAt", utcNowIso())
         .put("alarmIdentifier", source.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: "")
         .toString()
       RippleAlarmPrefs.appendPendingAction(context, line)
     } catch (e: Exception) {
       Log.w("RippleAlarmNative", "Queue action failed: " + e.message)
     }
+  }
+
+  private fun utcNowIso(): String {
+    val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+    format.timeZone = TimeZone.getTimeZone("UTC")
+    return format.format(Date())
   }
 
   private fun scheduleNativeSnooze(context: Context, source: Intent?, minutes: Int) {

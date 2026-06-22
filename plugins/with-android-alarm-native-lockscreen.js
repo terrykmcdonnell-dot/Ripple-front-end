@@ -19,7 +19,7 @@ const RECEIVER_SHORT_NAME = '.AlarmSnoozeReceiver';
 const ACTION_RECEIVER_SHORT_NAME = '.AlarmActionReceiver';
 
 function getPackageName(config) {
-  return (config.android && config.android.package) || 'com.terrykm.ripplealarm';
+  return (config.android && config.android.package) || 'com.terrykm.ripplealarmapp';
 }
 
 function writeKotlinFile(dir, filename, source, packageName) {

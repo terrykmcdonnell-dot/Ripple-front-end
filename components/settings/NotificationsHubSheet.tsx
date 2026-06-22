@@ -6,6 +6,7 @@ import { AlarmToggle } from '@/components/alarms/AlarmToggle';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { AppModal } from '@/components/ui/AppModal';
 import {
+  type AlarmSoundId,
   formatSnoozeMinutesLabel,
   formatVolumePercentLabel,
   labelForAlarmSoundId,

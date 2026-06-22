@@ -1,10 +1,9 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { InteractionManager, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
 import { historyIcons } from '@/assets/icons/history-icons';
 import { BottomNavbar, useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
 import { type AlarmThemePalette, alarmTypography, useAlarmTheme } from '@/components/alarms/theme';
@@ -13,9 +12,10 @@ import { HistoryFilterTabs } from '@/components/history/HistoryFilterTabs';
 import { HistoryItemRow } from '@/components/history/HistoryItemRow';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { categoryIdToChipKey } from '@/lib/alarm-format';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
+import { getAlarmHistoryCache, setAlarmHistoryCache } from '@/lib/alarm-history-cache';
+import { findCategoryByName, useAlarmCategories } from '@/lib/alarm-categories';
 import { fetchAlarmHistory, type AlarmHistoryApiRow } from '@/lib/alarm-history-api';
 import { flushPendingAlarmHistoryWrites, loadPendingAlarmHistoryRows } from '@/lib/alarm-history-sync';
 import {
@@ -23,19 +23,10 @@ import {
   monthlyComplianceFromHistory,
   type HistoryGroupUi,
 } from '@/lib/history-format';
+import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const FILTER_ALL = 'all' as const;
-
-const tabs = [
-  { key: FILTER_ALL, label: 'All Alarms' },
-  { key: 'health', label: `${createCategoryIcons.health} Health` },
-  { key: 'plants', label: `${createCategoryIcons.plants} Plants` },
-  { key: 'maintenance', label: `${createCategoryIcons.maintenance} Maintenance` },
-  { key: 'pets', label: `${createCategoryIcons.pets} Pets` },
-  { key: 'work', label: `${createCategoryIcons.work} Work` },
-  { key: 'custom', label: `${createCategoryIcons.custom} Custom` },
-] as const;
 
 function mergeHistoryRows(serverRows: AlarmHistoryApiRow[], pendingRows: AlarmHistoryApiRow[]): AlarmHistoryApiRow[] {
   const merged = new Map<string, AlarmHistoryApiRow>();
@@ -90,14 +81,14 @@ export default function HistoryScreen() {
   useRequireAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>(FILTER_ALL);
+  const { categories } = useAlarmCategories();
   const alarmTheme = useAlarmTheme();
   const tabBarPad = useTabBarReservedHeight();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
-  const [rows, setRows] = useState<AlarmHistoryApiRow[]>([]);
+  const [rows, setRows] = useState<AlarmHistoryApiRow[]>(() => getAlarmHistoryCache() ?? []);
   const [listError, setListError] = useState<string | null>(null);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const firstFocus = useRef(true);
+  const [initialLoad, setInitialLoad] = useState(() => getAlarmHistoryCache() == null);
   const loadGenRef = useRef(0);
 
   const loadHistory = useCallback(async (opts?: { silent?: boolean }) => {
@@ -129,7 +120,10 @@ export default function HistoryScreen() {
         return;
       }
 
-      await flushPendingAlarmHistoryWrites().catch(() => undefined);
+      const flushPromise = flushPendingAlarmHistoryWrites().catch(() => undefined);
+      if (!silent) {
+        await flushPromise;
+      }
       const [next, pending] = await Promise.all([
         fetchAlarmHistory(userId),
         loadPendingAlarmHistoryRows(userId),
@@ -137,7 +131,9 @@ export default function HistoryScreen() {
       if (loadGenRef.current !== gen) {
         return;
       }
-      setRows(mergeHistoryRows(next, pending));
+      const merged = mergeHistoryRows(next, pending);
+      setRows(merged);
+      setAlarmHistoryCache(userId, merged);
       setListError(null);
     } catch (e) {
       if (loadGenRef.current !== gen) {
@@ -155,9 +151,27 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadHistory({ silent: !firstFocus.current });
-      firstFocus.current = false;
+      const hasCachedRows = getAlarmHistoryCache() != null;
+      let cancelled = false;
+
+      const runLoad = () => {
+        if (!cancelled) {
+          void loadHistory({ silent: hasCachedRows });
+        }
+      };
+
+      if (hasCachedRows) {
+        const task = InteractionManager.runAfterInteractions(runLoad);
+        return () => {
+          cancelled = true;
+          task.cancel();
+          loadGenRef.current += 1;
+        };
+      }
+
+      runLoad();
       return () => {
+        cancelled = true;
         loadGenRef.current += 1;
       };
     }, [loadHistory]),
@@ -168,9 +182,9 @@ export default function HistoryScreen() {
     const filtered =
       activeTab === FILTER_ALL
         ? rows
-        : rows.filter((r) => categoryIdToChipKey(r.category) === activeTab);
+        : rows.filter((r) => String(findCategoryByName(categories, r.category)?.id ?? '') === activeTab);
     return buildHistoryGroups(filtered, referenceNow);
-  }, [activeTab, rows]);
+  }, [activeTab, categories, rows]);
 
   const compliance = useMemo(() => monthlyComplianceFromHistory(rows), [rows]);
 
@@ -183,7 +197,17 @@ export default function HistoryScreen() {
         </View>
       </SafeAreaView>
 
-      <HistoryFilterTabs tabs={[...tabs]} activeKey={activeTab} onSelect={setActiveTab} />
+      <HistoryFilterTabs
+        tabs={[
+          { key: FILTER_ALL, label: 'All Alarms' },
+          ...categories.map((category) => ({
+            key: String(category.id),
+            label: `${category.icon} ${category.name}`,
+          })),
+        ]}
+        activeKey={activeTab}
+        onSelect={setActiveTab}
+      />
 
       <ComplianceBanner
         percent={compliance.percent}
@@ -217,13 +241,13 @@ export default function HistoryScreen() {
         )}
       </ScrollView>
 
-      <FullScreenLoadingOverlay visible={initialLoad} />
+      <FullScreenLoadingOverlay visible={initialLoad} variant="embedded" />
       <BottomNavbar
         items={[
-          { icon: historyIcons.alarms, label: 'Alarms', onPress: () => router.push('/alarm') },
-          { icon: historyIcons.history, label: 'History', active: true, onPress: () => router.push('/history') },
-          { icon: historyIcons.templates, label: 'Templates', onPress: () => router.push('/templates') },
-          { icon: historyIcons.settings, label: 'Settings', onPress: () => router.push('/setting') },
+          { icon: historyIcons.alarms, label: 'Alarms', onPress: () => navigateToMainTab(router, '/alarm') },
+          { icon: historyIcons.history, label: 'History', active: true, onPress: () => navigateToMainTab(router, '/history') },
+          { icon: historyIcons.templates, label: 'Templates', onPress: () => navigateToMainTab(router, '/templates') },
+          { icon: historyIcons.settings, label: 'Settings', onPress: () => navigateToMainTab(router, '/setting') },
         ]}
       />
     </View>

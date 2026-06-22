@@ -69,7 +69,7 @@ class AlarmRingLaunchActivity : Activity() {
 `;
 
 function getPackageName(config) {
-  return config.android?.package ?? 'com.terrykm.ripplealarm';
+  return config.android?.package ?? 'com.terrykm.ripplealarmapp';
 }
 
 function withAndroidAlarmRingLaunchActivity(config) {

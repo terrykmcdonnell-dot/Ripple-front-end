@@ -210,7 +210,7 @@ object RippleAlarmNative {
   const val EXTRA_ALARM_BODY = "alarmBody"
   const val EXTRA_ALARM_IDENTIFIER = "alarmIdentifier"
   const val EXTRA_ALARM_PAYLOAD = "alarmPayload"
-  const val ACTION_STOP = "com.terrykm.ripplealarm.STOP_ALARM_SOUND"
+  const val ACTION_STOP = "com.terrykm.ripplealarmapp.STOP_ALARM_SOUND"
   private const val SNOOZE_REQUEST_CODE = 880_012
 
   fun handleDismiss(context: Context, source: Intent?) {

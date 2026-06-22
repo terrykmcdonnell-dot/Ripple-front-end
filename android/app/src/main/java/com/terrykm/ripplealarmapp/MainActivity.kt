@@ -1,4 +1,4 @@
-package com.terrykm.ripplealarm
+package com.terrykm.ripplealarmapp
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

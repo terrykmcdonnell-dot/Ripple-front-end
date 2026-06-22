@@ -9,6 +9,9 @@ export type AlarmListItem = {
   interval: number;
   unit: string;
   category: string;
+  categoryId?: number;
+  categoryIcon?: string;
+  categoryColorKey?: string;
   sound?: string;
   isEnabled: boolean;
 };
@@ -56,6 +59,14 @@ export function normalizeAlarmPayload(raw: unknown): AlarmListItem | null {
     typeof row.unit === 'string' ? row.unit : typeof row.unit === 'number' ? String(row.unit) : '';
 
   const category = typeof row.category === 'string' ? row.category : '';
+  const categoryId = coerceId(row.category_id ?? row.categoryId);
+  const categoryIcon = typeof row.category_icon === 'string' ? row.category_icon : typeof row.categoryIcon === 'string' ? row.categoryIcon : '';
+  const categoryColorKey =
+    typeof row.category_color_key === 'string'
+      ? row.category_color_key
+      : typeof row.categoryColorKey === 'string'
+        ? row.categoryColorKey
+        : '';
 
   const rawSound = row.sound ?? row.Sound ?? row.alarm_sound;
   const soundTrimmed = typeof rawSound === 'string' ? rawSound.trim() : '';
@@ -74,6 +85,9 @@ export function normalizeAlarmPayload(raw: unknown): AlarmListItem | null {
     interval: Number.isFinite(interval) ? interval : 1,
     unit: unit || 'Days',
     category,
+    ...(categoryId != null ? { categoryId } : {}),
+    ...(categoryIcon ? { categoryIcon } : {}),
+    ...(categoryColorKey ? { categoryColorKey } : {}),
     ...(soundTrimmed ? { sound: soundTrimmed } : {}),
     isEnabled,
   };
@@ -248,14 +262,22 @@ export function presentationForAlarmCategory(
   category: string,
   enabled: boolean,
   palette: AlarmThemePalette = alarmThemes.dark,
+  iconOverride?: string,
+  colorKey?: string,
 ): CategoryPresentation {
   const key = resolveCategoryIconKey(category);
-  const icon = iconForCategoryKey(key);
+  const icon = iconOverride?.trim() || iconForCategoryKey(key);
 
   if (!enabled) {
     return { icon, tone: 'off' };
   }
 
+  if (colorKey === 'green') {
+    return { icon, tone: 'green', toggleOnColor: palette.green };
+  }
+  if (colorKey === 'amber') {
+    return { icon, tone: 'amber' };
+  }
   const { tone, toggleOnColor } = toneWhenEnabledForCategoryKey(key, palette);
   return { icon, tone, toggleOnColor };
 }
