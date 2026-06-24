@@ -6,8 +6,27 @@ type RippleAlarmPrefsModule = {
   consumePendingActionsAsync?: () => Promise<string>;
   getDeliveredMapAsync?: () => Promise<string>;
   setAlarmFireDelivered?: (alarmId: number, fireAtMs: number) => void;
+  startAlarmSound?: (
+    soundName: string,
+    alarmTitle: string,
+    alarmBody: string,
+    alarmIdentifier: string,
+    alarmPayload: string,
+    presentationMode: string,
+  ) => void;
   stopAlarmSound?: () => void;
 };
+
+type StartNativeAlarmSoundOptions = {
+  soundName: string;
+  alarmTitle: string;
+  alarmBody: string;
+  alarmIdentifier: string;
+  alarmPayload: string;
+  presentationMode?: 'background' | 'lockscreen';
+};
+
+let nativeAlarmSoundActive = false;
 
 export function syncDefaultSnoozeMinutesToNative(minutes: number): void {
   if (Platform.OS !== 'android') {
@@ -69,10 +88,39 @@ export function syncNativeAlarmFireDelivered(alarmId: number, fireAtMs: number):
   }
 }
 
+export function startNativeAlarmSound(options: StartNativeAlarmSoundOptions): boolean {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+  try {
+    const mod = requireOptionalNativeModule<RippleAlarmPrefsModule>('RippleAlarmPrefs');
+    if (!mod?.startAlarmSound) {
+      return false;
+    }
+    mod.startAlarmSound(
+      options.soundName,
+      options.alarmTitle,
+      options.alarmBody,
+      options.alarmIdentifier,
+      options.alarmPayload,
+      options.presentationMode ?? 'background',
+    );
+    nativeAlarmSoundActive = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function hasNativeAlarmSoundActive(): boolean {
+  return Platform.OS === 'android' && nativeAlarmSoundActive;
+}
+
 export function stopNativeAlarmSound(): void {
   if (Platform.OS !== 'android') {
     return;
   }
+  nativeAlarmSoundActive = false;
   try {
     const mod = requireOptionalNativeModule<RippleAlarmPrefsModule>('RippleAlarmPrefs');
     mod?.stopAlarmSound?.();

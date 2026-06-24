@@ -1,4 +1,4 @@
-import '@/lib/alarm-history-notification-task';
+                                                                                                                                            import '@/lib/alarm-history-notification-task';
 
 import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -33,9 +33,9 @@ function NotificationPresentationBootstrap() {
         const data = notification.request.content.data as Record<string, unknown> | undefined;
         const isAlarmFire = data?.type === ALARM_FIRE_DATA_TYPE;
         if (isAlarmFire) {
-          // Foreground: open ring screen via received listener only — no banner, tray row, or OS sound.
-          // Native AlarmSoundService is not started while foreground (scheduling patch v8).
-          // Ring screen expo-av handles alarm audio.
+          // Foreground: open ring screen via received listener only — no OS
+          // notification sound. Android foreground alarm audio is started by
+          // AlarmSoundService so it uses the alarm stream even when muted.
           return {
             shouldShowBanner: false,
             shouldShowList: false,

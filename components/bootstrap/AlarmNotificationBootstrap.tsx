@@ -94,10 +94,12 @@ export function AlarmNotificationBootstrap() {
             }
             await markAlarmFireDelivered(parsed.alarmId, fireAtMs);
           }
+          // Start ringing before any History/network work so foreground alarms
+          // still sound immediately if the device/app audio is muted or slow.
+          openAlarmRingScreen(parsed);
           // Create a durable History row as soon as the alarm is delivered. Later
           // Dismiss/Snooze actions upsert the same occurrence and replace Missed.
           await recordAlarmHistoryMissed(parsed);
-          openAlarmRingScreen(parsed);
         })();
       });
 

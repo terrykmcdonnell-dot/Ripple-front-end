@@ -1,10 +1,11 @@
 package com.terrykm.ripplealarmapp
 
+import android.content.Intent
+import android.os.Build
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import android.content.Intent
 
 class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -42,6 +43,33 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
       alarmId,
       fireAtMs.toLong(),
     )
+  }
+
+  @ReactMethod
+  fun startAlarmSound(
+    soundName: String,
+    alarmTitle: String,
+    alarmBody: String,
+    alarmIdentifier: String,
+    alarmPayload: String,
+    presentationMode: String,
+  ) {
+    try {
+      val svc = Intent().apply {
+        setClassName(reactApplicationContext.packageName, reactApplicationContext.packageName + ".AlarmSoundService")
+        putExtra(RippleAlarmNative.EXTRA_SOUND_NAME, soundName)
+        putExtra(RippleAlarmNative.EXTRA_ALARM_TITLE, alarmTitle)
+        putExtra(RippleAlarmNative.EXTRA_ALARM_BODY, alarmBody)
+        putExtra(RippleAlarmNative.EXTRA_ALARM_IDENTIFIER, alarmIdentifier)
+        putExtra(RippleAlarmNative.EXTRA_ALARM_PAYLOAD, alarmPayload)
+        putExtra("alarmPresentationMode", presentationMode)
+      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        reactApplicationContext.startForegroundService(svc)
+      } else {
+        reactApplicationContext.startService(svc)
+      }
+    } catch (_: Exception) {}
   }
 
   @ReactMethod

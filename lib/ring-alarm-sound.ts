@@ -1,7 +1,7 @@
 import { Audio, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
-import { stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
+import { hasNativeAlarmSoundActive, stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { coerceAlarmSoundId, loadDefaultAlarmSoundId, loadDefaultVolumePercent } from '@/lib/settings-preferences';
 
@@ -103,6 +103,12 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<boolea
     return false;
   }
 
+  if (hasNativeAlarmSoundActive()) {
+    // Android native playback uses USAGE_ALARM, so it still rings when media
+    // volume is muted. Keep it as the primary alarm audio until user action.
+    return true;
+  }
+
   // Capture our generation. Every await below re-checks it. If stopRingAlarmSound()
   // is called while we are loading, it increments _soundGen and we abort.
   const myGen = ++_soundGen;
@@ -140,7 +146,6 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<boolea
         }
         clearAutoStopTimer();
         autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
-        stopNativeAlarmSound();
         return true;
       }
     } catch {
@@ -216,7 +221,6 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<boolea
 
     // Hard stop after 5 minutes regardless of user interaction.
     autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
-    stopNativeAlarmSound();
     return true;
   } catch {
     // createAsync failed — release audio session if we are still the active load.
