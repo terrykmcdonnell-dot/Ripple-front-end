@@ -44,6 +44,7 @@ import {
 import { canAddAlarm, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
+import { resolveCategoryMeta, useAlarmCategories } from '@/lib/alarm-categories';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 function formatDeviceClock(now: Date): { time: string; ampm: 'AM' | 'PM' } {
@@ -188,6 +189,7 @@ export default function AlarmScreen() {
   }, [alarms, now]);
 
   const palette = useAlarmTheme();
+  const { categories } = useAlarmCategories();
   const tabBarPad = useTabBarReservedHeight();
   const styles = useMemo(() => createAlarmStyles(palette), [palette]);
 
@@ -370,12 +372,18 @@ export default function AlarmScreen() {
         {sortedAlarms.map((alarm) => {
           const nextFireText = formatNextFireSubtitle(alarm, now);
           const tagText = formatRepeatEveryTag(alarm.interval, alarm.unit);
+          const categoryMeta = resolveCategoryMeta(categories, {
+            categoryId: alarm.categoryId,
+            categoryName: alarm.category,
+            categoryIcon: alarm.categoryIcon,
+            categoryColorKey: alarm.categoryColorKey,
+          });
           const { icon, tone, toggleOnColor } = presentationForAlarmCategory(
-            alarm.category,
+            categoryMeta.name,
             alarm.isEnabled,
             palette,
-            alarm.categoryIcon,
-            alarm.categoryColorKey,
+            categoryMeta.icon,
+            categoryMeta.colorKey,
           );
           return (
             <AlarmCard

@@ -1,5 +1,10 @@
 import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
 import { alarmThemes, type AlarmThemePalette, type AlarmTone } from '@/components/alarms/theme';
+import {
+  categoryColorKeyToTone,
+  categoryColorToggleOnColor,
+} from '@/lib/category-colors';
+import type { AlarmCategoryColorKey } from '@/lib/alarm-categories';
 
 /** Parsed row from GET /api/alarm/ (handles snake_case or camelCase from the API). */
 export type AlarmListItem = {
@@ -272,12 +277,22 @@ export function presentationForAlarmCategory(
     return { icon, tone: 'off' };
   }
 
-  if (colorKey === 'green') {
-    return { icon, tone: 'green', toggleOnColor: palette.green };
+  const normalizedColor = normalizeCategoryColorKey(colorKey);
+  if (normalizedColor) {
+    return {
+      icon,
+      tone: categoryColorKeyToTone(normalizedColor),
+      toggleOnColor: categoryColorToggleOnColor(palette, normalizedColor),
+    };
   }
-  if (colorKey === 'amber') {
-    return { icon, tone: 'amber' };
-  }
+
   const { tone, toggleOnColor } = toneWhenEnabledForCategoryKey(key, palette);
   return { icon, tone, toggleOnColor };
+}
+
+function normalizeCategoryColorKey(value: string | undefined): AlarmCategoryColorKey | null {
+  if (value === 'purple' || value === 'green' || value === 'amber' || value === 'blue' || value === 'red') {
+    return value;
+  }
+  return null;
 }

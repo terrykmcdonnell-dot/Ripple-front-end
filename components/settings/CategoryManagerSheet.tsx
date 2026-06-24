@@ -14,19 +14,12 @@ import {
   updateAlarmCategory,
   useAlarmCategories,
 } from '@/lib/alarm-categories';
+import { CATEGORY_COLOR_OPTIONS, categoryColorTokens } from '@/lib/category-colors';
 
 type CategoryManagerSheetProps = {
   visible: boolean;
   onClose: () => void;
 };
-
-const COLOR_OPTIONS: Array<{ key: AlarmCategoryColorKey; label: string }> = [
-  { key: 'purple', label: 'Purple' },
-  { key: 'green', label: 'Green' },
-  { key: 'amber', label: 'Amber' },
-  { key: 'blue', label: 'Blue' },
-  { key: 'red', label: 'Red' },
-];
 
 function blankDraft() {
   return { id: null as number | null, name: '', icon: '⭐', colorKey: 'purple' as AlarmCategoryColorKey };
@@ -110,9 +103,13 @@ export function CategoryManagerSheet({ visible, onClose }: CategoryManagerSheetP
           </View>
 
           <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
-            {categories.map((category) => (
+            {categories.map((category) => {
+              const swatch = categoryColorTokens(palette, category.colorKey);
+              return (
               <View key={category.id} style={styles.row}>
-                <Text style={styles.rowIcon}>{category.icon}</Text>
+                <View style={[styles.colorDot, { backgroundColor: swatch.dim, borderColor: swatch.main }]}>
+                  <Text style={styles.rowIcon}>{category.icon}</Text>
+                </View>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowName}>{category.name}</Text>
                   <Text style={styles.rowMeta}>{category.isSystem ? 'Default category' : 'Custom category'}</Text>
@@ -137,7 +134,8 @@ export function CategoryManagerSheet({ visible, onClose }: CategoryManagerSheetP
                   </>
                 ) : null}
               </View>
-            ))}
+            );
+            })}
 
             <View style={styles.form}>
               <Text style={styles.formTitle}>{editing ? 'Edit Category' : 'Add Category'}</Text>
@@ -159,17 +157,22 @@ export function CategoryManagerSheet({ visible, onClose }: CategoryManagerSheetP
                   maxLength={40}
                 />
               </View>
+              <Text style={styles.formHint}>Color tints alarm cards and category chips.</Text>
               <View style={styles.colorRow}>
-                {COLOR_OPTIONS.map((option) => (
+                {CATEGORY_COLOR_OPTIONS.map((option) => {
+                  const selected = draft.colorKey === option.key;
+                  return (
                   <Pressable
                     key={option.key}
-                    style={[styles.colorBtn, draft.colorKey === option.key ? styles.colorBtnActive : null]}
+                    style={[styles.colorBtn, selected ? styles.colorBtnActive : null]}
                     onPress={() => setDraft((prev) => ({ ...prev, colorKey: option.key }))}>
-                    <Text style={[styles.colorText, draft.colorKey === option.key ? styles.colorTextActive : null]}>
+                    <View style={[styles.colorSwatch, { backgroundColor: option.sample }]} />
+                    <Text style={[styles.colorText, selected ? styles.colorTextActive : null]}>
                       {option.label}
                     </Text>
                   </Pressable>
-                ))}
+                );
+                })}
               </View>
               <View style={styles.actions}>
                 {editing ? (
@@ -250,9 +253,16 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       marginBottom: 8,
     },
     rowIcon: {
-      fontSize: 24,
-      width: 34,
-      textAlign: 'center',
+      fontSize: 20,
+    },
+    colorDot: {
+      width: 38,
+      height: 38,
+      borderRadius: 11,
+      borderWidth: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
     },
     rowInfo: {
       flex: 1,
@@ -299,6 +309,11 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       color: alarmTheme.text,
       fontSize: alarmTypography.body,
       fontWeight: '800',
+      marginBottom: 8,
+    },
+    formHint: {
+      color: alarmTheme.muted,
+      fontSize: alarmTypography.micro,
       marginBottom: 12,
     },
     inputRow: {
@@ -329,12 +344,20 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       marginTop: 12,
     },
     colorBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: alarmTheme.border,
       backgroundColor: alarmTheme.surface2,
+    },
+    colorSwatch: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
     },
     colorBtnActive: {
       borderColor: alarmTheme.accent,

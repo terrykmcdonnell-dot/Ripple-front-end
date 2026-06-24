@@ -111,6 +111,30 @@ export function findCustomCategory(categories: AlarmCategory[]): AlarmCategory {
   return findCategoryByName(categories, 'Custom') ?? findDefaultCategory(categories);
 }
 
+export function resolveCategoryMeta(
+  categories: AlarmCategory[],
+  opts: {
+    categoryId?: number | null;
+    categoryName?: string | null;
+    categoryIcon?: string | null;
+    categoryColorKey?: string | null;
+  },
+): AlarmCategory {
+  const byId = opts.categoryId != null ? categories.find((item) => item.id === opts.categoryId) : null;
+  if (byId) {
+    return byId;
+  }
+  const byName = findCategoryByName(categories, opts.categoryName);
+  if (byName) {
+    return byName;
+  }
+  return {
+    ...findDefaultCategory(categories),
+    icon: opts.categoryIcon?.trim() || findDefaultCategory(categories).icon,
+    colorKey: coerceColorKey(opts.categoryColorKey),
+  };
+}
+
 export async function fetchAlarmCategories(userId: number): Promise<AlarmCategory[]> {
   const qs = new URLSearchParams({ user_id: String(userId) });
   const body = await rippleApiGetJson(`${rippleApiBaseUrl()}/api/categories/?${qs.toString()}`);

@@ -458,6 +458,7 @@ export default function AlarmEditScreen() {
                     withIcon={item.icon}
                     rounded
                     active={categoryId === item.id}
+                    activeColorKey={item.colorKey}
                     onPress={() => setCategoryId(item.id)}
                   />
                 ))}

@@ -1,10 +1,10 @@
-import { createCategoryIcons } from '@/assets/icons/alarm-create-icons';
-import { categoryIdToChipKey, formatScheduledLocalParts, type CategoryChipKey } from '@/lib/alarm-format';
 import type { AlarmHistoryApiRow } from '@/lib/alarm-history-api';
+import type { AlarmCategory } from '@/lib/alarm-categories';
+import { resolveCategoryMeta } from '@/lib/alarm-categories';
+import { formatScheduledLocalParts } from '@/lib/alarm-format';
 
 export type HistoryRowUi = {
   id: number;
-  categoryKey: CategoryChipKey;
   icon: string;
   name: string;
   timeText: string;
@@ -81,19 +81,22 @@ function formatHistoryTimeLine(row: AlarmHistoryApiRow): string {
   return `${fireLabel} - dismissed at ${actionPart}`;
 }
 
-export function mapAlarmHistoryRow(row: AlarmHistoryApiRow): HistoryRowUi {
-  const categoryKey = categoryIdToChipKey(row.category);
+export function mapAlarmHistoryRow(row: AlarmHistoryApiRow, categories: AlarmCategory[]): HistoryRowUi {
+  const meta = resolveCategoryMeta(categories, { categoryName: row.category });
   return {
     id: row.id,
-    categoryKey,
-    icon: createCategoryIcons[categoryKey],
+    icon: meta.icon,
     name: row.label.trim() || 'Alarm',
     timeText: formatHistoryTimeLine(row),
     status: row.status,
   };
 }
 
-export function buildHistoryGroups(rows: AlarmHistoryApiRow[], referenceNow: Date): HistoryGroupUi[] {
+export function buildHistoryGroups(
+  rows: AlarmHistoryApiRow[],
+  referenceNow: Date,
+  categories: AlarmCategory[],
+): HistoryGroupUi[] {
   const sorted = [...rows].sort(
     (a, b) => new Date(b.scheduled_fire_at).getTime() - new Date(a.scheduled_fire_at).getTime(),
   );
@@ -110,7 +113,7 @@ export function buildHistoryGroups(rows: AlarmHistoryApiRow[], referenceNow: Dat
   const keys = [...map.keys()].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
   return keys.map((key) => ({
     day: groupDayHeading(key, referenceNow),
-    items: (map.get(key) ?? []).map(mapAlarmHistoryRow),
+    items: (map.get(key) ?? []).map((row) => mapAlarmHistoryRow(row, categories)),
   }));
 }
 

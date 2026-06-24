@@ -19,7 +19,7 @@ import {
 } from '@/lib/settings-preferences';
 
 /** Stripe / chip coloring on alarm rows */
-export type AlarmTone = 'purple' | 'green' | 'amber' | 'off';
+export type AlarmTone = 'purple' | 'green' | 'amber' | 'blue' | 'red' | 'off';
 
 export type AlarmThemePalette = {
   bg: string;
@@ -38,6 +38,7 @@ export type AlarmThemePalette = {
   greenDim: string;
   amber: string;
   amberDim: string;
+  blue: string;
   blueDim: string;
   red: string;
   redDim: string;
@@ -60,6 +61,7 @@ const dark: AlarmThemePalette = {
   greenDim: 'rgba(52, 211, 153, 0.18)',
   amber: '#fbbf24',
   amberDim: 'rgba(251, 191, 36, 0.18)',
+  blue: '#60a5fa',
   blueDim: 'rgba(96, 165, 250, 0.18)',
   red: '#f87171',
   redDim: 'rgba(248, 113, 113, 0.18)',
@@ -83,6 +85,7 @@ const light: AlarmThemePalette = {
   greenDim: 'rgba(4, 120, 87, 0.12)',
   amber: '#b45309',
   amberDim: 'rgba(180, 83, 9, 0.12)',
+  blue: '#1d4ed8',
   blueDim: 'rgba(29, 78, 216, 0.10)',
   red: '#b91c1c',
   redDim: 'rgba(185, 28, 28, 0.12)',

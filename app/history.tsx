@@ -183,7 +183,7 @@ export default function HistoryScreen() {
       activeTab === FILTER_ALL
         ? rows
         : rows.filter((r) => String(findCategoryByName(categories, r.category)?.id ?? '') === activeTab);
-    return buildHistoryGroups(filtered, referenceNow);
+    return buildHistoryGroups(filtered, referenceNow, categories);
   }, [activeTab, categories, rows]);
 
   const compliance = useMemo(() => monthlyComplianceFromHistory(rows), [rows]);

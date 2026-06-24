@@ -32,6 +32,14 @@ function createToneStyles(t: AlarmThemePalette): Record<AlarmTone, { stripe: str
       stripe: t.amber,
       iconBg: t.amberDim,
     },
+    blue: {
+      stripe: t.blue,
+      iconBg: t.blueDim,
+    },
+    red: {
+      stripe: t.red,
+      iconBg: t.redDim,
+    },
     off: {
       stripe: t.border,
       iconBg: t.surface2,
