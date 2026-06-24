@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
+import { AppState, StyleSheet, Text, View } from 'react-native';
 
 import { ringIcons } from '@/assets/icons/alarm-ring-icons';
 import { RingActionButton } from '@/components/alarm-ring/RingActionButton';
@@ -137,38 +137,18 @@ export default function AlarmRingScreen() {
     return () => clearTimeout(timeout);
   }, [liveParsed, router]);
 
-  // AppState sound management:
-  // - On 'active': (re)start the alarm sound if it died during a transition.
-  // - Android only — on 'background': stop after a 4 s grace period so a transient
-  //   FSI launch (background → active) does not leave audio playing forever.
-  // - iOS: keep ringing in background/lock screen (UIBackgroundModes: audio +
-  //   staysActiveInBackground) until dismiss/snooze or the 5-minute auto-stop.
+  // AppState sound management: restart on active in case a full-screen /
+  // lock-screen transition interrupted playback. Do not stop on background;
+  // dismiss, snooze, unmount, and the 5-minute timeout are the only stops.
   useEffect(() => {
-    let backgroundTimer: ReturnType<typeof setTimeout> | null = null;
-
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        if (backgroundTimer !== null) {
-          clearTimeout(backgroundTimer);
-          backgroundTimer = null;
-        }
         void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId);
-        return;
-      }
-
-      if (Platform.OS === 'android' && nextState === 'background') {
-        backgroundTimer = setTimeout(() => {
-          backgroundTimer = null;
-          void stopRingAlarmSound();
-        }, 4000);
       }
     });
 
     return () => {
       sub.remove();
-      if (backgroundTimer !== null) {
-        clearTimeout(backgroundTimer);
-      }
     };
   }, [soundIdParam, liveParsed?.soundId]);
 

@@ -116,14 +116,6 @@ function withAndroidAlarmActivity(config) {
     if (!isAlarmNotificationLaunch(intent)) {
       return
     }
-    // Tell AlarmSoundService to stop — the ring screen's expo-av takes over audio.
-    try {
-      val stopSvc = android.content.Intent().apply {
-        setClassName(packageName, packageName + ".AlarmSoundService")
-        action = packageName + ".STOP_ALARM_SOUND"
-      }
-      startService(stopSvc)
-    } catch (_: Exception) {}
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       // Show the activity over the lock screen without dismissing it.
       // requestDismissKeyguard is intentionally omitted — it triggers the

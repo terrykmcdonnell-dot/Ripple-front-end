@@ -1,10 +1,9 @@
 import { Audio, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
-import { resolveAlarmSoundForUser } from '@/lib/alarm-sound-access';
+import { stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { coerceAlarmSoundId, loadDefaultAlarmSoundId, loadDefaultVolumePercent } from '@/lib/settings-preferences';
-import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
 
 /** Bundled WAVs (same files as `app.json` → expo-notifications `sounds`). */
 const ALARM_SOUND_SOURCES: Record<AlarmSoundId, number> = {
@@ -58,6 +57,7 @@ export async function stopRingAlarmSound(): Promise<void> {
   _soundGen++;
 
   clearAutoStopTimer();
+  stopNativeAlarmSound();
 
   // Capture and clear the ref before awaiting so a concurrent start() cannot
   // accidentally see and re-use a sound we are in the middle of stopping.
@@ -98,43 +98,39 @@ export async function stopRingAlarmSound(): Promise<void> {
  * - `staysActiveInBackground: true` — audio continues while app is backgrounded
  *   (needed for lock-screen ring). Auto-stop prevents infinite background play.
  */
-export async function startRingAlarmSound(rawId?: string | null): Promise<void> {
+export async function startRingAlarmSound(rawId?: string | null): Promise<boolean> {
   if (Platform.OS === 'web') {
-    return;
+    return false;
   }
 
   // Capture our generation. Every await below re-checks it. If stopRingAlarmSound()
   // is called while we are loading, it increments _soundGen and we abort.
   const myGen = ++_soundGen;
 
+  // Alarm playback must not wait on network/subscription checks; scheduled
+  // payloads are resolved up front, and the priority here is immediate sound.
   const coerced = rawId ? coerceAlarmSoundId(rawId) : await loadDefaultAlarmSoundId();
   if (myGen !== _soundGen) {
-    return;
+    return false;
   }
-
-  const isSubscriber = await fetchIsSubscriberFresh();
-  if (myGen !== _soundGen) {
-    return;
-  }
-  const id = resolveAlarmSoundForUser(coerced, isSubscriber);
 
   const volumePercent = await loadDefaultVolumePercent();
   if (myGen !== _soundGen) {
-    return;
+    return false;
   }
   const volume = Math.max(0, Math.min(1, volumePercent / 100));
 
-  const source = ALARM_SOUND_SOURCES[id];
+  const source = ALARM_SOUND_SOURCES[coerced];
   if (source == null) {
-    return;
+    return false;
   }
 
   // Already playing the same sound — refresh auto-stop timer and apply latest volume.
-  if (activeRingSound && activeRingSoundId === id) {
+  if (activeRingSound && activeRingSoundId === coerced) {
     try {
       const status = await activeRingSound.getStatusAsync();
       if (myGen !== _soundGen) {
-        return; // stop() called between the getStatus await and here → abort
+        return false; // stop() called between the getStatus await and here → abort
       }
       if (status.isLoaded && status.isPlaying) {
         try {
@@ -144,10 +140,11 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
         }
         clearAutoStopTimer();
         autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
-        return;
+        stopNativeAlarmSound();
+        return true;
       }
     } catch {
-      if (myGen !== _soundGen) return;
+      if (myGen !== _soundGen) return false;
       /* fall through to reload below */
     }
   }
@@ -171,7 +168,7 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
     }
   }
   if (myGen !== _soundGen) {
-    return; // stop() was called while we were unloading the previous sound → abort
+    return false; // stop() was called while we were unloading the previous sound → abort
   }
 
   try {
@@ -188,7 +185,7 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
   }
 
   if (myGen !== _soundGen) {
-    return; // stop() called while we were configuring the audio session → abort
+    return false; // stop() called while we were configuring the audio session → abort
   }
 
   try {
@@ -211,14 +208,16 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
       } catch {
         /* ignore */
       }
-      return;
+      return false;
     }
 
     activeRingSound = sound;
-    activeRingSoundId = id;
+    activeRingSoundId = coerced;
 
     // Hard stop after 5 minutes regardless of user interaction.
     autoStopTimer = setTimeout(() => void stopRingAlarmSound(), MAX_RING_DURATION_MS);
+    stopNativeAlarmSound();
+    return true;
   } catch {
     // createAsync failed — release audio session if we are still the active load.
     if (myGen === _soundGen) {
@@ -232,5 +231,6 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
         /* ignore */
       }
     }
+    return false;
   }
 }

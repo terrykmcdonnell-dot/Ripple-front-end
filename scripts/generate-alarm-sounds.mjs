@@ -121,31 +121,54 @@ function encodeWav(samples) {
   return buf;
 }
 
-/** Soft piano-ish note: many decaying partials + fast attack (not a pure sine). */
+/**
+ * Soft piano: low register, few partials, high harmonics decay faster than the
+ * fundamental (real piano strings lose brightness quickly — unlike a xylophone).
+ */
 function softPiano() {
   const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
   const samples = new Int16Array(n);
-  const fundamental = 261.63; // C4
-  const harmonics = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  const weights = [1, 0.52, 0.34, 0.24, 0.17, 0.12, 0.09, 0.065, 0.05, 0.04, 0.032, 0.025];
-  const attack = Math.floor(SAMPLE_RATE * 0.004);
-  const decayTau = SAMPLE_RATE * 0.95;
   const dt = 1 / SAMPLE_RATE;
+  const attack = Math.floor(SAMPLE_RATE * 0.003);
+  const baseDecayTau = SAMPLE_RATE * 1.35;
+
+  // Warm low partials only — strong rolloff above the 4th harmonic.
+  const partials = [
+    { ratio: 1, weight: 1, decayMult: 1 },
+    { ratio: 2, weight: 0.38, decayMult: 1.6 },
+    { ratio: 3, weight: 0.14, decayMult: 2.4 },
+    { ratio: 4, weight: 0.05, decayMult: 3.5 },
+  ];
+
+  // Gentle two-note figure in a low register (G3 → B3).
+  const notes = [
+    { start: 0, freq: 196 }, // G3
+    { start: Math.floor(SAMPLE_RATE * 0.72), freq: 246.94 }, // B3
+  ];
 
   for (let i = 0; i < n; i++) {
-    const t = i * dt;
-    const attackEnv = i < attack ? i / attack : 1;
-    const decayEnv = Math.exp(-i / decayTau);
-    const env = attackEnv * decayEnv;
+    let v = 0;
+    for (const note of notes) {
+      const rel = i - note.start;
+      if (rel < 0) {
+        continue;
+      }
+      const t = rel * dt;
+      const attackEnv = rel < attack ? rel / attack : 1;
+      const noteSustain = Math.exp(-rel / (SAMPLE_RATE * 2.1));
 
-    let sum = 0;
-    for (let h = 0; h < harmonics.length; h++) {
-      const k = harmonics[h];
-      const inharm = 1 + 0.00012 * k * k;
-      const f = fundamental * k * inharm;
-      sum += weights[h] * Math.sin(2 * Math.PI * f * t);
+      let sum = 0;
+      for (const p of partials) {
+        const inharm = 1 + 0.00006 * p.ratio * p.ratio;
+        const f = note.freq * p.ratio * inharm;
+        const partialDecay = Math.exp(-rel / (baseDecayTau / p.decayMult));
+        // Brief hammer brightness on upper partials only — fades in ~40 ms.
+        const hammer =
+          p.ratio >= 2 ? 1 + 0.55 * Math.exp(-rel / (SAMPLE_RATE * 0.035)) : 1;
+        sum += p.weight * hammer * partialDecay * Math.sin(2 * Math.PI * f * t);
+      }
+      v += 0.17 * attackEnv * noteSustain * sum;
     }
-    const v = 0.2 * env * sum;
     samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
   }
   return samples;

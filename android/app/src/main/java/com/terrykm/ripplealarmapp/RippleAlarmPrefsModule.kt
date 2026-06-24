@@ -4,6 +4,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import android.content.Intent
 
 class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -41,5 +42,16 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
       alarmId,
       fireAtMs.toLong(),
     )
+  }
+
+  @ReactMethod
+  fun stopAlarmSound() {
+    try {
+      val stop = Intent().apply {
+        setClassName(reactApplicationContext.packageName, reactApplicationContext.packageName + ".AlarmSoundService")
+        action = RippleAlarmNative.ACTION_STOP
+      }
+      reactApplicationContext.startService(stop)
+    } catch (_: Exception) {}
   }
 }

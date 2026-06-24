@@ -6,6 +6,7 @@ type RippleAlarmPrefsModule = {
   consumePendingActionsAsync?: () => Promise<string>;
   getDeliveredMapAsync?: () => Promise<string>;
   setAlarmFireDelivered?: (alarmId: number, fireAtMs: number) => void;
+  stopAlarmSound?: () => void;
 };
 
 export function syncDefaultSnoozeMinutesToNative(minutes: number): void {
@@ -63,6 +64,18 @@ export function syncNativeAlarmFireDelivered(alarmId: number, fireAtMs: number):
   try {
     const mod = requireOptionalNativeModule<RippleAlarmPrefsModule>('RippleAlarmPrefs');
     mod?.setAlarmFireDelivered?.(alarmId, fireAtMs);
+  } catch {
+    /* native module unavailable */
+  }
+}
+
+export function stopNativeAlarmSound(): void {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  try {
+    const mod = requireOptionalNativeModule<RippleAlarmPrefsModule>('RippleAlarmPrefs');
+    mod?.stopAlarmSound?.();
   } catch {
     /* native module unavailable */
   }
