@@ -27,6 +27,7 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import { AppModal } from '@/components/ui/AppModal';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
 import { parseAlarmDate, toAlarmIsoString } from '@/lib/alarm-date';
 import { coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
@@ -49,6 +50,10 @@ import {
   DEFAULT_ALARM_SOUND_OPTIONS,
   labelForAlarmSoundId,
 } from '@/lib/settings-preferences';
+import {
+  isAlarmSoundLocked,
+  resolveAlarmSoundForUser,
+} from '@/lib/alarm-sound-access';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 
@@ -86,6 +91,7 @@ export default function AlarmEditScreen() {
 
   const palette = useAlarmTheme();
   const { showToast } = useAppToast();
+  const { isSubscriber, limitsApply } = useSubscriptionStatus();
   const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createAlarmEditStyles(palette), [palette]);
 
@@ -108,11 +114,11 @@ export default function AlarmEditScreen() {
         ? payload.categoryRef
         : findCategoryByName(categories, payload.categoryName ?? String(payload.categoryRef))?.id;
       setCategoryId(id ?? findDefaultCategory(categories).id);
-      setSelectedSoundId(coerceAlarmSoundId(payload.sound));
+      setSelectedSoundId(resolveAlarmSoundForUser(coerceAlarmSoundId(payload.sound), isSubscriber));
       setAlarmEnabled(typeof payload.isEnabled === 'boolean' ? payload.isEnabled : true);
       setError(null);
     },
-    [categories],
+    [categories, isSubscriber],
   );
 
   const skipScheduleFromForm = useMemo(
@@ -169,7 +175,7 @@ export default function AlarmEditScreen() {
         unit,
         category: selectedCategory.name,
         category_id: selectedCategory.id,
-        sound: selectedSoundLabel,
+        sound: labelForAlarmSoundId(resolveAlarmSoundForUser(selectedSoundId, isSubscriber)),
         is_enabled: alarmEnabled,
       });
       router.replace('/alarm');
@@ -191,7 +197,8 @@ export default function AlarmEditScreen() {
     interval,
     isSkipping,
     label,
-    selectedSoundLabel,
+    selectedSoundId,
+    isSubscriber,
     router,
     unit,
   ]);
@@ -497,6 +504,12 @@ export default function AlarmEditScreen() {
         selectedId={selectedSoundId}
         sheetTitle="Alarm sound"
         sheetHint="Preview plays when this opens and when you tap a sound. Tap OK to use it for this alarm."
+        isSubscriber={isSubscriber}
+        isSoundLocked={(id) => isAlarmSoundLocked(id as AlarmSoundId, limitsApply)}
+        onLockedSoundPress={() => {
+          showToast('Premium alarm sounds are included with Ripple Pro.');
+          router.push('/paywall');
+        }}
         onSelectSoundId={(id) => setSelectedSoundId(id as AlarmSoundId)}
       />
       <AppModal

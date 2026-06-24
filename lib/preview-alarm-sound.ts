@@ -1,8 +1,10 @@
 import { Audio, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
+import { resolveAlarmSoundForUser } from '@/lib/alarm-sound-access';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { coerceAlarmSoundId, loadDefaultAlarmSoundId, loadDefaultVolumePercent } from '@/lib/settings-preferences';
+import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
 import { applyAlarmVolumePreferenceToDevice } from '@/lib/alarm-system-volume';
 
 /** Bundled WAVs (same files as `app.json` → expo-notifications `sounds`). */
@@ -50,12 +52,18 @@ export async function stopAlarmSoundPreview(): Promise<void> {
  * Plays a short preview of the bundled alarm sound (native only).
  * Safe to call repeatedly; stops any in-flight preview first.
  */
-export async function previewAlarmSoundId(rawId: string, volumePercent = 100): Promise<void> {
+export async function previewAlarmSoundId(
+  rawId: string,
+  volumePercent = 100,
+  isSubscriber?: boolean,
+): Promise<void> {
   if (Platform.OS === 'web') {
     return;
   }
 
-  const id = coerceAlarmSoundId(rawId);
+  const coerced = coerceAlarmSoundId(rawId);
+  const subscriber = isSubscriber ?? (await fetchIsSubscriberFresh());
+  const id = resolveAlarmSoundForUser(coerced, subscriber);
   const source = ALARM_SOUND_SOURCES[id];
   if (source == null) {
     return;
@@ -98,7 +106,7 @@ export async function previewDefaultAlarmSoundAtVolume(volumePercent: number): P
     applied = await applyAlarmVolumePreferenceToDevice(volumePercent);
   }
   const id = await loadDefaultAlarmSoundId();
-  await previewAlarmSoundId(id, volumePercent);
+  await previewAlarmSoundId(id, volumePercent, await fetchIsSubscriberFresh());
   return applied;
 }
 

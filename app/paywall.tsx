@@ -43,6 +43,7 @@ const PRO_PLAN_FEATURES = [
   'Unlimited alarms — no cap, ever',
   'Template gallery — install ready-made alarm packs',
   'Premium themes',
+  'Premium alarm sounds',
 ] as const;
 
 function createStyles(alarmTheme: AlarmThemePalette) {

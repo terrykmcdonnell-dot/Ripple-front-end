@@ -18,6 +18,7 @@ import {
   ALARM_FIRE_DATA_TYPE,
 } from '@/lib/alarm-notification-constants';
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
+import { resolveAlarmSoundForUser } from '@/lib/alarm-sound-access';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import {
   coerceAlarmSoundId,
@@ -26,6 +27,7 @@ import {
   loadDefaultVibrationEnabled,
   loadNotificationsMasterEnabled,
 } from '@/lib/settings-preferences';
+import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
 import {
   alignAlarmNotificationTriggerDate,
   MIN_ALARM_SCHEDULE_LEAD_MS,
@@ -269,7 +271,8 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
     return;
   }
 
-  const defaultSoundId = await loadDefaultAlarmSoundId();
+  const isSubscriber = await fetchIsSubscriberFresh();
+  const defaultSoundId = resolveAlarmSoundForUser(await loadDefaultAlarmSoundId(), isSubscriber);
   const vibrationEnabled = await loadDefaultVibrationEnabled();
 
   const now = new Date();
@@ -290,7 +293,8 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
   let earliestGraceExpiresAt: number | null = null;
 
   for (const alarm of rows.filter((a) => a.isEnabled)) {
-    const soundId = coerceAlarmSoundId(alarm.sound) ?? defaultSoundId;
+    const rawSoundId = coerceAlarmSoundId(alarm.sound) ?? defaultSoundId;
+    const soundId = resolveAlarmSoundForUser(rawSoundId, isSubscriber);
 
     // Use syncFrom (= now − grace) so a slightly-late sync still resolves
     // the current occurrence instead of jumping straight to the next repeat.

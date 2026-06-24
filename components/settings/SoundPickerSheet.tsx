@@ -20,6 +20,11 @@ type SoundPickerSheetProps = {
   sheetHint?: string;
   /** When set, sound previews use this level instead of loading from storage. */
   previewVolumePercent?: number;
+  /** Pro-only sounds — row shows lock label and triggers {@link onLockedSoundPress}. */
+  isSoundLocked?: (id: string) => boolean;
+  onLockedSoundPress?: () => void;
+  /** Passed to preview playback so free users hear the resolved fallback, not locked sounds. */
+  isSubscriber?: boolean;
 };
 
 export function SoundPickerSheet({
@@ -31,6 +36,9 @@ export function SoundPickerSheet({
   sheetTitle = 'Default Sound',
   sheetHint = 'Sounds preview when you open this sheet and when you tap a row. Tap OK to apply.',
   previewVolumePercent,
+  isSoundLocked,
+  onLockedSoundPress,
+  isSubscriber = true,
 }: SoundPickerSheetProps) {
   const palette = useAlarmTheme();
   const styles = useMemo(() => createSoundPickerStyles(palette), [palette]);
@@ -48,9 +56,9 @@ export function SoundPickerSheet({
     setPendingId(selectedId);
     void (async () => {
       const volume = await resolveAlarmPreviewVolumePercent(previewVolumePercent);
-      await previewAlarmSoundId(selectedId, volume);
+      await previewAlarmSoundId(selectedId, volume, isSubscriber);
     })();
-  }, [visible, selectedId, previewVolumePercent]);
+  }, [visible, selectedId, previewVolumePercent, isSubscriber]);
 
   const dismiss = () => {
     void stopAlarmSoundPreview();
@@ -58,13 +66,21 @@ export function SoundPickerSheet({
   };
 
   const onRowPress = async (id: string) => {
+    if (isSoundLocked?.(id)) {
+      onLockedSoundPress?.();
+      return;
+    }
     void Haptics.selectionAsync();
     setPendingId(id);
     const volume = await resolveAlarmPreviewVolumePercent(previewVolumePercent);
-    await previewAlarmSoundId(id, volume);
+    await previewAlarmSoundId(id, volume, isSubscriber);
   };
 
   const onConfirm = () => {
+    if (isSoundLocked?.(pendingId)) {
+      onLockedSoundPress?.();
+      return;
+    }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     void stopAlarmSoundPreview();
     if (pendingId !== committedOnOpenRef.current) {
@@ -88,16 +104,25 @@ export function SoundPickerSheet({
           <View style={styles.optionList}>
             {options.map((opt, index) => {
               const active = opt.id === pendingId;
+              const locked = isSoundLocked?.(opt.id) ?? false;
               const noBorder = index === options.length - 1;
               return (
                 <Pressable
                   key={opt.id}
-                  style={[styles.optionRow, noBorder ? styles.optionRowLast : null]}
+                  style={[styles.optionRow, noBorder ? styles.optionRowLast : null, locked ? styles.optionRowLocked : null]}
                   onPress={() => void onRowPress(opt.id)}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: active }}>
-                  <Text style={[styles.optionLabel, active ? styles.optionLabelActive : null]}>{opt.label}</Text>
-                  {active ? <Text style={styles.check}>✓</Text> : null}
+                  accessibilityState={{ selected: active, disabled: locked }}>
+                  <Text
+                    style={[
+                      styles.optionLabel,
+                      active ? styles.optionLabelActive : null,
+                      locked ? styles.optionLabelLocked : null,
+                    ]}>
+                    {locked ? `${opt.label} · Pro` : opt.label}
+                  </Text>
+                  {active && !locked ? <Text style={styles.check}>✓</Text> : null}
+                  {locked ? <Text style={styles.lock}>🔒</Text> : null}
                 </Pressable>
               );
             })}
@@ -177,10 +202,19 @@ function createSoundPickerStyles(t: AlarmThemePalette) {
     optionLabelActive: {
       color: t.accentBright,
     },
+    optionLabelLocked: {
+      color: t.muted,
+    },
+    optionRowLocked: {
+      opacity: 0.72,
+    },
     check: {
       color: t.accentBright,
       fontSize: alarmTypography.bodyLarge,
       fontWeight: '700',
+    },
+    lock: {
+      fontSize: alarmTypography.caption,
     },
     okBtn: {
       alignItems: 'center',

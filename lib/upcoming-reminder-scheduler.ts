@@ -17,6 +17,7 @@ import { fetchAlarms } from '@/lib/alarm-api';
 import type { AlarmListItem } from '@/lib/alarm-format';
 import { coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
+import { resolveAlarmSoundForUser } from '@/lib/alarm-sound-access';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import {
   formatUpcomingReminderLeadLabel,
@@ -27,6 +28,7 @@ import {
   loadUpcomingReminderLeadMinutes,
 } from '@/lib/settings-preferences';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
 import {
   alignAlarmNotificationTriggerDate,
   MIN_ALARM_SCHEDULE_LEAD_MS,
@@ -194,7 +196,9 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
 
   const leadMinutes = await loadUpcomingReminderLeadMinutes();
   const leadMs = leadMinutes * 60 * 1000;
-  const soundId = await loadDefaultAlarmSoundId();
+  const rawSoundId = await loadDefaultAlarmSoundId();
+  const isSubscriber = await fetchIsSubscriberFresh();
+  const soundId = resolveAlarmSoundForUser(rawSoundId, isSubscriber);
   const vibrationEnabled = await loadDefaultVibrationEnabled();
   const soundFile = bundledNotificationSoundFilename(soundId);
 

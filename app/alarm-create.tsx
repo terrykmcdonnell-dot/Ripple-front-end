@@ -13,6 +13,7 @@ import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { fetchAlarms, createAlarm } from '@/lib/alarm-api';
 import { toAlarmIsoString } from '@/lib/alarm-date';
 import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
@@ -28,6 +29,10 @@ import {
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
 import { canAddAlarmFresh, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
+import {
+  isAlarmSoundLocked,
+  resolveAlarmSoundForUser,
+} from '@/lib/alarm-sound-access';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import { findDefaultCategory, useAlarmCategories } from '@/lib/alarm-categories';
@@ -37,6 +42,7 @@ const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 export default function AlarmCreateScreen() {
   useRequireAuth();
   const router = useRouter();
+  const { isSubscriber, limitsApply } = useSubscriptionStatus();
   const [alarmTime, setAlarmTime] = useState(getSmartDefaultAlarmTime);
   const [label, setLabel] = useState('');
   const [interval, setInterval] = useState(3);
@@ -56,13 +62,23 @@ export default function AlarmCreateScreen() {
     let cancelled = false;
     void loadDefaultAlarmSoundId().then((id) => {
       if (!cancelled) {
-        setSelectedSoundId(id);
+        setSelectedSoundId(resolveAlarmSoundForUser(id, isSubscriber));
       }
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isSubscriber]);
+
+  const onLockedAlarmSoundPress = () => {
+    notifyAuthMessage(
+      'Ripple Pro',
+      'Premium alarm sounds are included with Ripple Pro.',
+    );
+    router.push('/paywall');
+  };
+
+  const isSoundLocked = (id: string) => isAlarmSoundLocked(id as AlarmSoundId, limitsApply);
 
   useEffect(() => {
     if (!categories.some((item) => item.id === categoryId)) {
@@ -110,6 +126,8 @@ export default function AlarmCreateScreen() {
         return;
       }
 
+      const resolvedSoundId = resolveAlarmSoundForUser(selectedSoundId, isSubscriber);
+
       await createAlarm({
         user_id: userId,
         label: labelValue,
@@ -118,7 +136,7 @@ export default function AlarmCreateScreen() {
         unit,
         category: selectedCategory.name,
         category_id: selectedCategory.id,
-        sound: selectedSoundLabel,
+        sound: labelForAlarmSoundId(resolvedSoundId),
       });
 
       router.replace('/alarm');
@@ -244,6 +262,9 @@ export default function AlarmCreateScreen() {
         selectedId={selectedSoundId}
         sheetTitle="Alarm sound"
         sheetHint="Preview plays when this opens and when you tap a sound. Tap OK to use it for this alarm."
+        isSubscriber={isSubscriber}
+        isSoundLocked={isSoundLocked}
+        onLockedSoundPress={onLockedAlarmSoundPress}
         onSelectSoundId={(id) => setSelectedSoundId(id as AlarmSoundId)}
       />
       <FullScreenLoadingOverlay visible={isSaving} />

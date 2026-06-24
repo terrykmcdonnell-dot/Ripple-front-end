@@ -162,6 +162,31 @@ export async function fetchAlarmLimitApplies(): Promise<boolean> {
   }
 }
 
+/** Fresh read before creating an alarm (avoids stale hook state). */
+export async function fetchIsSubscriberFresh(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return true;
+  }
+  if (!getRevenueCatApiKey()) {
+    return true;
+  }
+  configureRevenueCat();
+  try {
+    const [info, dbRow] = await Promise.all([
+      Purchases.getCustomerInfo(),
+      fetchUserRcSubscriptionFromDb(),
+    ]);
+    return isActiveSubscriber(info) || dbIndicatesActivePro(dbRow);
+  } catch {
+    try {
+      const dbRow = await fetchUserRcSubscriptionFromDb();
+      return dbIndicatesActivePro(dbRow);
+    } catch {
+      return false;
+    }
+  }
+}
+
 export async function canAddAlarmFresh(alarmCount: number): Promise<boolean> {
   if (!(await fetchAlarmLimitApplies())) {
     return true;

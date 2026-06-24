@@ -78,6 +78,12 @@ import { invalidateCurrentUserRowIdCache } from '@/lib/users-table';
 import { invalidateAlarmHistoryCache } from '@/lib/alarm-history-cache';
 import { closeAccount } from '@/lib/close-account-api';
 import { clearLocalAccountData } from '@/lib/clear-local-account-data';
+import {
+  canUseAlarmSound,
+  FREE_DEFAULT_ALARM_SOUND_ID,
+  isAlarmSoundLocked,
+  isProAlarmSound,
+} from '@/lib/alarm-sound-access';
 
 export default function SettingScreen() {
   useRequireAuth();
@@ -227,6 +233,11 @@ export default function SettingScreen() {
 
   const applyDefaultSound = useCallback(
     async (id: AlarmSoundId) => {
+      if (!canUseAlarmSound(id, isSubscriber)) {
+        showToast('Premium alarm sounds are included with Ripple Pro.');
+        router.push('/paywall');
+        return;
+      }
       setDefaultSoundId(id);
       await saveDefaultAlarmSoundId(id);
       await syncUpcomingReminderNotifications();
@@ -236,7 +247,32 @@ export default function SettingScreen() {
       }
       showToast('Default sound updated');
     },
-    [reportPatch, showToast],
+    [isSubscriber, reportPatch, router, showToast],
+  );
+
+  useEffect(() => {
+    if (subLoading || !limitsApply || !isProAlarmSound(defaultSoundId)) {
+      return;
+    }
+    void (async () => {
+      setDefaultSoundId(FREE_DEFAULT_ALARM_SOUND_ID);
+      await saveDefaultAlarmSoundId(FREE_DEFAULT_ALARM_SOUND_ID);
+      await syncUpcomingReminderNotifications();
+      await syncAlarmFireNotifications();
+      if (await notificationPrefsEligibleForDbSync()) {
+        await reportPatch({ defaultAlarmSound: FREE_DEFAULT_ALARM_SOUND_ID });
+      }
+    })();
+  }, [subLoading, limitsApply, defaultSoundId, reportPatch]);
+
+  const onLockedAlarmSoundPress = useCallback(() => {
+    showToast('Premium alarm sounds are included with Ripple Pro.');
+    router.push('/paywall');
+  }, [router, showToast]);
+
+  const isSoundLocked = useCallback(
+    (id: string) => isAlarmSoundLocked(id as AlarmSoundId, limitsApply),
+    [limitsApply],
   );
 
   const applyDefaultVolume = useCallback(
@@ -686,6 +722,9 @@ export default function SettingScreen() {
         selectedId={defaultSoundId}
         previewVolumePercent={defaultVolumePercent}
         sheetHint="Preview plays when this opens and when you tap a sound. Tap OK to save as your default."
+        isSubscriber={isSubscriber}
+        isSoundLocked={isSoundLocked}
+        onLockedSoundPress={onLockedAlarmSoundPress}
         onSelectSoundId={(id) => void applyDefaultSound(id as AlarmSoundId)}
       />
 

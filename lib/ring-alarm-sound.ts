@@ -1,8 +1,10 @@
 import { Audio, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
+import { resolveAlarmSoundForUser } from '@/lib/alarm-sound-access';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { coerceAlarmSoundId, loadDefaultAlarmSoundId, loadDefaultVolumePercent } from '@/lib/settings-preferences';
+import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
 
 /** Bundled WAVs (same files as `app.json` → expo-notifications `sounds`). */
 const ALARM_SOUND_SOURCES: Record<AlarmSoundId, number> = {
@@ -105,10 +107,16 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<void> 
   // is called while we are loading, it increments _soundGen and we abort.
   const myGen = ++_soundGen;
 
-  const id = rawId ? coerceAlarmSoundId(rawId) : await loadDefaultAlarmSoundId();
+  const coerced = rawId ? coerceAlarmSoundId(rawId) : await loadDefaultAlarmSoundId();
   if (myGen !== _soundGen) {
-    return; // stop() was called while we were reading AsyncStorage → abort
+    return;
   }
+
+  const isSubscriber = await fetchIsSubscriberFresh();
+  if (myGen !== _soundGen) {
+    return;
+  }
+  const id = resolveAlarmSoundForUser(coerced, isSubscriber);
 
   const volumePercent = await loadDefaultVolumePercent();
   if (myGen !== _soundGen) {

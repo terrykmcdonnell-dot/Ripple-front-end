@@ -15,6 +15,8 @@ import { ALARM_FIRE_CATEGORY_ID, ALARM_FIRE_DATA_TYPE } from '@/lib/alarm-notifi
 import { getIosAlarmInterruptionLevel } from '@/lib/ios-alarm-notification-options';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { loadDefaultAlarmSoundId, loadDefaultVibrationEnabled, loadNotificationsMasterEnabled } from '@/lib/settings-preferences';
+import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
+import { resolveAlarmSoundForUser } from '@/lib/alarm-sound-access';
 
 /**
  * Import only scheduler / permission modules — **not** the `expo-notifications` package root.
@@ -102,7 +104,9 @@ export async function scheduleSnoozeNotification(params: {
 
   const seconds = Math.max(1, Math.round(minutes * 60));
 
-  const soundId = await loadDefaultAlarmSoundId();
+  const rawSoundId = await loadDefaultAlarmSoundId();
+  const isSubscriber = await fetchIsSubscriberFresh();
+  const soundId = resolveAlarmSoundForUser(rawSoundId, isSubscriber);
   const soundFile = bundledNotificationSoundFilename(soundId);
   const vibrationEnabled = await loadDefaultVibrationEnabled();
 
