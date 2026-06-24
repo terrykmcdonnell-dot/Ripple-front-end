@@ -151,6 +151,140 @@ function softPiano() {
   return samples;
 }
 
+/** Ascending four-note chime (C5 → C6). */
+function sunriseChime() {
+  const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
+  const samples = new Int16Array(n);
+  const notes = [523.25, 659.25, 783.99, 1046.5];
+  const noteLen = Math.floor(SAMPLE_RATE * 0.35);
+  const gap = Math.floor(SAMPLE_RATE * 0.08);
+  const dt = 1 / SAMPLE_RATE;
+  for (let i = 0; i < n; i++) {
+    const cycle = noteLen + gap;
+    const pos = i % (cycle * notes.length);
+    const noteIdx = Math.floor(pos / cycle);
+    const notePos = pos % cycle;
+    let v = 0;
+    if (noteIdx < notes.length && notePos < noteLen) {
+      const t = notePos * dt;
+      const f = notes[noteIdx];
+      const env = Math.exp(-notePos / (SAMPLE_RATE * 0.55));
+      v = 0.32 * env * (0.7 * Math.sin(2 * Math.PI * f * t) + 0.3 * Math.sin(2 * Math.PI * f * 2.76 * t));
+    }
+    samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
+  }
+  return samples;
+}
+
+/** Bright single strike with long crystal decay, repeated once. */
+function crystalDing() {
+  const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
+  const samples = new Int16Array(n);
+  const strikes = [0, Math.floor(SAMPLE_RATE * 1.05)];
+  const freqs = [1318.5, 1567.98, 2093];
+  const dt = 1 / SAMPLE_RATE;
+  for (let i = 0; i < n; i++) {
+    let v = 0;
+    for (const start of strikes) {
+      const rel = i - start;
+      if (rel < 0) continue;
+      const t = rel * dt;
+      const env = Math.exp(-rel / (SAMPLE_RATE * 0.85));
+      let sum = 0;
+      for (const f of freqs) {
+        sum += Math.sin(2 * Math.PI * f * t);
+      }
+      v += 0.2 * env * (sum / freqs.length);
+    }
+    samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
+  }
+  return samples;
+}
+
+/** Soft surf-like noise with slow swell. */
+function oceanWaves() {
+  const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
+  const samples = new Int16Array(n);
+  let lp = 0;
+  const dt = 1 / SAMPLE_RATE;
+  for (let i = 0; i < n; i++) {
+    const t = i * dt;
+    const swell = 0.55 + 0.45 * Math.sin(2 * Math.PI * 0.35 * t);
+    const noise = Math.random() * 2 - 1;
+    lp += 0.04 * (noise - lp);
+    const v = 0.28 * swell * lp;
+    samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
+  }
+  return samples;
+}
+
+/** Detuned mid strings with slow vibrato. */
+function warmStrings() {
+  const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
+  const samples = new Int16Array(n);
+  const base = 220;
+  const detunes = [0, 0.003, -0.004, 0.006];
+  const attack = Math.floor(SAMPLE_RATE * 0.25);
+  const dt = 1 / SAMPLE_RATE;
+  for (let i = 0; i < n; i++) {
+    const t = i * dt;
+    const env = i < attack ? i / attack : 1;
+    const vib = 1 + 0.004 * Math.sin(2 * Math.PI * 4.5 * t);
+    let sum = 0;
+    for (const d of detunes) {
+      const f = base * (1 + d) * vib;
+      sum += Math.sin(2 * Math.PI * f * t) + 0.35 * Math.sin(2 * Math.PI * f * 2 * t);
+    }
+    const v = 0.14 * env * (sum / detunes.length);
+    samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
+  }
+  return samples;
+}
+
+/** Urgent low pulse — carrier with slow amplitude modulation. */
+function alertPulse() {
+  const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
+  const samples = new Int16Array(n);
+  const carrier = 440;
+  const pulseHz = 2.2;
+  const dt = 1 / SAMPLE_RATE;
+  for (let i = 0; i < n; i++) {
+    const t = i * dt;
+    const pulse = 0.35 + 0.65 * Math.max(0, Math.sin(2 * Math.PI * pulseHz * t));
+    const v = 0.38 * pulse * Math.sin(2 * Math.PI * carrier * t);
+    samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
+  }
+  return samples;
+}
+
+/** Singing-bowl tone: low fundamental with beating partials. */
+function zenBowl() {
+  const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
+  const samples = new Int16Array(n);
+  const fundamental = 146.83; // D3
+  const partials = [
+    [1, 1],
+    [2.01, 0.42],
+    [3.05, 0.22],
+    [4.12, 0.12],
+    [5.4, 0.07],
+  ];
+  const attack = Math.floor(SAMPLE_RATE * 0.06);
+  const dt = 1 / SAMPLE_RATE;
+  for (let i = 0; i < n; i++) {
+    const t = i * dt;
+    const attackEnv = i < attack ? i / attack : 1;
+    const decayEnv = Math.exp(-i / (SAMPLE_RATE * 1.6));
+    let sum = 0;
+    for (const [ratio, weight] of partials) {
+      sum += weight * Math.sin(2 * Math.PI * fundamental * ratio * t);
+    }
+    const v = 0.26 * attackEnv * decayEnv * sum;
+    samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
+  }
+  return samples;
+}
+
 const GENERATORS = {
   gentle_rise: () => encodeWav(gentleTone(392, 2)),
   morning_glow: () => encodeWav(gentleTone(523.25, 3)),
@@ -158,6 +292,12 @@ const GENERATORS = {
   digital_beep: () => encodeWav(digitalBeep()),
   soft_piano: () => encodeWav(softPiano()),
   nature_birds: () => encodeWav(chirpBirds()),
+  sunrise_chime: () => encodeWav(sunriseChime()),
+  crystal_ding: () => encodeWav(crystalDing()),
+  ocean_waves: () => encodeWav(oceanWaves()),
+  warm_strings: () => encodeWav(warmStrings()),
+  alert_pulse: () => encodeWav(alertPulse()),
+  zen_bowl: () => encodeWav(zenBowl()),
 };
 
 fs.mkdirSync(OUT_DIR, { recursive: true });

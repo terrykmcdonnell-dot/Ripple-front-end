@@ -60,6 +60,12 @@ export const DEFAULT_ALARM_SOUND_OPTIONS = [
   { id: 'digital-beep', label: 'Digital Beep' },
   { id: 'soft-piano', label: 'Soft Piano' },
   { id: 'nature-birds', label: 'Nature Birds' },
+  { id: 'sunrise-chime', label: 'Sunrise Chime' },
+  { id: 'crystal-ding', label: 'Crystal Ding' },
+  { id: 'ocean-waves', label: 'Ocean Waves' },
+  { id: 'warm-strings', label: 'Warm Strings' },
+  { id: 'alert-pulse', label: 'Alert Pulse' },
+  { id: 'zen-bowl', label: 'Zen Bowl' },
 ] as const;
 
 export type AlarmSoundId = (typeof DEFAULT_ALARM_SOUND_OPTIONS)[number]['id'];

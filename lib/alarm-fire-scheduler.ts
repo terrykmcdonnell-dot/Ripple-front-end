@@ -21,6 +21,7 @@ import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import {
   coerceAlarmSoundId,
+  DEFAULT_ALARM_SOUND_OPTIONS,
   loadDefaultAlarmSoundId,
   loadDefaultVibrationEnabled,
   loadNotificationsMasterEnabled,
@@ -171,14 +172,7 @@ export async function ensureAllAndroidAlarmChannelsAsync(): Promise<void> {
     return;
   }
   const vibrationEnabled = await loadDefaultVibrationEnabled();
-  const soundIds: AlarmSoundId[] = [
-    'gentle-rise',
-    'morning-glow',
-    'classic-bell',
-    'digital-beep',
-    'soft-piano',
-    'nature-birds',
-  ];
+  const soundIds: AlarmSoundId[] = DEFAULT_ALARM_SOUND_OPTIONS.map((o) => o.id);
   await Promise.all(soundIds.map((id) => ensureAndroidAlarmFireChannel(id, vibrationEnabled)));
   await Promise.all(soundIds.map((id) => ensureAndroidAlarmFireChannel(id, !vibrationEnabled)));
 }

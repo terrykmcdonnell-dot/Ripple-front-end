@@ -11,6 +11,12 @@ const NOTIFICATION_SOUND_FILES: Record<AlarmSoundId, string> = {
   'digital-beep': 'digital_beep.wav',
   'soft-piano': 'soft_piano.wav',
   'nature-birds': 'nature_birds.wav',
+  'sunrise-chime': 'sunrise_chime.wav',
+  'crystal-ding': 'crystal_ding.wav',
+  'ocean-waves': 'ocean_waves.wav',
+  'warm-strings': 'warm_strings.wav',
+  'alert-pulse': 'alert_pulse.wav',
+  'zen-bowl': 'zen_bowl.wav',
 };
 
 export function bundledNotificationSoundFilename(id: AlarmSoundId): string {

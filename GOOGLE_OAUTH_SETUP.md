@@ -13,7 +13,7 @@
 ## Google Cloud Console
 
 1. **Web client** — same client as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; used for token audience / Supabase.
-2. **iOS client** — bundle ID `com.terrykm.ripplealarmapp` (see [`app.json`](app.json) `ios.bundleIdentifier`).
+2. **iOS client** — bundle ID `com.terrykm.ripplealarm` (see [`app.json`](app.json) `ios.bundleIdentifier`).
 3. **Android client** — package `com.terrykm.ripplealarmapp` + debug/release **SHA-1/SHA-256** for the keystore that signs your app.
 
 ## Platform notes

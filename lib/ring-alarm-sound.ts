@@ -12,6 +12,12 @@ const ALARM_SOUND_SOURCES: Record<AlarmSoundId, number> = {
   'digital-beep': require('../assets/sounds/digital_beep.wav'),
   'soft-piano': require('../assets/sounds/soft_piano.wav'),
   'nature-birds': require('../assets/sounds/nature_birds.wav'),
+  'sunrise-chime': require('../assets/sounds/sunrise_chime.wav'),
+  'crystal-ding': require('../assets/sounds/crystal_ding.wav'),
+  'ocean-waves': require('../assets/sounds/ocean_waves.wav'),
+  'warm-strings': require('../assets/sounds/warm_strings.wav'),
+  'alert-pulse': require('../assets/sounds/alert_pulse.wav'),
+  'zen-bowl': require('../assets/sounds/zen_bowl.wav'),
 };
 
 /** Maximum ring duration before auto-stop even if user doesn't interact (5 minutes). */

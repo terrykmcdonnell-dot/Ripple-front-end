@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.terrykm.ripplealarmapp",
+      "bundleIdentifier": "com.terrykm.ripplealarm",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -131,7 +131,13 @@
             "./assets/sounds/classic_bell.wav",
             "./assets/sounds/digital_beep.wav",
             "./assets/sounds/soft_piano.wav",
-            "./assets/sounds/nature_birds.wav"
+            "./assets/sounds/nature_birds.wav",
+            "./assets/sounds/sunrise_chime.wav",
+            "./assets/sounds/crystal_ding.wav",
+            "./assets/sounds/ocean_waves.wav",
+            "./assets/sounds/warm_strings.wav",
+            "./assets/sounds/alert_pulse.wav",
+            "./assets/sounds/zen_bowl.wav"
           ]
         }
       ],
