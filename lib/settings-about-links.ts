@@ -1,12 +1,18 @@
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
-/** Privacy policy URL shown in Settings → About. */
+/** Privacy policy URL — App Store env on iOS, Google/default env on Android. */
 export function getPrivacyPolicyUrl(): string {
+  if (Platform.OS === 'ios') {
+    return process.env.EXPO_PUBLIC_RIPPLE_APP_STORE_PRIVACY_POLICY_URL?.trim() ?? '';
+  }
   return process.env.EXPO_PUBLIC_RIPPLE_PRIVACY_POLICY_URL?.trim() ?? '';
 }
 
-/** Terms URL shown in Settings → About. */
+/** Terms URL — App Store env on iOS, Google/default env on Android. */
 export function getTermsOfServiceUrl(): string {
+  if (Platform.OS === 'ios') {
+    return process.env.EXPO_PUBLIC_RIPPLE_APP_STORE_TERMS_OF_SERVICE_URL?.trim() ?? '';
+  }
   return process.env.EXPO_PUBLIC_RIPPLE_TERMS_OF_SERVICE_URL?.trim() ?? '';
 }
 

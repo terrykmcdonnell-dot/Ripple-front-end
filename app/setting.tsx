@@ -651,7 +651,7 @@ export default function SettingScreen() {
             onPress={() =>
               void openConfiguredUrl(getPrivacyPolicyUrl(), () =>
                 showToast(
-                  'Set EXPO_PUBLIC_RIPPLE_PRIVACY_POLICY_URL in .env (e.g. https://ripplealarm.com/privacy) or check the URL.',
+                  'Privacy policy URL is not configured. Set EXPO_PUBLIC_RIPPLE_PRIVACY_POLICY_URL (Android) or EXPO_PUBLIC_RIPPLE_APP_STORE_PRIVACY_POLICY_URL (iOS).',
                 ),
               )
             }
@@ -665,7 +665,7 @@ export default function SettingScreen() {
             onPress={() =>
               void openConfiguredUrl(getTermsOfServiceUrl(), () =>
                 showToast(
-                  'Set EXPO_PUBLIC_RIPPLE_TERMS_OF_SERVICE_URL in .env (e.g. https://ripplealarm.com/terms) or check the URL.',
+                  'Terms URL is not configured. Set EXPO_PUBLIC_RIPPLE_TERMS_OF_SERVICE_URL (Android) or EXPO_PUBLIC_RIPPLE_APP_STORE_TERMS_OF_SERVICE_URL (iOS).',
                 ),
               )
             }
