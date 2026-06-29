@@ -55,7 +55,9 @@ export function NotificationsHubSheet({
         <View style={[styles.sheet, { paddingBottom: sheetPadBottom }]}>
           <Text style={styles.sheetTitle}>Notifications</Text>
           <Text style={styles.sheetHint}>
-            Snooze, sound & vibration. Alarm volume (Android) targets the alarm stream so rings track your chosen level even when notification volume is low.
+            {Platform.OS === 'android'
+              ? 'Snooze, sound & vibration. Alarm volume targets the alarm stream so rings track your chosen level even when notification volume is low.'
+              : 'Snooze, sound & vibration. Saved preferences apply to your alarms and snoozes.'}
           </Text>
 
           <ScrollView

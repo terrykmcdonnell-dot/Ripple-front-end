@@ -46,6 +46,14 @@ const PRO_PLAN_FEATURES = [
   'Premium alarm sounds',
 ] as const;
 
+function subscriptionStoreLabel(): string {
+  return Platform.OS === 'ios' ? 'App Store' : 'Play Store';
+}
+
+function subscriptionBillingProviderLabel(): string {
+  return Platform.OS === 'ios' ? 'Apple' : 'Google';
+}
+
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
     screen: {
@@ -386,7 +394,9 @@ export default function PaywallScreen() {
     }
     if (!getRevenueCatApiKey()) {
       setLoadError(
-        'Missing RevenueCat API key. Add EXPO_PUBLIC_REVENUECAT_API_KEY_IOS and EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID (or EXPO_PUBLIC_REVENUECAT_API_KEY) to .env and restart.',
+        Platform.OS === 'ios'
+          ? 'Subscriptions are temporarily unavailable. Add EXPO_PUBLIC_REVENUECAT_API_KEY_IOS to .env and restart.'
+          : 'Subscriptions are temporarily unavailable. Add EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID to .env and restart.',
       );
       setLoadingOfferings(false);
       setMonthlyPkg(undefined);
@@ -579,8 +589,8 @@ export default function PaywallScreen() {
           </View>
 
           <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>
-            Switch between monthly and annual anytime — Apple / Google may prorate or schedule the change for your next
-            renewal.
+            Switch between monthly and annual anytime — {subscriptionBillingProviderLabel()} may prorate or schedule the
+            change for your next renewal.
           </Text>
 
           <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>Included with your plan:</Text>
@@ -639,8 +649,8 @@ export default function PaywallScreen() {
           </Pressable>
 
           <Text style={[styles.trialNote, { marginBottom: 6 }]}>
-            Subscriptions are billed through {Platform.OS === 'ios' ? 'Apple' : 'Google'}. To stop future charges, cancel
-            in your store account.
+            Subscriptions are billed through {subscriptionBillingProviderLabel()}. To stop future charges, cancel in your
+            store account.
           </Text>
           <Pressable disabled={purchasing} onPress={() => openSubscriptionManagement()}>
             <Text style={[styles.cancelSubscriptionLink, purchasing && styles.restoreMuted]}>
@@ -648,7 +658,7 @@ export default function PaywallScreen() {
             </Text>
           </Pressable>
           <Text style={[styles.trialNote, { marginTop: 4 }]}>
-            Opens {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} subscription management for Ripple Pro.
+            Opens {subscriptionStoreLabel()} subscription management for Ripple Pro.
           </Text>
         </ScrollView>
 
@@ -685,8 +695,8 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, template gallery, premium themes, and more — billed through {Platform.OS === 'ios' ? 'Apple' : 'Google'} via
-          RevenueCat.
+          Unlimited alarms, template gallery, premium themes, and more — billed through{' '}
+          {subscriptionBillingProviderLabel()}.
         </Text>
 
         <View style={styles.features}>
@@ -731,7 +741,9 @@ export default function PaywallScreen() {
           </LinearGradient>
         </Pressable>
 
-        <Text style={styles.trialNote}>Subscriptions managed by the App Store / Play Store · Cancel anytime in Settings</Text>
+        <Text style={styles.trialNote}>
+          Subscriptions managed by the {subscriptionStoreLabel()} · Cancel anytime in Settings
+        </Text>
 
         <Pressable disabled={restoring || purchasing || loadingOfferings} onPress={() => void onRestore()}>
           <Text style={[styles.restore, restoring && styles.restoreMuted]}>

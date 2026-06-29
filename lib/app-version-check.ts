@@ -55,6 +55,71 @@ function compareSemver(a: string, b: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// Network
+// ---------------------------------------------------------------------------
+
+/** Candidate URLs — apex ripplealarm.com 308-redirects to www; RN fetch often treats that as failure. */
+function versionCheckCandidateUrls(baseUrl: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const add = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    out.push(trimmed);
+  };
+
+  add(baseUrl);
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.hostname === 'ripplealarm.com') {
+      parsed.hostname = 'www.ripplealarm.com';
+      add(parsed.toString());
+    }
+  } catch {
+    // ignore malformed URL
+  }
+  return out;
+}
+
+async function fetchVersionConfig(url: string): Promise<Partial<VersionCheckRemoteConfig> | null> {
+  let nextUrl = url;
+
+  for (let redirect = 0; redirect < 4; redirect++) {
+    const response = await fetch(nextUrl, {
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+
+    if (response.ok) {
+      return (await response.json()) as Partial<VersionCheckRemoteConfig>;
+    }
+
+    if (response.status >= 301 && response.status <= 308) {
+      const location = response.headers.get('Location');
+      if (!location) return null;
+      nextUrl = new URL(location, nextUrl).href;
+      continue;
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
+async function loadRemoteVersionConfig(baseUrl: string): Promise<Partial<VersionCheckRemoteConfig> | null> {
+  for (const candidate of versionCheckCandidateUrls(baseUrl)) {
+    try {
+      const config = await fetchVersionConfig(candidate);
+      if (config) return config;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
@@ -85,15 +150,10 @@ export async function checkAppVersion(): Promise<VersionCheckResult> {
     return { status: 'up_to_date' };
   }
 
-  const response = await fetch(url, {
-    headers: { 'Cache-Control': 'no-cache' },
-  });
-
-  if (!response.ok) {
+  const config = await loadRemoteVersionConfig(url);
+  if (!config) {
     return { status: 'up_to_date' };
   }
-
-  const config = (await response.json()) as Partial<VersionCheckRemoteConfig>;
   const platformConfig = config[platform];
 
   if (!platformConfig?.latestVersion || !platformConfig.minVersion || !platformConfig.storeUrl) {

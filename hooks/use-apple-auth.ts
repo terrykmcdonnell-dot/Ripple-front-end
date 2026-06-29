@@ -35,7 +35,7 @@ export function useAppleAuthWithSupabase(options: UseAppleAuthOptions = {}) {
       if (!available) {
         notifyAuthMessage(
           'Sign in with Apple',
-          'Sign in with Apple is only available on iOS. Use email or Google on other platforms.',
+          'Sign in with Apple is not available on this device. Use email sign-in or try again later.',
         );
         return;
       }

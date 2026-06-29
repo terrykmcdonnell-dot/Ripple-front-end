@@ -78,6 +78,7 @@ import { invalidateCurrentUserRowIdCache } from '@/lib/users-table';
 import { invalidateAlarmHistoryCache } from '@/lib/alarm-history-cache';
 import { closeAccount } from '@/lib/close-account-api';
 import { clearLocalAccountData } from '@/lib/clear-local-account-data';
+import { checkForAppUpdateAndOpenStore } from '@/lib/open-app-store-update';
 import {
   canUseAlarmSound,
   FREE_DEFAULT_ALARM_SOUND_ID,
@@ -105,6 +106,7 @@ export default function SettingScreen() {
       void Linking.openSettings();
     }
   }, [managementURL]);
+
   const palette = useAlarmTheme();
   const tabBarPad = useTabBarReservedHeight();
   const styles = useMemo(() => createSettingStyles(palette), [palette]);
@@ -125,6 +127,23 @@ export default function SettingScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [closeConfirmVisible, setCloseConfirmVisible] = useState(false);
   const [closingAccount, setClosingAccount] = useState(false);
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false);
+  const onCheckForUpdates = useCallback(async () => {
+    if (checkingForUpdate || Platform.OS === 'web') {
+      return;
+    }
+    setCheckingForUpdate(true);
+    try {
+      const outcome = await checkForAppUpdateAndOpenStore();
+      if (outcome.kind === 'up_to_date') {
+        showToast('You have the latest version of Ripple.');
+      } else if (outcome.kind === 'unavailable') {
+        showToast('Could not check for updates. Try again later.');
+      }
+    } finally {
+      setCheckingForUpdate(false);
+    }
+  }, [checkingForUpdate, showToast]);
   const [defaultSnoozeMinutes, setDefaultSnoozeMinutes] = useState(10);
   const [snoozePickerOpen, setSnoozePickerOpen] = useState(false);
   const [defaultSoundId, setDefaultSoundId] = useState<AlarmSoundId>('gentle-rise');
@@ -651,7 +670,9 @@ export default function SettingScreen() {
             onPress={() =>
               void openConfiguredUrl(getPrivacyPolicyUrl(), () =>
                 showToast(
-                  'Privacy policy URL is not configured. Set EXPO_PUBLIC_RIPPLE_PRIVACY_POLICY_URL (Android) or EXPO_PUBLIC_RIPPLE_APP_STORE_PRIVACY_POLICY_URL (iOS).',
+                  Platform.OS === 'ios'
+                    ? 'Privacy policy URL is not configured. Set EXPO_PUBLIC_RIPPLE_APP_STORE_PRIVACY_POLICY_URL in .env.'
+                    : 'Privacy policy URL is not configured. Set EXPO_PUBLIC_RIPPLE_PRIVACY_POLICY_URL in .env.',
                 ),
               )
             }
@@ -665,11 +686,29 @@ export default function SettingScreen() {
             onPress={() =>
               void openConfiguredUrl(getTermsOfServiceUrl(), () =>
                 showToast(
-                  'Terms URL is not configured. Set EXPO_PUBLIC_RIPPLE_TERMS_OF_SERVICE_URL (Android) or EXPO_PUBLIC_RIPPLE_APP_STORE_TERMS_OF_SERVICE_URL (iOS).',
+                  Platform.OS === 'ios'
+                    ? 'Terms URL is not configured. Set EXPO_PUBLIC_RIPPLE_APP_STORE_TERMS_OF_SERVICE_URL in .env.'
+                    : 'Terms URL is not configured. Set EXPO_PUBLIC_RIPPLE_TERMS_OF_SERVICE_URL in .env.',
                 ),
               )
             }
           />
+          {Platform.OS !== 'web' ? (
+            <SettingsRow
+              icon={settingsIcons.rating}
+              iconBackgroundColor={SETTINGS_ABOUT_ICON_BLUE}
+              title={checkingForUpdate ? 'Checking for updates…' : 'Check for updates'}
+              value="See if a newer version is on the store"
+              right={
+                checkingForUpdate ? (
+                  <ActivityIndicator size="small" color={palette.accent} />
+                ) : (
+                  <Text style={styles.chevron}>{settingsIcons.chevron}</Text>
+                )
+              }
+              onPress={() => void onCheckForUpdates()}
+            />
+          ) : null}
           <SettingsRow icon={settingsIcons.info} title="Version" value={Constants.expoConfig?.version ?? '1.0.0'} noBorder />
         </SettingsGroup>
 
