@@ -15,7 +15,7 @@ import {
 } from '@/lib/user-subscription-row';
 
 /** Free tier cap — must match paywall copy. */
-export const FREE_TIER_MAX_ALARMS = 5;
+export const FREE_TIER_MAX_ALARMS = 3;
 
 export type DerivedPremiumPlan = 'annual' | 'monthly' | 'trial' | 'intro' | 'unknown';
 

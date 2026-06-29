@@ -22,7 +22,7 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
-import { derivePremiumPlan, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
+import { derivePremiumPlan, FREE_TIER_MAX_ALARMS, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
 import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import {
   configureRevenueCat,
@@ -688,7 +688,9 @@ export default function PaywallScreen() {
         </View>
 
         <View style={styles.limitBox}>
-          <Text style={styles.limitText}>You&apos;ve reached the 5-alarm free limit</Text>
+          <Text style={styles.limitText}>
+            You&apos;ve reached the {FREE_TIER_MAX_ALARMS}-alarm free limit
+          </Text>
         </View>
 
         <Text style={styles.headline}>
