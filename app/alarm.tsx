@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { navIcons } from '@/assets/icons/alarm-icons';
 import { AlarmCard } from '@/components/alarms/AlarmCard';
+import { AppVersionCheckPrompt } from '@/components/bootstrap/AppVersionCheckPrompt';
 import { AndroidLockScreenAlarmBanner } from '@/components/alarms/AndroidLockScreenAlarmBanner';
 import { NotificationsDisabledBanner } from '@/components/alarms/NotificationsDisabledBanner';
 import { BottomNavbar, useTabBarReservedHeight } from '@/components/alarms/BottomNavbar';
@@ -410,6 +411,7 @@ export default function AlarmScreen() {
       </ScrollView>
 
       <FullScreenLoadingOverlay visible={initialLoad || refreshing} />
+      <AppVersionCheckPrompt enabled={!initialLoad && !refreshing} />
 
       <BottomNavbar
         items={[
