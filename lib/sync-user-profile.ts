@@ -74,7 +74,7 @@ export async function syncUserProfileToTable(profile: UserProfileRow) {
 
   if (existing) {
     const { error } = await supabase.from('users').update({ name: profile.name, password: profile.password }).eq('email', email);
-    return { error };
+    return { error, isNewUser: false };
   }
 
   const { error } = await supabase.from('users').insert({
@@ -82,7 +82,7 @@ export async function syncUserProfileToTable(profile: UserProfileRow) {
     email,
     password: profile.password,
   });
-  return { error };
+  return { error, isNewUser: true };
 }
 
 /** Updates `public.users.password` after Auth password change (best-effort). */

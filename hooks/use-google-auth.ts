@@ -11,6 +11,7 @@ import {
   isLikelyGoogleWebClientId,
   normalizeGoogleOAuthClientId,
 } from '@/lib/google-oauth-client';
+import { captureOnboardingCompletedOnce } from '@/lib/posthog-analytics';
 import { supabase } from '@/lib/supabase';
 import { deriveProfileNameFromAuthUser, syncUserProfileToTable } from '@/lib/sync-user-profile';
 
@@ -106,7 +107,7 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
       if (syncUsersTable && data.user?.email) {
         const email = data.user.email.trim().toLowerCase();
 
-        const { error: profileError } = await syncUserProfileToTable({
+        const { error: profileError, isNewUser } = await syncUserProfileToTable({
           name: deriveProfileNameFromAuthUser(data.user),
           email,
           password: '',
@@ -115,6 +116,9 @@ export function useGoogleAuthWithSupabase(options: UseGoogleAuthOptions = {}) {
         if (profileError) {
           notifyAuthError('Google Sign-In', profileError);
           return;
+        }
+        if (isNewUser) {
+          void captureOnboardingCompletedOnce();
         }
       }
 

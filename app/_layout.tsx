@@ -1,4 +1,4 @@
-                                                                                                                                            import '@/lib/alarm-history-notification-task';
+import '@/lib/alarm-history-notification-task';
 
 import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -14,6 +14,7 @@ import { AppVersionCheckLaunchBootstrap } from '@/components/bootstrap/AppVersio
 import { IosNotificationPermissionBootstrap } from '@/components/bootstrap/IosNotificationPermissionBootstrap';
 import { NotificationAccessBootstrap } from '@/components/bootstrap/NotificationAccessBootstrap';
 import { AlarmScheduleAuthSync } from '@/components/bootstrap/AlarmScheduleAuthSync';
+import { PostHogProviderShell } from '@/components/bootstrap/PostHogBootstrap';
 import { RevenueCatBootstrap } from '@/components/bootstrap/RevenueCatBootstrap';
 import { SupabaseAuthAutoRefreshBootstrap } from '@/components/bootstrap/SupabaseAuthAutoRefreshBootstrap';
 import { AlarmThemeProvider, isAlarmPaletteDark, useAlarmTheme } from '@/components/alarms/theme';
@@ -88,6 +89,7 @@ function ThemedNavigationShell({ children }: { children: ReactNode }) {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
+      <PostHogProviderShell>
       <AlarmThemeProvider>
         <ThemedNavigationShell>
           <AppToastProvider>
@@ -118,6 +120,7 @@ export default function RootLayout() {
           </AppToastProvider>
         </ThemedNavigationShell>
       </AlarmThemeProvider>
+      </PostHogProviderShell>
     </SafeAreaProvider>
   );
 }

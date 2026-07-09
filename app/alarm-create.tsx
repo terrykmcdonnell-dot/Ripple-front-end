@@ -122,7 +122,7 @@ export default function AlarmCreateScreen() {
           'Ripple Pro',
           `Free accounts can save up to ${FREE_TIER_MAX_ALARMS} alarms. Upgrade for unlimited alarms and templates.`,
         );
-        router.replace('/paywall');
+        router.replace('/paywall?alarmLimit=1');
         return;
       }
 

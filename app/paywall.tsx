@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +23,9 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { derivePremiumPlan, FREE_TIER_MAX_ALARMS, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
+import { fetchAlarms } from '@/lib/alarm-api';
+import { capturePaywallDismissed, capturePaywallViewed } from '@/lib/posthog-analytics';
+import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import {
   configureRevenueCat,
@@ -193,7 +196,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       fontSize: alarmTypography.body,
       fontWeight: '700',
     },
-    trialNote: {
+    footerNote: {
       color: alarmTheme.muted,
       fontSize: alarmTypography.micro,
       textAlign: 'center',
@@ -275,6 +278,10 @@ export default function PaywallScreen() {
   const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
+  const { alarmLimit } = useLocalSearchParams<{ alarmLimit?: string }>();
+  const isAlarmLimitPaywall = alarmLimit === '1' || alarmLimit === 'true';
+  const paywallViewedRef = useRef(false);
+  const purchasedThisSessionRef = useRef(false);
   const { showToast } = useAppToast();
 
   const {
@@ -304,6 +311,28 @@ export default function PaywallScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [alarmCount, setAlarmCount] = useState<number | null>(null);
+
+  const refreshAlarmCount = useCallback(async () => {
+    if (isSubscriber || Platform.OS === 'web') {
+      setAlarmCount(null);
+      return;
+    }
+    try {
+      const { id, error } = await fetchCurrentUserRowId();
+      if (error || id == null) {
+        setAlarmCount(null);
+        return;
+      }
+      const alarms = await fetchAlarms(id);
+      setAlarmCount(alarms.length);
+    } catch {
+      setAlarmCount(null);
+    }
+  }, [isSubscriber]);
+
+  const showAlarmLimitReached =
+    alarmCount !== null && alarmCount >= FREE_TIER_MAX_ALARMS;
 
   const monthlyPriceLabel = monthlyPkg?.product.priceString ?? null;
   const annualPriceLabel = annualPkg?.product.priceString ?? null;
@@ -440,8 +469,25 @@ export default function PaywallScreen() {
       userPickedPlanRef.current = false;
       invalidateSubscriptionCache();
       void loadOfferings();
-    }, [loadOfferings]),
+      void refreshAlarmCount();
+    }, [loadOfferings, refreshAlarmCount]),
   );
+
+  const rcKeyPresent = !!getRevenueCatApiKey();
+  const subscriptionGatePending = rcKeyPresent && subLoading;
+
+  useEffect(() => {
+    if (
+      Platform.OS === 'web' ||
+      !isAlarmLimitPaywall ||
+      subscriptionGatePending ||
+      paywallViewedRef.current
+    ) {
+      return;
+    }
+    paywallViewedRef.current = true;
+    capturePaywallViewed();
+  }, [isAlarmLimitPaywall, subscriptionGatePending]);
 
   const onSubscribe = useCallback(async () => {
     if (!selectedPackage || purchasing) {
@@ -451,9 +497,11 @@ export default function PaywallScreen() {
     setPurchasing(true);
     try {
       const { customerInfo: nextInfo } = await Purchases.purchasePackage(selectedPackage);
+      purchasedThisSessionRef.current = true;
       await syncPurchasesAfterTransaction();
       invalidateSubscriptionCache();
       if (hasPremiumEntitlement(nextInfo)) {
+        purchasedThisSessionRef.current = true;
         showToast(wasExistingSubscriber ? 'Plan updated.' : 'Subscription active. Welcome to Ripple Pro!');
       } else {
         showToast('Purchase completed. It may take a moment for access to unlock.');
@@ -484,6 +532,7 @@ export default function PaywallScreen() {
     try {
       const customerInfo = await Purchases.restorePurchases();
       if (hasPremiumEntitlement(customerInfo)) {
+        purchasedThisSessionRef.current = true;
         showToast('Purchases restored.');
         await syncPurchasesAfterTransaction();
         invalidateSubscriptionCache();
@@ -504,6 +553,14 @@ export default function PaywallScreen() {
   ]);
 
   const onClose = () => {
+    if (
+      isAlarmLimitPaywall &&
+      paywallViewedRef.current &&
+      !isSubscriber &&
+      !purchasedThisSessionRef.current
+    ) {
+      capturePaywallDismissed();
+    }
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -533,9 +590,6 @@ export default function PaywallScreen() {
       </View>
     );
   }
-
-  const rcKeyPresent = !!getRevenueCatApiKey();
-  const subscriptionGatePending = rcKeyPresent && subLoading;
 
   if (subscriptionGatePending) {
     return (
@@ -648,7 +702,7 @@ export default function PaywallScreen() {
             </LinearGradient>
           </Pressable>
 
-          <Text style={[styles.trialNote, { marginBottom: 6 }]}>
+          <Text style={[styles.footerNote, { marginBottom: 6 }]}>
             Subscriptions are billed through {subscriptionBillingProviderLabel()}. To stop future charges, cancel in your
             store account.
           </Text>
@@ -657,7 +711,7 @@ export default function PaywallScreen() {
               Cancel subscription
             </Text>
           </Pressable>
-          <Text style={[styles.trialNote, { marginTop: 4 }]}>
+          <Text style={[styles.footerNote, { marginTop: 4 }]}>
             Opens {subscriptionStoreLabel()} subscription management for Ripple Pro.
           </Text>
         </ScrollView>
@@ -687,11 +741,13 @@ export default function PaywallScreen() {
           </View>
         </View>
 
-        <View style={styles.limitBox}>
-          <Text style={styles.limitText}>
-            You&apos;ve reached the {FREE_TIER_MAX_ALARMS}-alarm free limit
-          </Text>
-        </View>
+        {showAlarmLimitReached ? (
+          <View style={styles.limitBox}>
+            <Text style={styles.limitText}>
+              You&apos;ve reached the {FREE_TIER_MAX_ALARMS}-alarm free limit
+            </Text>
+          </View>
+        ) : null}
 
         <Text style={styles.headline}>
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
@@ -743,7 +799,7 @@ export default function PaywallScreen() {
           </LinearGradient>
         </Pressable>
 
-        <Text style={styles.trialNote}>
+        <Text style={styles.footerNote}>
           Subscriptions managed by the {subscriptionStoreLabel()} · Cancel anytime in Settings
         </Text>
 

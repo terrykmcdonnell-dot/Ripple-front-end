@@ -2,13 +2,18 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import {
+  annualSubscriptionSavingsPercent,
+  formatSubscriptionUsd,
+  SUBSCRIPTION_PRICING_USD,
+} from '@/lib/subscription-pricing';
 
 export type PricingPlan = 'annual' | 'monthly';
 
 type PricingToggleProps = {
   selected: PricingPlan;
   onSelect: (plan: PricingPlan) => void;
-  /** Store price string from RevenueCat (e.g. `$9.99`). Falls back to placeholder when omitted. */
+  /** Store price string from RevenueCat (e.g. `$19.99`). Falls back to placeholder when omitted. */
   annualPriceLabel?: string | null;
   monthlyPriceLabel?: string | null;
   disabled?: boolean;
@@ -83,8 +88,13 @@ export function PricingToggle({
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
-  const annualLine = annualPriceLabel?.trim() ? `${annualPriceLabel} / year` : '$9.99 / year';
-  const monthlyLine = monthlyPriceLabel?.trim() ? `${monthlyPriceLabel} / month` : '$1.99 / month';
+  const annualLine = annualPriceLabel?.trim()
+    ? `${annualPriceLabel} / year`
+    : `${formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.annual)} / year`;
+  const monthlyLine = monthlyPriceLabel?.trim()
+    ? `${monthlyPriceLabel} / month`
+    : `${formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.monthly)} / month`;
+  const savingsPercent = annualSubscriptionSavingsPercent();
 
   return (
     <View style={[styles.wrap, disabled ? styles.wrapDisabled : null]} pointerEvents={disabled ? 'none' : 'auto'}>
@@ -98,7 +108,7 @@ export function PricingToggle({
         <View style={{ alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
             <Text style={[styles.name, selected === 'annual' ? styles.activeText : null]}>Annual</Text>
-            <Text style={styles.saveBadge}>SAVE 58%</Text>
+            <Text style={styles.saveBadge}>SAVE {savingsPercent}%</Text>
           </View>
           <Text style={[styles.price, selected === 'annual' ? styles.activeText : null]}>{annualLine}</Text>
         </View>

@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { captureOnboardingCompletedOnce } from '@/lib/posthog-analytics';
 import { supabase } from '@/lib/supabase';
 import { deriveProfileNameFromAuthUser, syncUserProfileToTable } from '@/lib/sync-user-profile';
 
@@ -109,7 +110,7 @@ export function useAppleAuthWithSupabase(options: UseAppleAuthOptions = {}) {
           return;
         }
 
-        const { error: profileError } = await syncUserProfileToTable({
+        const { error: profileError, isNewUser } = await syncUserProfileToTable({
           name: deriveProfileNameFromAuthUser(userForProfile),
           email,
           password: '',
@@ -119,6 +120,9 @@ export function useAppleAuthWithSupabase(options: UseAppleAuthOptions = {}) {
           notifyAuthError('Sign in with Apple', profileError);
           await supabase.auth.signOut();
           return;
+        }
+        if (isNewUser) {
+          void captureOnboardingCompletedOnce();
         }
       }
 

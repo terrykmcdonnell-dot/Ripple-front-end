@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 import { withDeadline } from '@/lib/async-deadline';
 import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
+import { captureAlarmCreated } from '@/lib/posthog-analytics';
 
 const RIPPLE_FETCH_TIMEOUT_MS = 30_000;
 const RIPPLE_BODY_READ_TIMEOUT_MS = 20_000;
@@ -218,6 +219,7 @@ export async function createAlarm(payload: CreateAlarmPayload): Promise<void> {
     body: JSON.stringify(payload),
   });
   if (res.ok) {
+    captureAlarmCreated();
     return;
   }
 

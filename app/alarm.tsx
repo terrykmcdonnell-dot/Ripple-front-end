@@ -261,7 +261,7 @@ export default function AlarmScreen() {
   const goCreateAlarm = useCallback(() => {
     if (!canAddAlarm(alarms.length, isSubscriber)) {
       showToast(`Free plan allows ${FREE_TIER_MAX_ALARMS} alarms. Upgrade to Pro for unlimited.`);
-      router.push('/paywall');
+      router.push('/paywall?alarmLimit=1');
       return;
     }
     router.push('/alarm-create');

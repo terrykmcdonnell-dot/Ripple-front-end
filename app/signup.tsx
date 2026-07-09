@@ -19,6 +19,7 @@ import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
 import { EMAIL_ALREADY_REGISTERED_MESSAGE, startEmailSignUp } from '@/lib/auth-sign-up';
 import { isValidEmail, isValidPassword, sanitizeEmailInput } from '@/lib/auth-validation';
 import { useBottomSafePadding } from '@/lib/screen-safe-area';
+import { captureOnboardingCompletedOnce } from '@/lib/posthog-analytics';
 import { savePendingSignUp } from '@/lib/pending-signup';
 import { syncUserProfileToTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
@@ -194,7 +195,7 @@ export default function SignUpScreen() {
       // signUp() already set the password. Calling updateUser again re-runs
       // Supabase's server-side zxcvbn strength check which can reject passwords
       // that signUp accepted, showing a spurious "weak password" error.
-      const { error: profileError } = await syncUserProfileToTable({
+      const { error: profileError, isNewUser } = await syncUserProfileToTable({
         name: nameValue,
         email: emailValue,
         password,
@@ -206,6 +207,9 @@ export default function SignUpScreen() {
         await supabase.auth.signOut();
         notifyAuthError('Sign Up', profileError);
         return;
+      }
+      if (isNewUser) {
+        void captureOnboardingCompletedOnce();
       }
       router.replace('/alarm');
       return;

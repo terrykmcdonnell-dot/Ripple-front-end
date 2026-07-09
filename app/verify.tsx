@@ -11,6 +11,7 @@ import { VerifyEnvelopeHero } from '@/components/verify/VerifyEnvelopeHero';
 import { VerifyHelpNote } from '@/components/verify/VerifyHelpNote';
 import { useRedirectIfAuthenticated } from '@/hooks/use-redirect-if-authenticated';
 import { notifyAuthError, notifyAuthMessage } from '@/lib/auth-notify';
+import { captureOnboardingCompletedOnce } from '@/lib/posthog-analytics';
 import { clearPendingSignUp, getPendingSignUp } from '@/lib/pending-signup';
 import { syncUserProfileToTable } from '@/lib/sync-user-profile';
 import { supabase } from '@/lib/supabase';
@@ -268,6 +269,7 @@ export default function VerifyScreen() {
       }
 
       await clearPendingSignUp();
+      void captureOnboardingCompletedOnce();
       router.replace('/alarm');
     } finally {
       setVerifyLoading(false);
