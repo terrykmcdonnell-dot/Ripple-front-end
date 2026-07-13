@@ -231,7 +231,9 @@ export default function AlarmScreen() {
       setListError(null);
       void syncUpcomingReminderNotifications(rows);
       void syncAlarmFireNotifications(rows).then(() => {
-        void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
+        if (rows.some((alarm) => alarm.isEnabled)) {
+          void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
+        }
       });
     } catch (e) {
       if (loadGenRef.current !== gen) {

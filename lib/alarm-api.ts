@@ -2,7 +2,9 @@ import { Platform } from 'react-native';
 
 import { withDeadline } from '@/lib/async-deadline';
 import { normalizeAlarmPayload, type AlarmListItem } from '@/lib/alarm-format';
+import { invalidateAlarmHistoryCache } from '@/lib/alarm-history-cache';
 import { captureAlarmCreated } from '@/lib/posthog-analytics';
+import { removePendingAlarmHistoryForAlarm } from '@/lib/alarm-history-sync';
 
 const RIPPLE_FETCH_TIMEOUT_MS = 30_000;
 const RIPPLE_BODY_READ_TIMEOUT_MS = 20_000;
@@ -163,7 +165,8 @@ async function rippleApiFetchWithRetry(url: string, init?: RequestInit): Promise
   );
 }
 
-async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
+/** Shared fetch helper for Ripple API mutations (POST/PATCH/DELETE) and GET. */
+export async function rippleApiFetch(url: string, init?: RequestInit): Promise<Response> {
   const method = init?.method?.toUpperCase() ?? 'GET';
   if (method === 'GET') {
     return rippleApiFetchWithRetry(url, init);
@@ -274,6 +277,8 @@ export async function deleteAlarm(alarmId: number): Promise<void> {
     headers: { Accept: 'application/json' },
   });
   if (res.ok || res.status === 204) {
+    await removePendingAlarmHistoryForAlarm(alarmId);
+    invalidateAlarmHistoryCache();
     return;
   }
   const detail = await rippleReadResponseText(res);

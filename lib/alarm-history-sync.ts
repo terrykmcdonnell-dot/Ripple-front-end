@@ -122,6 +122,21 @@ export async function loadPendingAlarmHistoryRows(userId: number): Promise<Alarm
     .map((row) => pendingWriteToHistoryRow(row, userId));
 }
 
+/** Drop queued history writes for a deleted alarm. */
+export async function removePendingAlarmHistoryForAlarm(alarmId: number): Promise<void> {
+  const rows = await loadPendingHistoryWrites();
+  const next = rows.filter((row) => row.alarm_id !== alarmId);
+  if (next.length === rows.length) {
+    return;
+  }
+  await savePendingHistoryWrites(next);
+}
+
+/** Drop all queued local history writes (e.g. after clear-all). */
+export async function clearAllPendingAlarmHistory(): Promise<void> {
+  await savePendingHistoryWrites([]);
+}
+
 async function enqueueAlarmHistory(
   parsed: ParsedAlarmFireData,
   status: AlarmHistoryStatus,

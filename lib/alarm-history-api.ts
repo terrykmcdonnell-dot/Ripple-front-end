@@ -1,4 +1,4 @@
-import { rippleApiBaseUrl, rippleApiGetJson } from '@/lib/alarm-api';
+import { rippleApiBaseUrl, rippleApiFetch, rippleApiGetJson } from '@/lib/alarm-api';
 
 export type AlarmHistoryStatus = 'missed' | 'dismissed' | 'snoozed';
 
@@ -65,4 +65,23 @@ export async function upsertAlarmHistory(body: {
     /* ignore */
   }
   throw new Error(detail || `Could not save history (${res.status}).`);
+}
+
+export async function clearAllAlarmHistory(userId: number): Promise<void> {
+  const qs = new URLSearchParams({ user_id: String(userId) });
+  const url = `${rippleApiBaseUrl()}/api/alarm-history/?${qs.toString()}`;
+  const res = await rippleApiFetch(url, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+  if (res.ok || res.status === 204) {
+    return;
+  }
+  let detail = '';
+  try {
+    detail = await res.text();
+  } catch {
+    /* ignore */
+  }
+  throw new Error(detail || `Could not clear history (${res.status}).`);
 }

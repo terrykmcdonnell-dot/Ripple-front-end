@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { InteractionManager, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { historyIcons } from '@/assets/icons/history-icons';
@@ -10,14 +10,16 @@ import { type AlarmThemePalette, alarmTypography, useAlarmTheme } from '@/compon
 import { ComplianceBanner } from '@/components/history/ComplianceBanner';
 import { HistoryFilterTabs } from '@/components/history/HistoryFilterTabs';
 import { HistoryItemRow } from '@/components/history/HistoryItemRow';
+import { AppConfirmModal } from '@/components/ui/AppConfirmModal';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
-import { getAlarmHistoryCache, setAlarmHistoryCache } from '@/lib/alarm-history-cache';
+import { getAlarmHistoryCache, invalidateAlarmHistoryCache, setAlarmHistoryCache } from '@/lib/alarm-history-cache';
 import { findCategoryByName, useAlarmCategories } from '@/lib/alarm-categories';
-import { fetchAlarmHistory, type AlarmHistoryApiRow } from '@/lib/alarm-history-api';
-import { flushPendingAlarmHistoryWrites, loadPendingAlarmHistoryRows } from '@/lib/alarm-history-sync';
+import { clearAllAlarmHistory, fetchAlarmHistory, type AlarmHistoryApiRow } from '@/lib/alarm-history-api';
+import { clearAllPendingAlarmHistory, flushPendingAlarmHistoryWrites, loadPendingAlarmHistoryRows } from '@/lib/alarm-history-sync';
 import {
   buildHistoryGroups,
   monthlyComplianceFromHistory,
@@ -53,9 +55,26 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       paddingBottom: 16,
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       minHeight: 52,
     },
     title: { color: alarmTheme.text, fontSize: alarmTypography.title, fontWeight: '800', letterSpacing: -0.4 },
+    clearAllBtn: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      backgroundColor: alarmTheme.surface2,
+      borderWidth: 1,
+      borderColor: alarmTheme.border,
+    },
+    clearAllBtnPressed: {
+      opacity: 0.7,
+    },
+    clearAllText: {
+      color: alarmTheme.muted,
+      fontSize: alarmTypography.caption,
+      fontWeight: '700',
+    },
     list: { flex: 1, paddingHorizontal: 16 },
     listContent: { flexGrow: 1 },
     group: { marginBottom: 16 },
@@ -80,6 +99,7 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 export default function HistoryScreen() {
   useRequireAuth();
   const router = useRouter();
+  const { showToast } = useAppToast();
   const [activeTab, setActiveTab] = useState<string>(FILTER_ALL);
   const { categories } = useAlarmCategories();
   const alarmTheme = useAlarmTheme();
@@ -89,6 +109,8 @@ export default function HistoryScreen() {
   const [rows, setRows] = useState<AlarmHistoryApiRow[]>(() => getAlarmHistoryCache() ?? []);
   const [listError, setListError] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(() => getAlarmHistoryCache() == null);
+  const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const loadGenRef = useRef(0);
 
   const loadHistory = useCallback(async (opts?: { silent?: boolean }) => {
@@ -188,12 +210,46 @@ export default function HistoryScreen() {
 
   const compliance = useMemo(() => monthlyComplianceFromHistory(rows), [rows]);
 
+  const handleClearAllHistory = useCallback(async () => {
+    setClearing(true);
+    try {
+      const { id: userId, error: userErr } = await fetchCurrentUserRowId();
+      if (userErr || userId == null) {
+        if (!(await shouldSkipAuthFailureAlerts())) {
+          notifyAuthError('History', userErr ?? new Error('Missing user profile.'));
+        }
+        return;
+      }
+      await clearAllAlarmHistory(userId);
+      await clearAllPendingAlarmHistory();
+      invalidateAlarmHistoryCache();
+      setRows([]);
+      setAlarmHistoryCache(userId, []);
+      setListError(null);
+      setClearConfirmVisible(false);
+      showToast('History cleared.');
+    } catch (e) {
+      notifyAuthError('History', e);
+    } finally {
+      setClearing(false);
+    }
+  }, [showToast]);
+
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Text style={styles.title}>History</Text>
+          {rows.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all history"
+              style={({ pressed }) => [styles.clearAllBtn, pressed && styles.clearAllBtnPressed]}
+              onPress={() => setClearConfirmVisible(true)}>
+              <Text style={styles.clearAllText}>Clear all</Text>
+            </Pressable>
+          ) : null}
         </View>
       </SafeAreaView>
 
@@ -241,7 +297,33 @@ export default function HistoryScreen() {
         )}
       </ScrollView>
 
-      <FullScreenLoadingOverlay visible={initialLoad} variant="embedded" />
+      <FullScreenLoadingOverlay visible={initialLoad || clearing} variant="embedded" />
+      <AppConfirmModal
+        visible={clearConfirmVisible}
+        title="Clear all history?"
+        body="This permanently removes every alarm history entry from your account. This cannot be undone."
+        onRequestClose={() => !clearing && setClearConfirmVisible(false)}
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onPress: () => {
+              if (!clearing) {
+                setClearConfirmVisible(false);
+              }
+            },
+          },
+          {
+            label: clearing ? 'Clearing…' : 'Clear all',
+            variant: 'danger',
+            onPress: () => {
+              if (!clearing) {
+                void handleClearAllHistory();
+              }
+            },
+          },
+        ]}
+      />
       <BottomNavbar
         items={[
           { icon: historyIcons.alarms, label: 'Alarms', onPress: () => navigateToMainTab(router, '/alarm') },

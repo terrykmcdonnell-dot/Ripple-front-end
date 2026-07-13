@@ -9,10 +9,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
-import { AndroidAlarmPermissionsBootstrap } from '@/components/bootstrap/AndroidAlarmPermissionsBootstrap';
 import { AppVersionCheckLaunchBootstrap } from '@/components/bootstrap/AppVersionCheckLaunchBootstrap';
-import { IosNotificationPermissionBootstrap } from '@/components/bootstrap/IosNotificationPermissionBootstrap';
-import { NotificationAccessBootstrap } from '@/components/bootstrap/NotificationAccessBootstrap';
 import { AlarmScheduleAuthSync } from '@/components/bootstrap/AlarmScheduleAuthSync';
 import { PostHogProviderShell } from '@/components/bootstrap/PostHogBootstrap';
 import { RevenueCatBootstrap } from '@/components/bootstrap/RevenueCatBootstrap';
@@ -97,9 +94,6 @@ export default function RootLayout() {
             <AlarmScheduleAuthSync />
             <SupabaseAuthAutoRefreshBootstrap />
             <RevenueCatBootstrap />
-            <IosNotificationPermissionBootstrap />
-            <NotificationAccessBootstrap />
-            <AndroidAlarmPermissionsBootstrap />
             <AlarmNotificationBootstrap />
             <NotificationPresentationBootstrap />
             <Stack>
