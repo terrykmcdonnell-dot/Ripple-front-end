@@ -7,6 +7,10 @@ import android.os.Build
 
 class AlarmSnoozeReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
+    if (!RippleAlarmNative.isNativeAlarmDeliveryAllowed(context, intent)) {
+      RippleAlarmNative.dismissStaleAlarmDelivery(context, intent)
+      return
+    }
     val svcIntent = Intent().apply {
       setClassName(context.packageName, context.packageName + ".AlarmSoundService")
       putExtra(RippleAlarmNative.EXTRA_SOUND_NAME, intent.getStringExtra(RippleAlarmNative.EXTRA_SOUND_NAME) ?: "")

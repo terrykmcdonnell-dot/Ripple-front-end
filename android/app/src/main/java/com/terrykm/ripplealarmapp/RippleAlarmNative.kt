@@ -43,6 +43,61 @@ object RippleAlarmNative {
     queueAction(context, source, "missed", 0)
   }
 
+  /** Cancels a native AlarmManager snooze scheduled from the lock-screen UI. */
+  @JvmStatic
+  fun cancelNativeSnooze(context: Context) {
+    val snoozeIntent = Intent(context, AlarmSnoozeReceiver::class.java)
+    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    } else {
+      PendingIntent.FLAG_UPDATE_CURRENT
+    }
+    val operation = PendingIntent.getBroadcast(context, SNOOZE_REQUEST_CODE, snoozeIntent, flags)
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarmManager.cancel(operation)
+  }
+
+  @JvmStatic
+  fun parseAlarmIdFromIntent(intent: Intent?): Int? {
+    val identifier = intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: ""
+    if (identifier.startsWith("ripple_alarm_fire_")) {
+      val parts = identifier.split("_")
+      if (parts.size >= 5) {
+        return parts[parts.size - 2].toIntOrNull()
+      }
+    }
+    val payload = intent?.getStringExtra(EXTRA_ALARM_PAYLOAD) ?: return null
+    return try {
+      val alarmId = JSONObject(payload).optInt("alarmId", -1)
+      if (alarmId > 0) alarmId else null
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  /**
+   * Blocks stale OS deliveries on background / lock screen before native sound starts.
+   * Fails open when JS has never synced (fresh install) or alarm id cannot be parsed.
+   */
+  @JvmStatic
+  fun isNativeAlarmDeliveryAllowed(context: Context, intent: Intent?): Boolean {
+    if (!RippleAlarmPrefs.hasEnabledAlarmSnapshot(context)) {
+      return true
+    }
+    val enabledIds = RippleAlarmPrefs.getEnabledAlarmIds(context)
+    if (enabledIds.isEmpty()) {
+      return false
+    }
+    val alarmId = parseAlarmIdFromIntent(intent) ?: return true
+    return enabledIds.contains(alarmId)
+  }
+
+  @JvmStatic
+  fun dismissStaleAlarmDelivery(context: Context, intent: Intent?) {
+    stopAlarmSound(context)
+    dismissExpoNotification(context, intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
+  }
+
   /** Marks an alarm occurrence as delivered so sync does not re-fire it in the grace window. */
   @JvmStatic
   fun markAlarmFired(context: Context, identifier: String?, payloadJson: String?) {

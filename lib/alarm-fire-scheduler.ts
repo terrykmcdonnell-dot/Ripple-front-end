@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
+import getAllScheduledNotificationsAsync from 'expo-notifications/build/getAllScheduledNotificationsAsync';
 import { getPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import {
   AndroidNotificationPriority,
@@ -8,7 +9,7 @@ import {
 import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
 import { Platform } from 'react-native';
 
-import { getNativeAlarmFireDeliveredMap, syncNativeAlarmFireDelivered } from '@/lib/android-alarm-native-prefs';
+import { getNativeAlarmFireDeliveredMap, syncEnabledAlarmIdsToNative, syncNativeAlarmFireDelivered } from '@/lib/android-alarm-native-prefs';
 
 import { fetchAlarms } from '@/lib/alarm-api';
 import type { AlarmListItem } from '@/lib/alarm-format';
@@ -35,6 +36,7 @@ import {
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
 import { nextCanonicalAlarmFire } from '@/lib/upcoming-reminder-scheduler';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import { cancelPendingSnoozeNotification } from '@/lib/device-snooze';
 import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alarm-notification-channel';
 import { getIosAlarmInterruptionLevel } from '@/lib/ios-alarm-notification-options';
 
@@ -145,8 +147,24 @@ async function cancelStoredAlarmFireNotifications(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_IDS_KEY);
 }
 
-export async function cancelAlarmFireNotifications(): Promise<void> {
+/** Cancels tracked + any orphan ripple alarm-fire notifications still in the OS queue. */
+async function cancelRippleAlarmFireScheduledNotifications(): Promise<void> {
   await cancelStoredAlarmFireNotifications();
+  try {
+    const all = await getAllScheduledNotificationsAsync();
+    await Promise.all(
+      all
+        .filter((req) => req.identifier.startsWith('ripple_alarm_fire_'))
+        .map((req) => cancelScheduledNotificationAsync(req.identifier).catch(() => undefined)),
+    );
+  } catch {
+    /* scheduler unavailable */
+  }
+}
+
+export async function cancelAlarmFireNotifications(): Promise<void> {
+  await cancelRippleAlarmFireScheduledNotifications();
+  await cancelPendingSnoozeNotification();
 }
 
 /**
@@ -231,11 +249,17 @@ type AlarmFireSpec = {
   fireAtRaw: Date;
 };
 
+function syncNativeEnabledAlarmIdsFromRows(rows: AlarmListItem[]): void {
+  syncEnabledAlarmIdsToNative(rows.filter((alarm) => alarm.isEnabled).map((alarm) => alarm.id));
+}
+
 async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promise<void> {
   const notificationsMasterEnabled = await loadNotificationsMasterEnabled();
   if (!notificationsMasterEnabled) {
     // Intentional user action (notifications turned off) — clear schedule.
-    await cancelStoredAlarmFireNotifications();
+    await cancelRippleAlarmFireScheduledNotifications();
+    await cancelPendingSnoozeNotification();
+    syncEnabledAlarmIdsToNative([]);
     return;
   }
 
@@ -263,6 +287,13 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
     if (!error && userId != null) {
       schedulingUserId = userId;
     }
+  }
+
+  if (rows.every((alarm) => !alarm.isEnabled)) {
+    await cancelRippleAlarmFireScheduledNotifications();
+    await cancelPendingSnoozeNotification();
+    syncEnabledAlarmIdsToNative([]);
+    return;
   }
 
   const existing = await getPermissionsAsync();
@@ -342,7 +373,11 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
   // and register the freshly-computed one. Because this only runs after all
   // network reads succeeded, a transient failure can never leave the user with
   // zero scheduled alarms.
-  await cancelStoredAlarmFireNotifications();
+  await cancelRippleAlarmFireScheduledNotifications();
+
+  if (specs.length === 0) {
+    await cancelPendingSnoozeNotification();
+  }
 
   const androidChannelIdsBySound = new Map<string, string>();
   const scheduledIds: string[] = [];
@@ -446,4 +481,6 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
       void syncAlarmFireNotifications();
     }, delayMs);
   }
+
+  syncNativeEnabledAlarmIdsFromRows(rows);
 }

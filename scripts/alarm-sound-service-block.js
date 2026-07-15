@@ -61,6 +61,11 @@ class AlarmSoundService : Service() {
       return START_NOT_STICKY
     }
     activeAlarmIntent = intent?.let { Intent(it) }
+    if (!RippleAlarmNative.isNativeAlarmDeliveryAllowed(this, intent)) {
+      RippleAlarmNative.dismissStaleAlarmDelivery(this, intent)
+      stopSelf()
+      return START_NOT_STICKY
+    }
     val mode = intent?.getStringExtra(EXTRA_ALARM_PRESENTATION_MODE) ?: MODE_LOCKSCREEN
     RippleAlarmNative.markAlarmFired(
       this,

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 
+import dismissNotificationAsync from 'expo-notifications/build/dismissNotificationAsync';
 import {
   addNotificationReceivedListener,
   addNotificationResponseReceivedListener,
@@ -14,11 +15,14 @@ import {
   ALARM_NOTIFICATION_ACTION_DISMISS,
   ALARM_NOTIFICATION_ACTION_SNOOZE,
 } from '@/lib/alarm-notification-constants';
-import { ensureAllAndroidAlarmChannelsAsync } from '@/lib/alarm-fire-scheduler';
+import { ensureAllAndroidAlarmChannelsAsync, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
 import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
+import { stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
+import { stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 import { processPendingNativeAlarmActions } from '@/lib/android-native-alarm-actions';
 import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/alarm-notification-response';
+import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
 import { isAlarmFireOccurrenceDelivered, markAlarmFireDelivered } from '@/lib/alarm-fire-scheduler';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
 import { flushPendingAlarmHistoryWrites, recordAlarmHistoryMissed } from '@/lib/alarm-history-sync';
@@ -87,6 +91,13 @@ export function AlarmNotificationBootstrap() {
           return;
         }
         void (async () => {
+          if (!(await isAlarmFireDeliveryAllowed(parsed))) {
+            await dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
+            stopNativeAlarmSound();
+            await stopRingAlarmSound();
+            await syncAlarmFireNotifications();
+            return;
+          }
           const fireAtMs = new Date(parsed.fireAt).getTime();
           if (Number.isFinite(fireAtMs)) {
             if (await isAlarmFireOccurrenceDelivered(parsed.alarmId, fireAtMs)) {

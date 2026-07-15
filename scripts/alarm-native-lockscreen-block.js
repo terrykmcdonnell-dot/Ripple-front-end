@@ -138,6 +138,8 @@ object RippleAlarmPrefs {
   private const val KEY_SNOOZE_MINUTES = "default_snooze_minutes"
   private const val KEY_PENDING_ACTIONS = "pending_alarm_actions"
   private const val KEY_DELIVERED = "alarm_fire_delivered"
+  private const val KEY_ENABLED_ALARM_IDS = "enabled_alarm_ids"
+  private const val KEY_ENABLED_ALARM_IDS_KNOWN = "enabled_alarm_ids_known"
   private const val DEFAULT_SNOOZE_MINUTES = 10
 
   fun getDefaultSnoozeMinutes(context: Context): Int {
@@ -187,6 +189,28 @@ object RippleAlarmPrefs {
     return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .getString(KEY_DELIVERED, "{}") ?: "{}"
   }
+
+  fun setEnabledAlarmIds(context: Context, ids: Collection<Int>) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(KEY_ENABLED_ALARM_IDS, ids.joinToString(","))
+      .putBoolean(KEY_ENABLED_ALARM_IDS_KNOWN, true)
+      .apply()
+  }
+
+  fun hasEnabledAlarmSnapshot(context: Context): Boolean {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_ENABLED_ALARM_IDS_KNOWN, false)
+  }
+
+  fun getEnabledAlarmIds(context: Context): Set<Int> {
+    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_ENABLED_ALARM_IDS, "") ?: ""
+    if (raw.isBlank()) {
+      return emptySet()
+    }
+    return raw.split(",").mapNotNull { it.toIntOrNull() }.toSet()
+  }
 }
 `;
 
@@ -229,6 +253,57 @@ object RippleAlarmNative {
   fun handleMissed(context: Context, source: Intent?) {
     dismissExpoNotification(context, source?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
     queueAction(context, source, "missed", 0)
+  }
+
+  /** Cancels a native AlarmManager snooze scheduled from the lock-screen UI. */
+  @JvmStatic
+  fun cancelNativeSnooze(context: Context) {
+    val snoozeIntent = Intent(context, AlarmSnoozeReceiver::class.java)
+    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    } else {
+      PendingIntent.FLAG_UPDATE_CURRENT
+    }
+    val operation = PendingIntent.getBroadcast(context, SNOOZE_REQUEST_CODE, snoozeIntent, flags)
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarmManager.cancel(operation)
+  }
+
+  @JvmStatic
+  fun parseAlarmIdFromIntent(intent: Intent?): Int? {
+    val identifier = intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: ""
+    if (identifier.startsWith("ripple_alarm_fire_")) {
+      val parts = identifier.split("_")
+      if (parts.size >= 5) {
+        return parts[parts.size - 2].toIntOrNull()
+      }
+    }
+    val payload = intent?.getStringExtra(EXTRA_ALARM_PAYLOAD) ?: return null
+    return try {
+      val alarmId = JSONObject(payload).optInt("alarmId", -1)
+      if (alarmId > 0) alarmId else null
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  @JvmStatic
+  fun isNativeAlarmDeliveryAllowed(context: Context, intent: Intent?): Boolean {
+    if (!RippleAlarmPrefs.hasEnabledAlarmSnapshot(context)) {
+      return true
+    }
+    val enabledIds = RippleAlarmPrefs.getEnabledAlarmIds(context)
+    if (enabledIds.isEmpty()) {
+      return false
+    }
+    val alarmId = parseAlarmIdFromIntent(intent) ?: return true
+    return enabledIds.contains(alarmId)
+  }
+
+  @JvmStatic
+  fun dismissStaleAlarmDelivery(context: Context, intent: Intent?) {
+    stopAlarmSound(context)
+    dismissExpoNotification(context, intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER))
   }
 
   @JvmStatic
@@ -356,6 +431,10 @@ import android.os.Build
 
 class AlarmSnoozeReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
+    if (!RippleAlarmNative.isNativeAlarmDeliveryAllowed(context, intent)) {
+      RippleAlarmNative.dismissStaleAlarmDelivery(context, intent)
+      return
+    }
     val svcIntent = Intent().apply {
       setClassName(context.packageName, context.packageName + ".AlarmSoundService")
       putExtra(RippleAlarmNative.EXTRA_SOUND_NAME, intent.getStringExtra(RippleAlarmNative.EXTRA_SOUND_NAME) ?: "")
@@ -448,6 +527,20 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
         reactApplicationContext.startService(svc)
       }
     } catch (_: Exception) {}
+  }
+
+  @ReactMethod
+  fun setEnabledAlarmIds(ids: com.facebook.react.bridge.ReadableArray) {
+    val enabled = mutableListOf<Int>()
+    for (i in 0 until ids.size()) {
+      enabled.add(ids.getInt(i))
+    }
+    RippleAlarmPrefs.setEnabledAlarmIds(reactApplicationContext, enabled)
+  }
+
+  @ReactMethod
+  fun cancelNativeSnoozeAlarm() {
+    RippleAlarmNative.cancelNativeSnooze(reactApplicationContext)
   }
 
   @ReactMethod

@@ -154,8 +154,13 @@ export default function AlarmScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [patchingIds, setPatchingIds] = useState<number[]>([]);
   const patchingIdsRef = useRef<Set<number>>(new Set());
+  const alarmsRef = useRef<AlarmListItem[]>([]);
   const firstFocus = useRef(true);
   const loadGenRef = useRef(0);
+
+  useEffect(() => {
+    alarmsRef.current = alarms;
+  }, [alarms]);
 
   const [clockTick, setClockTick] = useState(() => Date.now());
   useEffect(() => {
@@ -283,12 +288,19 @@ export default function AlarmScreen() {
 
     const previous = alarm.isEnabled;
     const next = !previous;
+    const updatedRows = alarmsRef.current.map((a) =>
+      a.id === alarm.id ? { ...a, isEnabled: next } : a,
+    );
 
-    setAlarms((rows) => rows.map((a) => (a.id === alarm.id ? { ...a, isEnabled: next } : a)));
+    alarmsRef.current = updatedRows;
+    setAlarms(updatedRows);
+    // Drop any in-flight loadAlarms() so it cannot re-schedule with stale API data
+    // after this toggle has already cancelled OS notifications.
+    loadGenRef.current += 1;
 
     try {
       await patchAlarm(alarm.id, { is_enabled: next });
-      void syncUpcomingReminderNotifications();
+      await syncUpcomingReminderNotifications(updatedRows);
       if (next) {
         void hasAndroidAlarmPermissionWarnings().then((needsSetup) => {
           if (needsSetup) {
@@ -297,16 +309,17 @@ export default function AlarmScreen() {
             );
           }
         });
-        void syncAlarmFireNotifications().then(() => {
-          void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
-        });
+        await syncAlarmFireNotifications(updatedRows);
+        void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
       } else {
-        void syncAlarmFireNotifications();
+        await syncAlarmFireNotifications(updatedRows);
       }
     } catch (e) {
-      setAlarms((rows) =>
-        rows.map((a) => (a.id === alarm.id ? { ...a, isEnabled: previous } : a)),
+      const revertedRows = alarmsRef.current.map((a) =>
+        a.id === alarm.id ? { ...a, isEnabled: previous } : a,
       );
+      alarmsRef.current = revertedRows;
+      setAlarms(revertedRows);
       notifyAuthError('Alarms', e);
     } finally {
       patchingIdsRef.current.delete(alarm.id);

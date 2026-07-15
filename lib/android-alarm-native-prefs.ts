@@ -6,6 +6,7 @@ type RippleAlarmPrefsModule = {
   consumePendingActionsAsync?: () => Promise<string>;
   getDeliveredMapAsync?: () => Promise<string>;
   setAlarmFireDelivered?: (alarmId: number, fireAtMs: number) => void;
+  setEnabledAlarmIds?: (ids: number[]) => void;
   startAlarmSound?: (
     soundName: string,
     alarmTitle: string,
@@ -15,6 +16,7 @@ type RippleAlarmPrefsModule = {
     presentationMode: string,
   ) => void;
   stopAlarmSound?: () => void;
+  cancelNativeSnoozeAlarm?: () => void;
 };
 
 type StartNativeAlarmSoundOptions = {
@@ -88,6 +90,19 @@ export function syncNativeAlarmFireDelivered(alarmId: number, fireAtMs: number):
   }
 }
 
+/** Mirrors enabled alarm ids to native prefs for background / lock-screen delivery checks. */
+export function syncEnabledAlarmIdsToNative(alarmIds: number[]): void {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  try {
+    const mod = requireOptionalNativeModule<RippleAlarmPrefsModule>('RippleAlarmPrefs');
+    mod?.setEnabledAlarmIds?.(alarmIds);
+  } catch {
+    /* native module unavailable */
+  }
+}
+
 export function startNativeAlarmSound(options: StartNativeAlarmSoundOptions): boolean {
   if (Platform.OS !== 'android') {
     return false;
@@ -124,6 +139,18 @@ export function stopNativeAlarmSound(): void {
   try {
     const mod = requireOptionalNativeModule<RippleAlarmPrefsModule>('RippleAlarmPrefs');
     mod?.stopAlarmSound?.();
+  } catch {
+    /* native module unavailable */
+  }
+}
+
+export function cancelNativeSnoozeAlarm(): void {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  try {
+    const mod = requireOptionalNativeModule<RippleAlarmPrefsModule>('RippleAlarmPrefs');
+    mod?.cancelNativeSnoozeAlarm?.();
   } catch {
     /* native module unavailable */
   }

@@ -73,6 +73,20 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun setEnabledAlarmIds(ids: com.facebook.react.bridge.ReadableArray) {
+    val enabled = mutableListOf<Int>()
+    for (i in 0 until ids.size()) {
+      enabled.add(ids.getInt(i))
+    }
+    RippleAlarmPrefs.setEnabledAlarmIds(reactApplicationContext, enabled)
+  }
+
+  @ReactMethod
+  fun cancelNativeSnoozeAlarm() {
+    RippleAlarmNative.cancelNativeSnooze(reactApplicationContext)
+  }
+
+  @ReactMethod
   fun stopAlarmSound() {
     try {
       val stop = Intent().apply {

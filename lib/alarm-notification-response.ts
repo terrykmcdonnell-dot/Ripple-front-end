@@ -18,9 +18,10 @@ import {
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
 import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
+import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
 import { clearMissedAlarmAppBadge } from '@/lib/missed-alarm-app-badge';
-import { startNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
+import { startNativeAlarmSound, stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
 import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 import { coerceAlarmSoundId } from '@/lib/settings-preferences';
 
@@ -74,6 +75,14 @@ export async function handleAlarmFireNotificationResponse(response: Notification
 
   const parsed = parseAlarmFireFromNotification(response.notification);
   if (!parsed) {
+    return;
+  }
+
+  if (!(await isAlarmFireDeliveryAllowed(parsed))) {
+    await dismissNotificationAsync(response.notification.request.identifier).catch(() => undefined);
+    stopNativeAlarmSound();
+    await stopRingAlarmSound();
+    await syncAlarmFireNotifications();
     return;
   }
 

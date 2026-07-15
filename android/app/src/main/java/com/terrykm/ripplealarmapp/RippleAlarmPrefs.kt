@@ -7,6 +7,8 @@ object RippleAlarmPrefs {
   private const val KEY_SNOOZE_MINUTES = "default_snooze_minutes"
   private const val KEY_PENDING_ACTIONS = "pending_alarm_actions"
   private const val KEY_DELIVERED = "alarm_fire_delivered"
+  private const val KEY_ENABLED_ALARM_IDS = "enabled_alarm_ids"
+  private const val KEY_ENABLED_ALARM_IDS_KNOWN = "enabled_alarm_ids_known"
   private const val DEFAULT_SNOOZE_MINUTES = 10
 
   fun getDefaultSnoozeMinutes(context: Context): Int {
@@ -55,5 +57,28 @@ object RippleAlarmPrefs {
   fun getDeliveredMapJson(context: Context): String {
     return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       .getString(KEY_DELIVERED, "{}") ?: "{}"
+  }
+
+  /** Written by JS on every alarm-schedule sync so native delivery can block disabled alarms. */
+  fun setEnabledAlarmIds(context: Context, ids: Collection<Int>) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(KEY_ENABLED_ALARM_IDS, ids.joinToString(","))
+      .putBoolean(KEY_ENABLED_ALARM_IDS_KNOWN, true)
+      .apply()
+  }
+
+  fun hasEnabledAlarmSnapshot(context: Context): Boolean {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getBoolean(KEY_ENABLED_ALARM_IDS_KNOWN, false)
+  }
+
+  fun getEnabledAlarmIds(context: Context): Set<Int> {
+    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .getString(KEY_ENABLED_ALARM_IDS, "") ?: ""
+    if (raw.isBlank()) {
+      return emptySet()
+    }
+    return raw.split(",").mapNotNull { it.toIntOrNull() }.toSet()
   }
 }

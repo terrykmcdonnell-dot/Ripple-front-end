@@ -8,6 +8,7 @@ import {
 import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
 import { Platform } from 'react-native';
 
+import { cancelNativeSnoozeAlarm } from '@/lib/android-alarm-native-prefs';
 import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alarm-notification-channel';
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
@@ -55,9 +56,10 @@ async function cancelStoredSnoozeSchedule(): Promise<void> {
   await AsyncStorage.removeItem(PENDING_SNOOZE_NOTIF_KEY);
 }
 
-/** Cancels the pending snooze notification tracked in AsyncStorage (if any). */
+/** Cancels expo-scheduled and native AlarmManager snoozes (if any). */
 export async function cancelPendingSnoozeNotification(): Promise<void> {
   await cancelStoredSnoozeSchedule();
+  cancelNativeSnoozeAlarm();
 }
 
 export type ScheduleSnoozeResult =

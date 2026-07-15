@@ -34,6 +34,19 @@ function coerceId(value: unknown): number | null {
   return null;
 }
 
+function coerceBoolean(value: unknown, defaultValue: boolean): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (value === 0 || value === '0' || value === 'false' || value === 'False') {
+    return false;
+  }
+  if (value === 1 || value === '1' || value === 'true' || value === 'True') {
+    return true;
+  }
+  return defaultValue;
+}
+
 export function normalizeAlarmPayload(raw: unknown): AlarmListItem | null {
   if (raw === null || typeof raw !== 'object') {
     return null;
@@ -76,12 +89,7 @@ export function normalizeAlarmPayload(raw: unknown): AlarmListItem | null {
   const rawSound = row.sound ?? row.Sound ?? row.alarm_sound;
   const soundTrimmed = typeof rawSound === 'string' ? rawSound.trim() : '';
 
-  const isEnabled =
-    typeof row.is_enabled === 'boolean'
-      ? row.is_enabled
-      : typeof row.isEnabled === 'boolean'
-        ? row.isEnabled
-        : true;
+  const isEnabled = coerceBoolean(row.is_enabled ?? row.isEnabled, true);
 
   return {
     id,
