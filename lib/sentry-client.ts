@@ -24,7 +24,7 @@ export function initSentry(): void {
 
   Sentry.init({
     dsn,
-    enabled: !__DEV__,
+    enabled: true,
     environment: __DEV__ ? 'development' : 'production',
     release: `${slug}@${version}`,
     dist: version,
