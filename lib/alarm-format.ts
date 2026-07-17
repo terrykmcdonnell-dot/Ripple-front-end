@@ -238,7 +238,16 @@ function resolveCategoryIconKey(category: string): CategoryIconKey | 'unknown' {
 }
 
 function iconForCategoryKey(key: CategoryIconKey | 'unknown'): string {
-  return key === 'unknown' ? createCategoryIcons.health : createCategoryIcons[key];
+  return key === 'unknown' ? createCategoryIcons.custom : createCategoryIcons[key];
+}
+
+/** Resolves the emoji shown on alarm list rows and the ring screen. */
+export function resolveAlarmCategoryIcon(categoryName: string, categoryIcon?: string): string {
+  const fromApi = categoryIcon?.trim();
+  if (fromApi) {
+    return fromApi;
+  }
+  return iconForCategoryKey(resolveCategoryIconKey(categoryName));
 }
 
 /** When the alarm row is toggled ON, stripe / icon chip colors follow category. */

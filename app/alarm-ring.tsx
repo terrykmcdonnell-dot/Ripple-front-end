@@ -11,7 +11,8 @@ import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import { useDefaultSnoozeMinutes } from '@/hooks/use-default-snooze-minutes';
 import { useDefaultVibrationEnabled } from '@/hooks/use-default-vibration-enabled';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { formatScheduledLocalParts } from '@/lib/alarm-format';
+import { resolveCategoryMeta, useAlarmCategories } from '@/lib/alarm-categories';
+import { formatScheduledLocalParts, resolveAlarmCategoryIcon } from '@/lib/alarm-format';
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { notifyAuthMessage } from '@/lib/auth-notify';
 import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
@@ -36,6 +37,8 @@ function parsedFromParams(params: {
   fireAt?: string | string[];
   label?: string | string[];
   category?: string | string[];
+  categoryId?: string | string[];
+  categoryIcon?: string | string[];
   soundId?: string | string[];
   userId?: string | string[];
 }): ParsedAlarmFireData | null {
@@ -50,6 +53,9 @@ function parsedFromParams(params: {
   }
   const label = paramOne(params.label)?.trim() || 'Alarm';
   const category = paramOne(params.category)?.trim() ?? '';
+  const categoryIcon = paramOne(params.categoryIcon)?.trim();
+  const categoryIdRaw = paramOne(params.categoryId);
+  const categoryId = categoryIdRaw != null ? Number(categoryIdRaw) : NaN;
   const soundId = paramOne(params.soundId);
   const uidRaw = paramOne(params.userId);
   const uid = uidRaw != null ? Number(uidRaw) : NaN;
@@ -58,6 +64,8 @@ function parsedFromParams(params: {
     fireAt,
     label,
     category,
+    ...(Number.isFinite(categoryId) ? { categoryId } : {}),
+    ...(categoryIcon ? { categoryIcon } : {}),
     ...(soundId ? { soundId } : {}),
     ...(Number.isFinite(uid) ? { userId: uid } : {}),
   };
@@ -68,12 +76,25 @@ export default function AlarmRingScreen() {
   const router = useRouter();
   const rawParams = useLocalSearchParams();
   const liveParsed = useMemo(() => parsedFromParams(rawParams), [rawParams]);
+  const { categories } = useAlarmCategories();
 
   const defaultSnoozeMinutes = useDefaultSnoozeMinutes();
   const vibrationEnabled = useDefaultVibrationEnabled();
   const snoozePendingRef = useRef(false);
 
   const alarmTitle = liveParsed?.label ?? 'Alarm';
+
+  const ringCategoryIcon = useMemo(() => {
+    if (!liveParsed) {
+      return ringIcons.alarm;
+    }
+    const meta = resolveCategoryMeta(categories, {
+      categoryId: liveParsed.categoryId,
+      categoryName: liveParsed.category,
+      categoryIcon: liveParsed.categoryIcon,
+    });
+    return resolveAlarmCategoryIcon(meta.name, meta.icon);
+  }, [categories, liveParsed]);
 
   const heroClock = useMemo(() => {
     if (!liveParsed?.fireAt) {
@@ -197,7 +218,7 @@ export default function AlarmRingScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.content, { backgroundColor: palette.accentDim, paddingBottom: bottomPad }]}>
-        <RingPulse icon={ringIcons.alarm} />
+        <RingPulse icon={ringCategoryIcon} />
 
         <Text style={styles.alarmLabel}>Alarm</Text>
         <View style={styles.heroClockRow}>

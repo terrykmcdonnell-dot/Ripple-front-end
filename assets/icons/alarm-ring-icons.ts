@@ -1,5 +1,5 @@
 export const ringIcons = {
-  alarm: '💊',
+  alarm: '⭐',
   snooze: '⏰',
   dismiss: '✓',
 } as const;

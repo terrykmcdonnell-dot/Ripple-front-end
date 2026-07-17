@@ -146,6 +146,8 @@ export async function scheduleSnoozeNotification(params: {
         fireAt: snoozeFireAt,
         label: alarmData.label,
         category: alarmData.category,
+        ...(alarmData.categoryId != null ? { categoryId: alarmData.categoryId } : {}),
+        ...(alarmData.categoryIcon ? { categoryIcon: alarmData.categoryIcon } : {}),
         ...(alarmData.soundId ? { soundId: alarmData.soundId } : { soundId }),
         ...(alarmData.userId != null ? { userId: alarmData.userId } : {}),
       }

@@ -1,5 +1,7 @@
 package com.terrykm.ripplealarmapp
 
+import android.app.AlarmManager
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.facebook.react.bridge.Promise
@@ -11,6 +13,21 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
 
   override fun getName(): String = "RippleAlarmPrefs"
+
+  @ReactMethod
+  fun canScheduleExactAlarmsAsync(promise: Promise) {
+    try {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        promise.resolve(true)
+        return
+      }
+      val alarmManager =
+        reactApplicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+      promise.resolve(alarmManager.canScheduleExactAlarms())
+    } catch (e: Exception) {
+      promise.reject("ERR_EXACT_ALARM", e.message, e)
+    }
+  }
 
   @ReactMethod
   fun setDefaultSnoozeMinutes(minutes: Int) {

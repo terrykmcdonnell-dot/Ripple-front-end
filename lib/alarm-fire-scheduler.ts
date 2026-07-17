@@ -39,6 +39,7 @@ import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { cancelPendingSnoozeNotification } from '@/lib/device-snooze';
 import { setAndroidAlarmStyleNotificationChannelAsync } from '@/lib/android-alarm-notification-channel';
 import { getIosAlarmInterruptionLevel } from '@/lib/ios-alarm-notification-options';
+import { requestIosScheduledNotificationLimitCheck } from '@/lib/ios-scheduled-notification-limit';
 
 const STORAGE_IDS_KEY = 'ripple_alarm_fire_scheduled_notification_ids';
 
@@ -236,6 +237,7 @@ export async function syncAlarmFireNotifications(alarms?: AlarmListItem[]): Prom
       // Re-run without the original rows so we always fetch the freshest set.
       void syncAlarmFireNotifications();
     }
+    requestIosScheduledNotificationLimitCheck();
   }
 }
 
@@ -429,6 +431,8 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
             fireAt: fireAtRaw.toISOString(),
             label,
             category: alarm.category,
+            ...(alarm.categoryId != null ? { categoryId: alarm.categoryId } : {}),
+            ...(alarm.categoryIcon ? { categoryIcon: alarm.categoryIcon } : {}),
             soundId,
             ...(schedulingUserId != null ? { userId: schedulingUserId } : {}),
           },

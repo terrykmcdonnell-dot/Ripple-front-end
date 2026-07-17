@@ -442,6 +442,7 @@ export default function AlarmEditScreen() {
                     key={item}
                     label={item}
                     flex
+                    fitSingleLine
                     active={unit === item}
                     onPress={() => setUnit(item)}
                   />

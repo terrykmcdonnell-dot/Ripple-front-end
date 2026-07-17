@@ -120,19 +120,30 @@ export function resolveCategoryMeta(
     categoryColorKey?: string | null;
   },
 ): AlarmCategory {
+  const iconFromRow = opts.categoryIcon?.trim() || null;
+  const colorFromRow = opts.categoryColorKey ? coerceColorKey(opts.categoryColorKey) : null;
+
+  const withRowOverrides = (base: AlarmCategory): AlarmCategory => ({
+    ...base,
+    ...(iconFromRow ? { icon: iconFromRow } : {}),
+    ...(colorFromRow ? { colorKey: colorFromRow } : {}),
+  });
+
   const byId = opts.categoryId != null ? categories.find((item) => item.id === opts.categoryId) : null;
   if (byId) {
-    return byId;
+    return withRowOverrides(byId);
   }
   const byName = findCategoryByName(categories, opts.categoryName);
   if (byName) {
-    return byName;
+    return withRowOverrides(byName);
   }
-  return {
-    ...findDefaultCategory(categories),
-    icon: opts.categoryIcon?.trim() || findDefaultCategory(categories).icon,
-    colorKey: coerceColorKey(opts.categoryColorKey),
-  };
+  const fallback = findDefaultCategory(categories);
+  return withRowOverrides({
+    ...fallback,
+    name: opts.categoryName?.trim() || fallback.name,
+    icon: iconFromRow || fallback.icon,
+    colorKey: colorFromRow || fallback.colorKey,
+  });
 }
 
 export async function fetchAlarmCategories(userId: number): Promise<AlarmCategory[]> {

@@ -24,7 +24,7 @@ export function initSentry(): void {
 
   Sentry.init({
     dsn,
-    enabled: true,
+    enabled: !__DEV__,
     environment: __DEV__ ? 'development' : 'production',
     release: `${slug}@${version}`,
     dist: version,
@@ -34,4 +34,22 @@ export function initSentry(): void {
     replaysOnErrorSampleRate: 1,
     integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
   });
+}
+
+/** Dev-only: briefly enables the client so Settings can verify Sentry connectivity. */
+export function sendSentryTestError(message: string): void {
+  if (!__DEV__ || Platform.OS === 'web' || !getSentryDsn()) {
+    return;
+  }
+
+  const client = Sentry.getClient();
+  if (!client) {
+    return;
+  }
+
+  const options = client.getOptions();
+  const wasEnabled = options.enabled;
+  options.enabled = true;
+  Sentry.captureException(new Error(message));
+  options.enabled = wasEnabled;
 }

@@ -36,6 +36,8 @@ function startForegroundNativeAlarmSound(parsed: ParsedAlarmFireData): void {
     label: parsed.label,
     category: parsed.category,
     soundId,
+    ...(parsed.categoryId != null ? { categoryId: parsed.categoryId } : {}),
+    ...(parsed.categoryIcon ? { categoryIcon: parsed.categoryIcon } : {}),
     ...(parsed.userId != null ? { userId: parsed.userId } : {}),
   });
   startNativeAlarmSound({
@@ -60,6 +62,8 @@ export function openAlarmRingScreen(parsed: ParsedAlarmFireData): void {
       fireAt: parsed.fireAt,
       label: parsed.label,
       category: parsed.category,
+      ...(parsed.categoryId != null ? { categoryId: String(parsed.categoryId) } : {}),
+      ...(parsed.categoryIcon ? { categoryIcon: parsed.categoryIcon } : {}),
       ...(parsed.soundId ? { soundId: parsed.soundId } : {}),
       ...(parsed.userId != null ? { userId: String(parsed.userId) } : {}),
     },

@@ -12,6 +12,8 @@ type SegmentButtonProps = {
   compact?: boolean;
   rounded?: boolean;
   flex?: boolean;
+  /** Shrinks label to stay on one line — for equal-width unit tabs on narrow screens. */
+  fitSingleLine?: boolean;
   withIcon?: string;
   /** When active, tints the chip with the category accent color. */
   activeColorKey?: AlarmCategoryColorKey;
@@ -42,11 +44,20 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     flex: {
       flex: 1,
+      minWidth: 0,
+    },
+    fitSingleLine: {
+      paddingHorizontal: 4,
+      paddingVertical: 10,
     },
     text: {
       fontSize: alarmTypography.caption,
       color: alarmTheme.muted,
       fontWeight: '500',
+    },
+    fitSingleLineText: {
+      fontSize: 12,
+      textAlign: 'center',
     },
     activeBackground: {
       backgroundColor: alarmTheme.accentDim,
@@ -65,6 +76,7 @@ export function SegmentButton({
   compact,
   rounded,
   flex,
+  fitSingleLine,
   withIcon,
   activeColorKey,
 }: SegmentButtonProps) {
@@ -78,6 +90,7 @@ export function SegmentButton({
       style={[
         styles.base,
         compact ? styles.compact : styles.regular,
+        fitSingleLine ? styles.fitSingleLine : null,
         rounded ? styles.rounded : styles.square,
         flex ? styles.flex : null,
         active && !accentStyle ? styles.activeBackground : null,
@@ -89,8 +102,12 @@ export function SegmentButton({
           : null,
       ]}>
       <Text
+        numberOfLines={fitSingleLine ? 1 : undefined}
+        adjustsFontSizeToFit={fitSingleLine}
+        minimumFontScale={fitSingleLine ? 0.72 : undefined}
         style={[
           styles.text,
+          fitSingleLine ? styles.fitSingleLineText : null,
           active && !accentStyle ? styles.activeText : null,
           accentStyle ? { color: accentStyle.textColor } : null,
         ]}>

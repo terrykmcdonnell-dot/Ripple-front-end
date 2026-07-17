@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { Linking, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Purchases from 'react-native-purchases';
 
@@ -70,6 +70,8 @@ import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { previewDefaultAlarmSoundAtVolume } from '@/lib/preview-alarm-sound';
+import { isAndroidExactAlarmGranted, needsAndroidExactAlarmPermissionCheck } from '@/lib/android-exact-alarm-granted';
+import { openAndroidExactAlarmPermissionSettings } from '@/lib/open-android-exact-alarm-settings';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 import { openAndroidNotificationPolicyAccessSettings } from '@/lib/open-android-notification-policy-access-settings';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
@@ -144,6 +146,7 @@ export default function SettingScreen() {
       setCheckingForUpdate(false);
     }
   }, [checkingForUpdate, showToast]);
+
   const [defaultSnoozeMinutes, setDefaultSnoozeMinutes] = useState(10);
   const [snoozePickerOpen, setSnoozePickerOpen] = useState(false);
   const [defaultSoundId, setDefaultSoundId] = useState<AlarmSoundId>('gentle-rise');
@@ -155,6 +158,7 @@ export default function SettingScreen() {
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [notifOsAllowed, setNotifOsAllowed] = useState(false);
   const [notifCanAskAgain, setNotifCanAskAgain] = useState(true);
+  const [exactAlarmGranted, setExactAlarmGranted] = useState(true);
   const notificationsMasterEnabled = true;
 
   const themeIcon = useMemo(() => {
@@ -203,6 +207,9 @@ export default function SettingScreen() {
             setNotifOsAllowed(isOsNotificationAllowed(p));
             setNotifCanAskAgain(p.canAskAgain !== false);
           }
+          if (!cancelled && needsAndroidExactAlarmPermissionCheck()) {
+            setExactAlarmGranted(await isAndroidExactAlarmGranted());
+          }
         } catch {
           /* expo-notifications unavailable */
         }
@@ -220,6 +227,9 @@ export default function SettingScreen() {
     const p = await getPermissionsAsync();
     setNotifOsAllowed(isOsNotificationAllowed(p));
     setNotifCanAskAgain(p.canAskAgain !== false);
+    if (needsAndroidExactAlarmPermissionCheck()) {
+      setExactAlarmGranted(await isAndroidExactAlarmGranted());
+    }
   }, []);
 
   useFocusEffect(
@@ -234,8 +244,14 @@ export default function SettingScreen() {
           await refreshNotificationPermissionUi();
         }
       })();
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active' && active && Platform.OS !== 'web') {
+          void refreshNotificationPermissionUi();
+        }
+      });
       return () => {
         active = false;
+        sub.remove();
       };
     }, [refreshNotificationPermissionUi]),
   );
@@ -634,6 +650,16 @@ export default function SettingScreen() {
               value="Android 14+ — allow full-screen alarms for Ripple"
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
               onPress={() => void openAndroidFullScreenAlarmPermissionSettings()}
+              noBorder={needsAndroidExactAlarmPermissionCheck() && !exactAlarmGranted}
+            />
+          ) : null}
+          {needsAndroidExactAlarmPermissionCheck() && !exactAlarmGranted ? (
+            <SettingsRow
+              icon={settingsIcons.snooze}
+              title="Alarms may be delayed — tap to fix."
+              value="Allow Alarms & reminders so Ripple can ring on time"
+              right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
+              onPress={() => void openAndroidExactAlarmPermissionSettings()}
               noBorder={false}
             />
           ) : null}

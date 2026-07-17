@@ -9,7 +9,7 @@ import {
 } from '@/lib/android-alarm-permissions-status';
 
 /**
- * Persistent banner on the Alarms screen when full-screen intent and/or DND access is disabled.
+ * Persistent banner on the Alarms screen when exact-alarm, full-screen intent, and/or DND access is disabled.
  */
 export function AndroidLockScreenAlarmBanner() {
   const palette = useAlarmTheme();
