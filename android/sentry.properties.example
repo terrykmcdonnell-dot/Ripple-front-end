@@ -1,0 +1,8 @@
+# Copy to sentry.properties for local native builds (never commit real tokens).
+# For EAS Build, set SENTRY_AUTH_TOKEN as a project secret instead.
+
+defaults.org=tkm-investments
+defaults.project=ripple-alarm
+defaults.url=https://sentry.io/
+
+auth.token=

@@ -24,7 +24,9 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         },
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -143,7 +145,15 @@
       ],
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-localization"
+      "expo-localization",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "ripple-alarm",
+          "organization": "tkm-investments"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

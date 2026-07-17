@@ -17,8 +17,13 @@ import { SupabaseAuthAutoRefreshBootstrap } from '@/components/bootstrap/Supabas
 import { AlarmThemeProvider, isAlarmPaletteDark, useAlarmTheme } from '@/components/alarms/theme';
 import { AppToastProvider } from '@/components/ui/AppToastProvider';
 
+import { SentryAuthSync } from '@/components/bootstrap/SentryAuthSync';
 import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
 import { ALARM_FIRE_DATA_TYPE } from '@/lib/alarm-notification-constants';
+import { initSentry, isSentryConfigured } from '@/lib/sentry-client';
+import * as Sentry from '@sentry/react-native';
+
+initSentry();
 
 /** Foreground presentation: alarm fires use full-screen ring UI only — no duplicate banner / tray row. */
 function NotificationPresentationBootstrap() {
@@ -83,7 +88,7 @@ function ThemedNavigationShell({ children }: { children: ReactNode }) {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <PostHogProviderShell>
@@ -94,6 +99,7 @@ export default function RootLayout() {
             <AlarmScheduleAuthSync />
             <SupabaseAuthAutoRefreshBootstrap />
             <RevenueCatBootstrap />
+            <SentryAuthSync />
             <AlarmNotificationBootstrap />
             <NotificationPresentationBootstrap />
             <Stack>
@@ -118,3 +124,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default isSentryConfigured() ? Sentry.wrap(RootLayout) : RootLayout;

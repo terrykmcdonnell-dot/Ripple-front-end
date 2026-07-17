@@ -49,6 +49,10 @@ grep
 .env*.local
 .env
 
+# Sentry CLI auth (contains secrets)
+**/sentry.properties
+!**/sentry.properties.example
+
 # typescript
 *.tsbuildinfo
 
@@ -56,3 +60,5 @@ app-example
 
 # /ios/
 # /android/
+
+.env.local
