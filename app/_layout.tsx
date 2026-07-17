@@ -10,7 +10,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
 import { AppVersionCheckLaunchBootstrap } from '@/components/bootstrap/AppVersionCheckLaunchBootstrap';
-import { AndroidExactAlarmPermissionBootstrap } from '@/components/bootstrap/AndroidExactAlarmPermissionBootstrap';
 import { IosScheduledNotificationLimitBootstrap } from '@/components/bootstrap/IosScheduledNotificationLimitBootstrap';
 import { AlarmScheduleAuthSync } from '@/components/bootstrap/AlarmScheduleAuthSync';
 import { PostHogProviderShell } from '@/components/bootstrap/PostHogBootstrap';
@@ -98,7 +97,6 @@ function RootLayout() {
         <ThemedNavigationShell>
           <AppToastProvider>
             <AppVersionCheckLaunchBootstrap />
-            <AndroidExactAlarmPermissionBootstrap />
             <IosScheduledNotificationLimitBootstrap />
             <AlarmScheduleAuthSync />
             <SupabaseAuthAutoRefreshBootstrap />

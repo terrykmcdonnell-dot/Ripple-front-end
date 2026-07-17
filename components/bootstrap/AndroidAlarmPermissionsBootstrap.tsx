@@ -26,7 +26,7 @@ export function AndroidAlarmPermissionsBootstrap() {
     if (Platform.OS !== 'android') {
       return;
     }
-    const missing = (await getAndroidAlarmPermissionWarnings()).filter((w) => w.id !== 'exact_alarm');
+    const missing = await getAndroidAlarmPermissionWarnings();
     if (missing.length === 0) {
       setVisible(false);
       setWarnings([]);

@@ -1,6 +1,6 @@
 import { PostHogProvider } from 'posthog-react-native';
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { AppState, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import {
   createPostHogClient,
@@ -9,28 +9,7 @@ import {
   RIPPLE_POSTHOG_APP_NAME,
   setSharedPostHogClient,
 } from '@/lib/posthog-client';
-import { syncPostHogAndroidExactAlarmStatus } from '@/lib/posthog-analytics';
 import { supabase } from '@/lib/supabase';
-
-function PostHogAndroidExactAlarmSync() {
-  useEffect(() => {
-    if (!isPostHogConfigured() || Platform.OS !== 'android') {
-      return;
-    }
-
-    void syncPostHogAndroidExactAlarmStatus();
-
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        void syncPostHogAndroidExactAlarmStatus();
-      }
-    });
-
-    return () => sub.remove();
-  }, []);
-
-  return null;
-}
 
 function PostHogAuthSync() {
   useEffect(() => {
@@ -48,7 +27,6 @@ function PostHogAuthSync() {
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
         client.identify(session.user.id, { app_name: RIPPLE_POSTHOG_APP_NAME });
-        await syncPostHogAndroidExactAlarmStatus();
       }
     };
 
@@ -63,7 +41,6 @@ function PostHogAuthSync() {
       }
       if (session?.user?.id) {
         client.identify(session.user.id, { app_name: RIPPLE_POSTHOG_APP_NAME });
-        void syncPostHogAndroidExactAlarmStatus();
       } else {
         client.reset();
       }
@@ -103,7 +80,6 @@ export function PostHogProviderShell({ children }: PostHogProviderShellProps) {
   return (
     <PostHogProvider client={client} autocapture={false}>
       <PostHogAuthSync />
-      <PostHogAndroidExactAlarmSync />
       {children}
     </PostHogProvider>
   );

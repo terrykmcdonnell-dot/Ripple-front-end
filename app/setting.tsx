@@ -70,8 +70,6 @@ import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { previewDefaultAlarmSoundAtVolume } from '@/lib/preview-alarm-sound';
-import { isAndroidExactAlarmGranted, needsAndroidExactAlarmPermissionCheck } from '@/lib/android-exact-alarm-granted';
-import { openAndroidExactAlarmPermissionSettings } from '@/lib/open-android-exact-alarm-settings';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 import { openAndroidNotificationPolicyAccessSettings } from '@/lib/open-android-notification-policy-access-settings';
 import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-scheduler';
@@ -158,7 +156,6 @@ export default function SettingScreen() {
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [notifOsAllowed, setNotifOsAllowed] = useState(false);
   const [notifCanAskAgain, setNotifCanAskAgain] = useState(true);
-  const [exactAlarmGranted, setExactAlarmGranted] = useState(true);
   const notificationsMasterEnabled = true;
 
   const themeIcon = useMemo(() => {
@@ -207,9 +204,6 @@ export default function SettingScreen() {
             setNotifOsAllowed(isOsNotificationAllowed(p));
             setNotifCanAskAgain(p.canAskAgain !== false);
           }
-          if (!cancelled && needsAndroidExactAlarmPermissionCheck()) {
-            setExactAlarmGranted(await isAndroidExactAlarmGranted());
-          }
         } catch {
           /* expo-notifications unavailable */
         }
@@ -227,9 +221,6 @@ export default function SettingScreen() {
     const p = await getPermissionsAsync();
     setNotifOsAllowed(isOsNotificationAllowed(p));
     setNotifCanAskAgain(p.canAskAgain !== false);
-    if (needsAndroidExactAlarmPermissionCheck()) {
-      setExactAlarmGranted(await isAndroidExactAlarmGranted());
-    }
   }, []);
 
   useFocusEffect(
@@ -650,16 +641,6 @@ export default function SettingScreen() {
               value="Android 14+ — allow full-screen alarms for Ripple"
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
               onPress={() => void openAndroidFullScreenAlarmPermissionSettings()}
-              noBorder={needsAndroidExactAlarmPermissionCheck() && !exactAlarmGranted}
-            />
-          ) : null}
-          {needsAndroidExactAlarmPermissionCheck() && !exactAlarmGranted ? (
-            <SettingsRow
-              icon={settingsIcons.snooze}
-              title="Alarms may be delayed — tap to fix."
-              value="Allow Alarms & reminders so Ripple can ring on time"
-              right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
-              onPress={() => void openAndroidExactAlarmPermissionSettings()}
               noBorder={false}
             />
           ) : null}

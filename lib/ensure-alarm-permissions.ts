@@ -76,6 +76,5 @@ export async function ensureNotificationAccessForAlarms(): Promise<void> {
 export async function prepareAlarmPermissionsForSetup(): Promise<AndroidAlarmPermissionWarning[]> {
   await requestIosNotificationPermissionIfNeeded();
   await ensureNotificationAccessForAlarms();
-  const warnings = await getAndroidAlarmPermissionWarnings();
-  return warnings.filter((w) => w.id !== 'exact_alarm');
+  return getAndroidAlarmPermissionWarnings();
 }

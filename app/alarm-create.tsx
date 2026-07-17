@@ -4,7 +4,6 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlarmSetupPermissionsModal } from '@/components/alarms/AlarmSetupPermissionsModal';
-import { AndroidExactAlarmPermissionModal } from '@/components/alarms/AndroidExactAlarmPermissionModal';
 import { createSoundIcon } from '@/assets/icons/alarm-create-icons';
 import { AlarmTimePickRow } from '@/components/alarms-create/AlarmTimePickRow';
 import { IntervalControl } from '@/components/alarms-create/IntervalControl';
@@ -40,7 +39,6 @@ import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import { findDefaultCategory, useAlarmCategories } from '@/lib/alarm-categories';
 import type { AndroidAlarmPermissionWarning } from '@/lib/android-alarm-permissions-status';
 import { prepareAlarmPermissionsForSetup } from '@/lib/ensure-alarm-permissions';
-import { shouldPromptAndroidExactAlarmPermission } from '@/lib/prompt-android-exact-alarm-permission';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
 
@@ -60,9 +58,7 @@ export default function AlarmCreateScreen() {
   const [labelError, setLabelError] = useState<string | null>(null);
   const [androidPermWarnings, setAndroidPermWarnings] = useState<AndroidAlarmPermissionWarning[]>([]);
   const [androidPermModalVisible, setAndroidPermModalVisible] = useState(false);
-  const [exactAlarmModalVisible, setExactAlarmModalVisible] = useState(false);
   const androidPermResolverRef = useRef<(() => void) | null>(null);
-  const exactAlarmResolverRef = useRef<(() => void) | null>(null);
 
   const palette = useAlarmTheme();
   const bottomPad = useBottomSafePadding(24);
@@ -97,22 +93,6 @@ export default function AlarmCreateScreen() {
   }, [categories, categoryId]);
 
   const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);
-
-  const promptAndroidExactAlarmPermissionIfNeeded = async (): Promise<void> => {
-    if (!(await shouldPromptAndroidExactAlarmPermission())) {
-      return;
-    }
-    await new Promise<void>((resolve) => {
-      exactAlarmResolverRef.current = resolve;
-      setExactAlarmModalVisible(true);
-    });
-  };
-
-  const onExactAlarmModalComplete = () => {
-    setExactAlarmModalVisible(false);
-    exactAlarmResolverRef.current?.();
-    exactAlarmResolverRef.current = null;
-  };
 
   const promptAndroidLockScreenPermissionsIfNeeded = async (): Promise<void> => {
     const warnings = await prepareAlarmPermissionsForSetup();
@@ -151,7 +131,6 @@ export default function AlarmCreateScreen() {
 
     setIsSaving(true);
     try {
-      await promptAndroidExactAlarmPermissionIfNeeded();
       await promptAndroidLockScreenPermissionsIfNeeded();
 
       const { id: userId, error: userIdError } = await fetchCurrentUserRowId();
@@ -316,10 +295,6 @@ export default function AlarmCreateScreen() {
         isSoundLocked={isSoundLocked}
         onLockedSoundPress={onLockedAlarmSoundPress}
         onSelectSoundId={(id) => setSelectedSoundId(id as AlarmSoundId)}
-      />
-      <AndroidExactAlarmPermissionModal
-        visible={exactAlarmModalVisible}
-        onComplete={onExactAlarmModalComplete}
       />
       <AlarmSetupPermissionsModal
         visible={androidPermModalVisible}

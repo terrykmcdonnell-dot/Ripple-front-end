@@ -29,6 +29,7 @@ import {
 } from '@/lib/settings-preferences';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
+import { requestIosScheduledNotificationLimitCheck } from '@/lib/ios-scheduled-notification-limit';
 import {
   alignAlarmNotificationTriggerDate,
   MIN_ALARM_SCHEDULE_LEAD_MS,
@@ -265,4 +266,6 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
   if (scheduledIds.length > 0) {
     await AsyncStorage.setItem(STORAGE_IDS_KEY, JSON.stringify(scheduledIds));
   }
+
+  requestIosScheduledNotificationLimitCheck();
 }

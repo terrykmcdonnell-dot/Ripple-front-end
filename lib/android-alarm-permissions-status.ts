@@ -1,14 +1,12 @@
 import { Platform } from 'react-native';
 
-import { isAndroidExactAlarmGranted, needsAndroidExactAlarmPermissionCheck } from '@/lib/android-exact-alarm-granted';
 import { isAndroidFullScreenIntentGranted } from '@/lib/android-full-screen-intent-granted';
 import { isAndroidNotificationPolicyAccessGranted } from '@/lib/android-notification-policy-granted';
-import { openAndroidExactAlarmPermissionSettings } from '@/lib/open-android-exact-alarm-settings';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
 import { openAndroidNotificationPolicyAccessSettings } from '@/lib/open-android-notification-policy-access-settings';
 
 export type AndroidAlarmPermissionWarning = {
-  id: 'exact_alarm' | 'fsi' | 'dnd';
+  id: 'fsi' | 'dnd';
   title: string;
   body: string;
   actionLabel: string;
@@ -22,21 +20,10 @@ export async function getAndroidAlarmPermissionWarnings(): Promise<AndroidAlarmP
   }
 
   const warnings: AndroidAlarmPermissionWarning[] = [];
-  const [exactGranted, fsiGranted, dndGranted] = await Promise.all([
-    isAndroidExactAlarmGranted(),
+  const [fsiGranted, dndGranted] = await Promise.all([
     isAndroidFullScreenIntentGranted(),
     isAndroidNotificationPolicyAccessGranted(),
   ]);
-
-  if (needsAndroidExactAlarmPermissionCheck() && !exactGranted) {
-    warnings.push({
-      id: 'exact_alarm',
-      title: 'Alarms may be delayed — tap to fix.',
-      body: 'Ripple needs Alarms & reminders permission so alarms ring on time instead of up to 15 minutes late.',
-      actionLabel: 'Open Alarms & reminders settings',
-      openSettings: openAndroidExactAlarmPermissionSettings,
-    });
-  }
 
   if (!fsiGranted && (Platform.Version as number) >= 34) {
     warnings.push({

@@ -45,7 +45,7 @@ import type { PurchasesPackage } from 'react-native-purchases';
 const PRO_PLAN_FEATURES = [
   'Unlimited alarms — no cap, ever',
   'Template gallery — install ready-made alarm packs',
-  'Premium themes',
+  'Auto theme — matches your device',
   'Premium alarm sounds',
 ] as const;
 
@@ -753,7 +753,7 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, template gallery, premium themes, and more — billed through{' '}
+          Unlimited alarms, template gallery, Auto theme, and more — billed through{' '}
           {subscriptionBillingProviderLabel()}.
         </Text>
 
