@@ -22,10 +22,34 @@ import {
   type UserRcSubscriptionRow,
 } from '@/lib/user-subscription-row';
 
+/**
+ * In-memory, app-session cache of the last resolved status.
+ *
+ * Every screen that calls this hook mounts its own component state, so without this cache each
+ * remount (e.g. leaving Settings and coming back) briefly renders the default "not a subscriber"
+ * state (`customerInfo`/`dbRow` = null) while `Purchases.getCustomerInfo()` + the Supabase lookup
+ * are in flight — showing Pro sounds/features as locked for a moment before flipping open once the
+ * fetch resolves. Seeding state from the last known-good result removes that flash; `refresh()`
+ * still re-verifies in the background on every mount and on `syncGeneration` changes.
+ *
+ * Safe to treat as UI-only: anything that actually gates playback/scheduling (e.g.
+ * `resolveAlarmSoundForUser` via `fetchIsSubscriberFresh()`) re-checks fresh at the point it matters.
+ */
+let cachedCustomerInfo: CustomerInfo | null = null;
+let cachedDbRow: UserRcSubscriptionRow | null = null;
+let cacheHydrated = false;
+
+/** Call on sign-out so a different account signing in next never briefly inherits this cache. */
+export function resetSubscriptionStatusCache(): void {
+  cachedCustomerInfo = null;
+  cachedDbRow = null;
+  cacheHydrated = false;
+}
+
 export function useSubscriptionStatus() {
-  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
-  const [dbRow, setDbRow] = useState<UserRcSubscriptionRow | null>(null);
-  const [loading, setLoading] = useState(Platform.OS !== 'web');
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(cachedCustomerInfo);
+  const [dbRow, setDbRow] = useState<UserRcSubscriptionRow | null>(cachedDbRow);
+  const [loading, setLoading] = useState(Platform.OS !== 'web' && !cacheHydrated);
 
   const syncGeneration = useSyncExternalStore(
     subscribeSubscriptionGeneration,
@@ -47,7 +71,11 @@ export function useSubscriptionStatus() {
       return;
     }
     configureRevenueCat();
-    setLoading(true);
+    // Only show a loading state on a cold cache — a background re-verify should not
+    // regress the UI back to "unknown" while it runs.
+    if (!cacheHydrated) {
+      setLoading(true);
+    }
     try {
       const [info, row] = await Promise.all([
         Purchases.getCustomerInfo(),
@@ -55,13 +83,21 @@ export function useSubscriptionStatus() {
       ]);
       setCustomerInfo(info);
       setDbRow(row);
+      cachedCustomerInfo = info;
+      cachedDbRow = row;
+      cacheHydrated = true;
     } catch {
       setCustomerInfo(null);
+      cachedCustomerInfo = null;
       try {
-        setDbRow(await fetchUserRcSubscriptionFromDb());
+        const row = await fetchUserRcSubscriptionFromDb();
+        setDbRow(row);
+        cachedDbRow = row;
       } catch {
         setDbRow(null);
+        cachedDbRow = null;
       }
+      cacheHydrated = true;
     } finally {
       setLoading(false);
     }

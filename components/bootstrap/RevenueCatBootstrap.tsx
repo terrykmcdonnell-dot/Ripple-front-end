@@ -6,6 +6,7 @@ import Purchases from 'react-native-purchases';
 import { configureRevenueCat } from '@/lib/revenuecat';
 import { supabase } from '@/lib/supabase';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
+import { resetSubscriptionStatusCache } from '@/hooks/use-subscription-status';
 
 /**
  * Initializes RevenueCat, aligns App User ID with Supabase Auth, and bumps subscription refresh when:
@@ -55,6 +56,7 @@ export function RevenueCatBootstrap() {
             await Purchases.logIn(session.user.id);
           } else {
             await Purchases.logOut();
+            resetSubscriptionStatusCache();
           }
           invalidateSubscriptionCache();
         } catch (e) {
