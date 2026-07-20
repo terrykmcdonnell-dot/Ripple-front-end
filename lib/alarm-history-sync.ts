@@ -23,6 +23,25 @@ type PendingHistoryWrite = {
 let _flushInProgress = false;
 let _flushPending = false;
 
+/**
+ * Serializes every read-modify-write of the pending-history storage key.
+ *
+ * `enqueueAlarmHistory` and `flushPendingAlarmHistoryWrites` each load the list, mutate it,
+ * then save it back — without this lock, an enqueue landing while a flush is mid-flight (e.g.
+ * doing its network upserts) gets silently erased when the flush later writes back its stale
+ * snapshot. That is how a fired alarm could go missing from History with no error anywhere.
+ */
+let _pendingHistoryLockTail: Promise<void> = Promise.resolve();
+
+function withPendingHistoryLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = _pendingHistoryLockTail.then(fn, fn);
+  _pendingHistoryLockTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 async function resolveHistoryUserId(parsed: ParsedAlarmFireData): Promise<number | null> {
   const embedded = parsed.userId;
   if (typeof embedded === 'number' && Number.isFinite(embedded)) {
@@ -124,17 +143,19 @@ export async function loadPendingAlarmHistoryRows(userId: number): Promise<Alarm
 
 /** Drop queued history writes for a deleted alarm. */
 export async function removePendingAlarmHistoryForAlarm(alarmId: number): Promise<void> {
-  const rows = await loadPendingHistoryWrites();
-  const next = rows.filter((row) => row.alarm_id !== alarmId);
-  if (next.length === rows.length) {
-    return;
-  }
-  await savePendingHistoryWrites(next);
+  await withPendingHistoryLock(async () => {
+    const rows = await loadPendingHistoryWrites();
+    const next = rows.filter((row) => row.alarm_id !== alarmId);
+    if (next.length === rows.length) {
+      return;
+    }
+    await savePendingHistoryWrites(next);
+  });
 }
 
 /** Drop all queued local history writes (e.g. after clear-all). */
 export async function clearAllPendingAlarmHistory(): Promise<void> {
-  await savePendingHistoryWrites([]);
+  await withPendingHistoryLock(() => savePendingHistoryWrites([]));
 }
 
 async function enqueueAlarmHistory(
@@ -158,30 +179,36 @@ async function enqueueAlarmHistory(
     queued_at: new Date().toISOString(),
   };
 
-  const rows = await loadPendingHistoryWrites();
-  const existingIndex = rows.findIndex((row) => {
-    const sameOccurrence = row.alarm_id === next.alarm_id && row.scheduled_fire_at === next.scheduled_fire_at;
-    const sameKnownUser = row.user_id != null && next.user_id != null && row.user_id === next.user_id;
-    const eitherUserPending = row.user_id == null || next.user_id == null;
-    return sameOccurrence && (sameKnownUser || eitherUserPending);
+  const queued = await withPendingHistoryLock(async () => {
+    const rows = await loadPendingHistoryWrites();
+    const existingIndex = rows.findIndex((row) => {
+      const sameOccurrence = row.alarm_id === next.alarm_id && row.scheduled_fire_at === next.scheduled_fire_at;
+      const sameKnownUser = row.user_id != null && next.user_id != null && row.user_id === next.user_id;
+      const eitherUserPending = row.user_id == null || next.user_id == null;
+      return sameOccurrence && (sameKnownUser || eitherUserPending);
+    });
+
+    if (existingIndex >= 0) {
+      const existing = rows[existingIndex];
+      if (!shouldReplacePending(existing, next)) {
+        return false;
+      }
+      rows[existingIndex] = {
+        ...next,
+        // Keep the first user-action timestamp if we ever merge terminal states.
+        action_at: next.action_at ?? existing.action_at,
+      };
+    } else {
+      rows.push(next);
+    }
+
+    await savePendingHistoryWrites(rows);
+    return true;
   });
 
-  if (existingIndex >= 0) {
-    const existing = rows[existingIndex];
-    if (!shouldReplacePending(existing, next)) {
-      return;
-    }
-    rows[existingIndex] = {
-      ...next,
-      // Keep the first user-action timestamp if we ever merge terminal states.
-      action_at: next.action_at ?? existing.action_at,
-    };
-  } else {
-    rows.push(next);
+  if (queued) {
+    await flushPendingAlarmHistoryWrites();
   }
-
-  await savePendingHistoryWrites(rows);
-  await flushPendingAlarmHistoryWrites();
 }
 
 /** Retries queued history writes. Safe to call on app start, app foreground, and History screen focus. */
@@ -195,41 +222,43 @@ export async function flushPendingAlarmHistoryWrites(): Promise<void> {
   _flushPending = false;
 
   try {
-    const rows = await loadPendingHistoryWrites();
-    if (rows.length === 0) {
-      return;
-    }
+    await withPendingHistoryLock(async () => {
+      const rows = await loadPendingHistoryWrites();
+      if (rows.length === 0) {
+        return;
+      }
 
-    const remaining: PendingHistoryWrite[] = [];
+      const remaining: PendingHistoryWrite[] = [];
 
-    for (const row of rows) {
-      let userId = row.user_id;
-      if (userId == null) {
-        const { id, error } = await fetchCurrentUserRowId();
-        if (error || id == null) {
-          remaining.push(row);
-          continue;
+      for (const row of rows) {
+        let userId = row.user_id;
+        if (userId == null) {
+          const { id, error } = await fetchCurrentUserRowId();
+          if (error || id == null) {
+            remaining.push(row);
+            continue;
+          }
+          userId = id;
         }
-        userId = id;
+
+        try {
+          await upsertAlarmHistory({
+            user_id: userId,
+            alarm_id: row.alarm_id,
+            scheduled_fire_at: row.scheduled_fire_at,
+            status: row.status,
+            label: row.label,
+            category: row.category,
+            action_at: row.action_at,
+            snooze_minutes: row.snooze_minutes,
+          });
+        } catch {
+          remaining.push({ ...row, user_id: userId, key: historyKey(userId, row.alarm_id, row.scheduled_fire_at) });
+        }
       }
 
-      try {
-        await upsertAlarmHistory({
-          user_id: userId,
-          alarm_id: row.alarm_id,
-          scheduled_fire_at: row.scheduled_fire_at,
-          status: row.status,
-          label: row.label,
-          category: row.category,
-          action_at: row.action_at,
-          snooze_minutes: row.snooze_minutes,
-        });
-      } catch {
-        remaining.push({ ...row, user_id: userId, key: historyKey(userId, row.alarm_id, row.scheduled_fire_at) });
-      }
-    }
-
-    await savePendingHistoryWrites(remaining);
+      await savePendingHistoryWrites(remaining);
+    });
   } finally {
     _flushInProgress = false;
     if (_flushPending) {

@@ -101,22 +101,42 @@ export async function ensureAuthSessionFreshOrSignOut(): Promise<boolean> {
   return true;
 }
 
+/**
+ * Shared in-flight refresh so concurrent callers (e.g. two screens each hitting an expired-JWT
+ * error at the same time) await the same `refreshSession()` attempt instead of each starting
+ * their own — racing refreshes against each other can hang well past a normal deadline.
+ */
+let inFlightRefresh: Promise<void> | null = null;
+
 /** After JWT errors: try one refresh; if still no session, sign out so routing sends user to sign-in. */
 export async function refreshOrSignOutOnExpiredSession(): Promise<void> {
-  try {
-    const { data, error } = await supabase.auth.refreshSession();
-    if (data.session && !error) {
-      return;
-    }
-    // Refresh returned an error (revoked token, network failure, etc.) or no session.
-    // Fall through to sign out.
-  } catch {
-    // refreshSession threw — treat as unrecoverable and force sign-out.
+  if (inFlightRefresh) {
+    return inFlightRefresh;
   }
+
+  const request = (async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (data.session && !error) {
+        return;
+      }
+      // Refresh returned an error (revoked token, network failure, etc.) or no session.
+      // Fall through to sign out.
+    } catch {
+      // refreshSession threw — treat as unrecoverable and force sign-out.
+    }
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // signOut itself could fail on network loss; GoTrue will still clear local storage.
+    }
+  })();
+
+  inFlightRefresh = request;
   try {
-    await supabase.auth.signOut();
-  } catch {
-    // signOut itself could fail on network loss; GoTrue will still clear local storage.
+    await request;
+  } finally {
+    inFlightRefresh = null;
   }
 }
 

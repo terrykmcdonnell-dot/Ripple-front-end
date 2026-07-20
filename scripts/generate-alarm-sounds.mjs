@@ -122,23 +122,37 @@ function encodeWav(samples) {
 }
 
 /**
- * Soft piano: low register, few partials, high harmonics decay faster than the
+ * Soft piano: low register, richer partial stack, high harmonics decay faster than the
  * fundamental (real piano strings lose brightness quickly — unlike a xylophone).
+ *
+ * Three things a bare sine-partial stack is missing that make it read as "piano" rather
+ * than a dull synth tone — all added below:
+ *  1. A brief hammer-strike transient (short filtered click) right at note onset.
+ *  2. Unison string chorus — real piano notes are 2-3 slightly detuned strings per hammer,
+ *     and the beating between them is a big part of what makes the tone feel "alive"/clear.
+ *  3. More upper partials so the attack has some sparkle before it decays to the fundamental.
  */
 function softPiano() {
   const n = Math.floor(SAMPLE_RATE * DURATION_SEC);
   const samples = new Int16Array(n);
   const dt = 1 / SAMPLE_RATE;
-  const attack = Math.floor(SAMPLE_RATE * 0.003);
-  const baseDecayTau = SAMPLE_RATE * 1.35;
+  const attack = Math.floor(SAMPLE_RATE * 0.002);
+  const baseDecayTau = SAMPLE_RATE * 1.5;
 
-  // Warm low partials only — strong rolloff above the 4th harmonic.
+  // Wider partial stack than before — still rolls off fast so it stays "soft",
+  // but carries enough upper harmonics at onset to read as piano, not a flute/sine tone.
   const partials = [
     { ratio: 1, weight: 1, decayMult: 1 },
-    { ratio: 2, weight: 0.38, decayMult: 1.6 },
-    { ratio: 3, weight: 0.14, decayMult: 2.4 },
-    { ratio: 4, weight: 0.05, decayMult: 3.5 },
+    { ratio: 2, weight: 0.5, decayMult: 1.5 },
+    { ratio: 3, weight: 0.3, decayMult: 2.1 },
+    { ratio: 4, weight: 0.17, decayMult: 2.9 },
+    { ratio: 5, weight: 0.1, decayMult: 3.8 },
+    { ratio: 6, weight: 0.055, decayMult: 4.8 },
   ];
+
+  // Each hammer strike excites ~3 nearly-unison strings; the slow detuned beating between
+  // them is what keeps a real piano note sounding bright/clear instead of static.
+  const unisonCents = [0, -4, 5];
 
   // Gentle two-note figure in a low register (G3 → B3).
   const notes = [
@@ -155,19 +169,31 @@ function softPiano() {
       }
       const t = rel * dt;
       const attackEnv = rel < attack ? rel / attack : 1;
-      const noteSustain = Math.exp(-rel / (SAMPLE_RATE * 2.1));
+      const noteSustain = Math.exp(-rel / (SAMPLE_RATE * 2.3));
 
       let sum = 0;
-      for (const p of partials) {
-        const inharm = 1 + 0.00006 * p.ratio * p.ratio;
-        const f = note.freq * p.ratio * inharm;
-        const partialDecay = Math.exp(-rel / (baseDecayTau / p.decayMult));
-        // Brief hammer brightness on upper partials only — fades in ~40 ms.
-        const hammer =
-          p.ratio >= 2 ? 1 + 0.55 * Math.exp(-rel / (SAMPLE_RATE * 0.035)) : 1;
-        sum += p.weight * hammer * partialDecay * Math.sin(2 * Math.PI * f * t);
+      for (const cents of unisonCents) {
+        const detune = Math.pow(2, cents / 1200);
+        for (const p of partials) {
+          const inharm = 1 + 0.00012 * p.ratio * p.ratio;
+          const f = note.freq * detune * p.ratio * inharm;
+          const partialDecay = Math.exp(-rel / (baseDecayTau / p.decayMult));
+          // Brief hammer brightness on upper partials only — fades in ~20 ms.
+          const hammer = p.ratio >= 2 ? 1 + 0.8 * Math.exp(-rel / (SAMPLE_RATE * 0.02)) : 1;
+          sum += p.weight * hammer * partialDecay * Math.sin(2 * Math.PI * f * t);
+        }
       }
-      v += 0.17 * attackEnv * noteSustain * sum;
+      sum /= unisonCents.length;
+
+      // Hammer-strike transient: a very short filtered-noise click at note onset —
+      // sine partials alone never capture this percussive "attack" definition.
+      let hammerClick = 0;
+      if (rel < SAMPLE_RATE * 0.015) {
+        const clickEnv = Math.exp(-rel / (SAMPLE_RATE * 0.004));
+        hammerClick = clickEnv * (Math.random() * 2 - 1) * 0.55;
+      }
+
+      v += 0.16 * attackEnv * noteSustain * (sum + hammerClick);
     }
     samples[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767)));
   }

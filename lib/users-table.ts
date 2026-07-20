@@ -7,6 +7,14 @@ const USER_ROW_FETCH_TIMEOUT_MS = 25_000;
 
 let cachedUserRowId: { email: string; id: number } | null = null;
 
+/**
+ * Shared in-flight request so concurrent callers (e.g. the alarm-ring screen firing
+ * `recordAlarmHistoryDismissed` + `syncAlarmFireNotifications` in the same tick) await the
+ * same lookup instead of each starting their own `getSession()`/`refreshSession()` call —
+ * racing refreshes against each other is what caused the intermittent 25 s dismiss hang.
+ */
+let inFlightFetch: Promise<{ id: number | null; error: Error | null }> | null = null;
+
 export function invalidateCurrentUserRowIdCache(): void {
   cachedUserRowId = null;
 }
@@ -30,11 +38,24 @@ async function selectUsersRowByEmail(email: string) {
 
 /** `public.users.id` for the signed-in user (matched by Auth email ↔ `users.email`). */
 export async function fetchCurrentUserRowId(): Promise<{ id: number | null; error: Error | null }> {
+  if (inFlightFetch) {
+    return inFlightFetch;
+  }
+
+  const request = (async () => {
+    try {
+      return await withDeadline(resolveCurrentUserRowId(), USER_ROW_FETCH_TIMEOUT_MS, 'Loading your profile');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not load your profile.';
+      return { id: null, error: new Error(message) };
+    }
+  })();
+
+  inFlightFetch = request;
   try {
-    return await withDeadline(resolveCurrentUserRowId(), USER_ROW_FETCH_TIMEOUT_MS, 'Loading your profile');
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Could not load your profile.';
-    return { id: null, error: new Error(message) };
+    return await request;
+  } finally {
+    inFlightFetch = null;
   }
 }
 
