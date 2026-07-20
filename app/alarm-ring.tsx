@@ -130,7 +130,7 @@ export default function AlarmRingScreen() {
   // after the user dismisses (e.g. alarm list gaining focus) does not
   // re-schedule and re-fire the same occurrence within the grace window.
   useEffect(() => {
-    void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId);
+    void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId, liveParsed);
     if (liveParsed) {
       const fireAtMs = new Date(liveParsed.fireAt).getTime();
       if (Number.isFinite(fireAtMs)) {
@@ -164,14 +164,14 @@ export default function AlarmRingScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId);
+        void startRingAlarmSound(soundIdParam ?? liveParsed?.soundId, liveParsed);
       }
     });
 
     return () => {
       sub.remove();
     };
-  }, [soundIdParam, liveParsed?.soundId]);
+  }, [soundIdParam, liveParsed?.soundId, liveParsed]);
 
   const onDismissPress = useCallback(() => {
     void stopRingAlarmSound();

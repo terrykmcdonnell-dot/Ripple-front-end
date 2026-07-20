@@ -10,7 +10,6 @@ import {
 } from '@/lib/alarm-notification-constants';
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
-import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import {
   loadSnoozeMinutesForHistory,
   recordAlarmHistoryMissed,
@@ -21,39 +20,14 @@ import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-
 import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
 import { clearMissedAlarmAppBadge } from '@/lib/missed-alarm-app-badge';
-import { startNativeAlarmSound, stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
+import { stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
 import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
-import { coerceAlarmSoundId } from '@/lib/settings-preferences';
-
-function startForegroundNativeAlarmSound(parsed: ParsedAlarmFireData): void {
-  const fireAtMs = new Date(parsed.fireAt).getTime();
-  const alarmIdentifier = `ripple_alarm_foreground_${parsed.alarmId}_${Number.isFinite(fireAtMs) ? fireAtMs : Date.now()}`;
-  const soundId = coerceAlarmSoundId(parsed.soundId);
-  const alarmPayload = JSON.stringify({
-    type: ALARM_FIRE_DATA_TYPE,
-    alarmId: parsed.alarmId,
-    fireAt: parsed.fireAt,
-    label: parsed.label,
-    category: parsed.category,
-    soundId,
-    ...(parsed.categoryId != null ? { categoryId: parsed.categoryId } : {}),
-    ...(parsed.categoryIcon ? { categoryIcon: parsed.categoryIcon } : {}),
-    ...(parsed.userId != null ? { userId: parsed.userId } : {}),
-  });
-  startNativeAlarmSound({
-    soundName: bundledNotificationSoundFilename(soundId),
-    alarmTitle: `Alarm · ${parsed.label}`,
-    alarmBody: 'Ringing',
-    alarmIdentifier,
-    alarmPayload,
-    presentationMode: 'background',
-  });
-}
 
 /** Full-screen ring UI. Use `replace` so a cold start from a notification is not overwritten by `/alarm`. */
 export function openAlarmRingScreen(parsed: ParsedAlarmFireData): void {
-  startForegroundNativeAlarmSound(parsed);
-  void startRingAlarmSound(parsed.soundId);
+  // Passing `parsed` lets Android always (re-)assert native STREAM_ALARM playback — see
+  // `reassertNativeAlarmSound` in ring-alarm-sound.ts — instead of a separate, easy-to-desync call.
+  void startRingAlarmSound(parsed.soundId, parsed);
   void recordAlarmHistoryMissed(parsed);
   router.replace({
     pathname: '/alarm-ring',

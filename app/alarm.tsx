@@ -2,6 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  InteractionManager,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -47,6 +48,7 @@ import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { resolveCategoryMeta, useAlarmCategories } from '@/lib/alarm-categories';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
+import { getAlarmListCache, setAlarmListCache } from '@/lib/alarm-list-cache';
 
 function formatDeviceClock(now: Date): { time: string; ampm: 'AM' | 'PM' } {
   const h24 = now.getHours();
@@ -148,14 +150,13 @@ export default function AlarmScreen() {
   const { showToast } = useAppToast();
   const { isSubscriber } = useSubscriptionStatus();
 
-  const [alarms, setAlarms] = useState<AlarmListItem[]>([]);
+  const [alarms, setAlarms] = useState<AlarmListItem[]>(() => getAlarmListCache() ?? []);
   const [listError, setListError] = useState<string | null>(null);
-  const [initialLoad, setInitialLoad] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(() => getAlarmListCache() == null);
   const [refreshing, setRefreshing] = useState(false);
   const [patchingIds, setPatchingIds] = useState<number[]>([]);
   const patchingIdsRef = useRef<Set<number>>(new Set());
   const alarmsRef = useRef<AlarmListItem[]>([]);
-  const firstFocus = useRef(true);
   const loadGenRef = useRef(0);
 
   useEffect(() => {
@@ -233,6 +234,7 @@ export default function AlarmScreen() {
         return;
       }
       setAlarms(rows);
+      setAlarmListCache(userId, rows);
       setListError(null);
       void syncUpcomingReminderNotifications(rows);
       void syncAlarmFireNotifications(rows).then(() => {
@@ -257,9 +259,31 @@ export default function AlarmScreen() {
     useCallback(() => {
       setClockTick(Date.now());
       invalidateSubscriptionCache();
-      void loadAlarms({ silent: !firstFocus.current });
-      firstFocus.current = false;
+
+      const hasCachedRows = getAlarmListCache() != null;
+      let cancelled = false;
+
+      const runLoad = () => {
+        if (!cancelled) {
+          void loadAlarms({ silent: hasCachedRows });
+        }
+      };
+
+      // Cached rows are already on screen (see initial state above) — defer the background
+      // refresh until interactions/animations settle so a fresh mount (e.g. right after saving
+      // a new alarm) never flashes the full-screen spinner over data we already have.
+      if (hasCachedRows) {
+        const task = InteractionManager.runAfterInteractions(runLoad);
+        return () => {
+          cancelled = true;
+          task.cancel();
+          loadGenRef.current += 1;
+        };
+      }
+
+      runLoad();
       return () => {
+        cancelled = true;
         loadGenRef.current += 1;
       };
     }, [loadAlarms]),
@@ -298,6 +322,13 @@ export default function AlarmScreen() {
     // after this toggle has already cancelled OS notifications.
     loadGenRef.current += 1;
 
+    // Keep the cross-mount cache in sync so a quick navigate-away-and-back does not
+    // briefly show the pre-toggle state before the next background refresh lands.
+    const { id: cacheUserId } = await fetchCurrentUserRowId();
+    if (cacheUserId != null) {
+      setAlarmListCache(cacheUserId, updatedRows);
+    }
+
     try {
       await patchAlarm(alarm.id, { is_enabled: next });
       await syncUpcomingReminderNotifications(updatedRows);
@@ -320,6 +351,9 @@ export default function AlarmScreen() {
       );
       alarmsRef.current = revertedRows;
       setAlarms(revertedRows);
+      if (cacheUserId != null) {
+        setAlarmListCache(cacheUserId, revertedRows);
+      }
       notifyAuthError('Alarms', e);
     } finally {
       patchingIdsRef.current.delete(alarm.id);

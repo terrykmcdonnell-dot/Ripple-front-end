@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { invalidateAlarmCategoryCache } from '@/lib/alarm-categories';
 import { invalidateAlarmHistoryCache } from '@/lib/alarm-history-cache';
+import { invalidateAlarmListCache } from '@/lib/alarm-list-cache';
 import { cancelAllRippleScheduledNotifications } from '@/lib/cancel-all-app-notifications';
 import { clearPendingSignUp } from '@/lib/pending-signup';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
@@ -20,4 +21,5 @@ export async function clearLocalAccountData(): Promise<void> {
   invalidateCurrentUserRowIdCache();
   invalidateAlarmCategoryCache();
   invalidateAlarmHistoryCache();
+  invalidateAlarmListCache();
 }

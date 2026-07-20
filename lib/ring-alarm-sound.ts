@@ -1,7 +1,10 @@
 import { Audio, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
-import { hasNativeAlarmSoundActive, stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
+import { ALARM_FIRE_DATA_TYPE } from '@/lib/alarm-notification-constants';
+import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
+import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
+import { hasNativeAlarmSoundActive, startNativeAlarmSound, stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import { coerceAlarmSoundId, loadDefaultAlarmSoundId, loadDefaultVolumePercent } from '@/lib/settings-preferences';
 
@@ -43,6 +46,64 @@ let autoStopTimer: ReturnType<typeof setTimeout> | null = null;
  * discarded immediately instead of being stored in activeRingSound.
  */
 let _soundGen = 0;
+
+/**
+ * (Re-)starts native STREAM_ALARM playback with full alarm metadata — bypasses the ringer/media
+ * volume slider entirely (see `AlarmSoundService.kt`), unlike the expo-av path below it. Safe to
+ * call even if native playback is already running: `AlarmSoundService.startPlayback()` stops its
+ * own MediaPlayer before restarting, so this is idempotent.
+ *
+ * Always calling this (rather than trusting the `hasNativeAlarmSoundActive()` flag alone) matters
+ * because that flag lives in JS memory: if the JS engine restarts (Fast Refresh in dev, or Android
+ * reclaiming the process under memory pressure) while the native foreground service keeps ringing,
+ * the flag resets to `false` even though STREAM_ALARM is still genuinely playing. Without a fresh
+ * reassert, the caller would fall through to the expo-av path below and layer a second, media-volume
+ * sound on top — which is exactly what makes the ring seem to "follow the phone's volume" and go
+ * silent when that slider is turned down.
+ */
+function reassertNativeAlarmSound(parsed: ParsedAlarmFireData, soundId: AlarmSoundId): boolean {
+  const fireAtMs = new Date(parsed.fireAt).getTime();
+  const alarmIdentifier = `ripple_alarm_foreground_${parsed.alarmId}_${Number.isFinite(fireAtMs) ? fireAtMs : Date.now()}`;
+  const alarmPayload = JSON.stringify({
+    type: ALARM_FIRE_DATA_TYPE,
+    alarmId: parsed.alarmId,
+    fireAt: parsed.fireAt,
+    label: parsed.label,
+    category: parsed.category,
+    soundId,
+    ...(parsed.categoryId != null ? { categoryId: parsed.categoryId } : {}),
+    ...(parsed.categoryIcon ? { categoryIcon: parsed.categoryIcon } : {}),
+    ...(parsed.userId != null ? { userId: parsed.userId } : {}),
+  });
+  return startNativeAlarmSound({
+    soundName: bundledNotificationSoundFilename(soundId),
+    alarmTitle: `Alarm · ${parsed.label}`,
+    alarmBody: 'Ringing',
+    alarmIdentifier,
+    alarmPayload,
+    presentationMode: 'background',
+  });
+}
+
+/** Stops only the expo-av layer (not native) — used when native playback just took over. */
+async function stopJsRingSoundOnly(): Promise<void> {
+  clearAutoStopTimer();
+  const s = activeRingSound;
+  activeRingSound = null;
+  activeRingSoundId = null;
+  if (s) {
+    try {
+      await s.stopAsync();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await s.unloadAsync();
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 function clearAutoStopTimer() {
   if (autoStopTimer != null) {
@@ -97,16 +158,18 @@ export async function stopRingAlarmSound(): Promise<void> {
  * - `playsInSilentModeIOS: true` — iOS hardware mute switch is overridden.
  * - `staysActiveInBackground: true` — audio continues while app is backgrounded
  *   (needed for lock-screen ring). Auto-stop prevents infinite background play.
+ *
+ * `alarmMeta` (when available) lets Android always (re-)assert native `STREAM_ALARM` playback —
+ * see {@link reassertNativeAlarmSound} — instead of relying solely on an in-memory "is native
+ * already active" flag that can go stale. This is the expo-av fallback used on iOS, on web
+ * previews, and only on Android when the native module truly is not available.
  */
-export async function startRingAlarmSound(rawId?: string | null): Promise<boolean> {
+export async function startRingAlarmSound(
+  rawId?: string | null,
+  alarmMeta?: ParsedAlarmFireData | null,
+): Promise<boolean> {
   if (Platform.OS === 'web') {
     return false;
-  }
-
-  if (hasNativeAlarmSoundActive()) {
-    // Android native playback uses USAGE_ALARM, so it still rings when media
-    // volume is muted. Keep it as the primary alarm audio until user action.
-    return true;
   }
 
   // Capture our generation. Every await below re-checks it. If stopRingAlarmSound()
@@ -118,6 +181,19 @@ export async function startRingAlarmSound(rawId?: string | null): Promise<boolea
   const coerced = rawId ? coerceAlarmSoundId(rawId) : await loadDefaultAlarmSoundId();
   if (myGen !== _soundGen) {
     return false;
+  }
+
+  if (Platform.OS === 'android') {
+    if (alarmMeta && reassertNativeAlarmSound(alarmMeta, coerced)) {
+      // Native STREAM_ALARM now owns playback — drop any expo-av layer we may have
+      // started earlier (e.g. before metadata became available) so it never doubles up.
+      void stopJsRingSoundOnly();
+      return true;
+    }
+    if (!alarmMeta && hasNativeAlarmSoundActive()) {
+      // No metadata to (re)assert with on this call, but native already reports active.
+      return true;
+    }
   }
 
   const volumePercent = await loadDefaultVolumePercent();
