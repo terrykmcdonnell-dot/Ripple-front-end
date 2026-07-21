@@ -66,9 +66,33 @@ function normalizeActionAt(value: string | null | undefined): string | null {
   return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 }
 
+function rowsMatchUser(a: PendingHistoryWrite, b: PendingHistoryWrite): boolean {
+  const sameKnownUser = a.user_id != null && b.user_id != null && a.user_id === b.user_id;
+  return sameKnownUser || a.user_id == null || b.user_id == null;
+}
+
+/** Most recent snoozed row for this alarm — the parent occurrence a snooze re-ring should finalize. */
+function findSnoozedParentRow(rows: PendingHistoryWrite[], next: PendingHistoryWrite): PendingHistoryWrite | null {
+  const candidates = rows.filter(
+    (row) => row.alarm_id === next.alarm_id && row.status === 'snoozed' && rowsMatchUser(row, next),
+  );
+  if (candidates.length === 0) {
+    return null;
+  }
+  candidates.sort((a, b) => {
+    const ta = a.action_at ? new Date(a.action_at).getTime() : 0;
+    const tb = b.action_at ? new Date(b.action_at).getTime() : 0;
+    return tb - ta;
+  });
+  return candidates[0];
+}
+
 function shouldReplacePending(existing: PendingHistoryWrite, next: PendingHistoryWrite): boolean {
-  // Terminal outcomes (dismissed/snoozed) are written once — never overwrite with a later event
-  // (e.g. swiping the notification from the tray hours after the user already dismissed).
+  // Snooze re-ring dismissed: upgrade the original snoozed row (same scheduled_fire_at key).
+  if (existing.status === 'snoozed' && next.status === 'dismissed') {
+    return true;
+  }
+  // Other terminal outcomes are written once — never overwrite (e.g. stale tray actions).
   if (existing.status === 'dismissed' || existing.status === 'snoozed') {
     return false;
   }
@@ -181,6 +205,53 @@ async function enqueueAlarmHistory(
 
   const queued = await withPendingHistoryLock(async () => {
     const rows = await loadPendingHistoryWrites();
+
+    // Snooze re-ring (expo-scheduled snooze uses a later fireAt): do not create a separate
+    // "missed" row — the original snoozed occurrence stays open until the user dismisses.
+    if (status === 'missed') {
+      const snoozedParent = findSnoozedParentRow(rows, next);
+      if (snoozedParent && snoozedParent.scheduled_fire_at !== next.scheduled_fire_at) {
+        return false;
+      }
+    }
+
+    // Dismissing after a snooze re-ring should finalize the original snoozed row, not leave
+    // a stale "snoozed" entry beside a separate dismiss at the snooze fire time.
+    if (status === 'dismissed') {
+      const snoozedParent = findSnoozedParentRow(rows, next);
+      if (snoozedParent && snoozedParent.scheduled_fire_at !== next.scheduled_fire_at) {
+        const parentIdx = rows.findIndex(
+          (row) =>
+            row.alarm_id === snoozedParent.alarm_id &&
+            row.scheduled_fire_at === snoozedParent.scheduled_fire_at &&
+            row.status === 'snoozed' &&
+            rowsMatchUser(row, next),
+        );
+        if (parentIdx >= 0) {
+          rows[parentIdx] = {
+            ...rows[parentIdx],
+            status: 'dismissed',
+            action_at: next.action_at,
+            label: next.label || rows[parentIdx].label,
+            category: next.category || rows[parentIdx].category,
+            snooze_minutes: null,
+          };
+          const kept = rows.filter((row, i) => {
+            if (i === parentIdx) {
+              return true;
+            }
+            if (row.alarm_id !== next.alarm_id || !rowsMatchUser(row, next)) {
+              return true;
+            }
+            // Drop the snooze-fire duplicate (missed/dismissed keyed to re-ring time).
+            return row.scheduled_fire_at !== next.scheduled_fire_at;
+          });
+          await savePendingHistoryWrites(kept);
+          return true;
+        }
+      }
+    }
+
     const existingIndex = rows.findIndex((row) => {
       const sameOccurrence = row.alarm_id === next.alarm_id && row.scheduled_fire_at === next.scheduled_fire_at;
       const sameKnownUser = row.user_id != null && next.user_id != null && row.user_id === next.user_id;

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PostHog from 'posthog-react-native';
+import type { PostHogEventProperties } from '@posthog/core';
 import { Platform } from 'react-native';
 
 /** Distinguishes Ripple events from Vault in the shared PostHog project. */
@@ -10,7 +11,11 @@ export const POSTHOG_EVENTS = {
   paywallDismissed: 'paywall_dismissed',
   alarmCreated: 'alarm_created',
   onboardingCompleted: 'onboarding_completed',
+  androidExactAlarmStatus: 'android_exact_alarm_status',
 } as const;
+
+/** Person property key for Android exact-alarm permission state. */
+export const POSTHOG_ANDROID_EXACT_ALARM_PROPERTY = 'android_exact_alarm';
 
 function getPostHogApiKey(): string | undefined {
   return process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() || undefined;
@@ -36,7 +41,7 @@ export function createPostHogClient(): PostHog | null {
       getItem: async (key) => AsyncStorage.getItem(key),
       setItem: async (key, value) => AsyncStorage.setItem(key, value),
     },
-    captureApplicationLifecycleEvents: false,
+    captureAppLifecycleEvents: false,
     captureDeepLinks: false,
   });
 }
