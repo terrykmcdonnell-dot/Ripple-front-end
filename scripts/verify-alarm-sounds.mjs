@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const SOUNDS_DIR = path.join(ROOT, 'assets', 'sounds');
+const ANDROID_RAW_DIR = path.join(ROOT, 'android', 'app', 'src', 'main', 'res', 'raw');
 
 const ALL_IDS = [
   'gentle-rise',
@@ -118,6 +119,25 @@ for (const id of ALL_IDS) {
   const base = id.replace(/-/g, '_');
   if (!genText.includes(`${base}:`)) {
     fail(`generate-alarm-sounds.mjs missing generator: ${base}`);
+  }
+}
+
+// AlarmSoundService.kt looks up `soundName` via `resources.getIdentifier(baseName, "raw", ...)`.
+// If a WAV is missing here, native STREAM_ALARM playback silently no-ops (logs a warning and
+// returns) — no exception reaches JS, so the app believes the alarm is ringing when it is
+// completely silent. This folder is committed (not regenerated per-build), so it can drift out
+// of sync with `app.json` whenever a sound is added without re-running `expo prebuild`.
+if (!fs.existsSync(ANDROID_RAW_DIR)) {
+  fail(`missing directory: android/app/src/main/res/raw (run "npx expo prebuild --platform android")`);
+}
+const androidRawFiles = new Set(fs.readdirSync(ANDROID_RAW_DIR));
+for (const id of ALL_IDS) {
+  const wav = idToFilename(id);
+  if (!androidRawFiles.has(wav)) {
+    fail(
+      `missing native Android resource: android/app/src/main/res/raw/${wav} — ` +
+        `copy it from assets/sounds/${wav} (or re-run prebuild) and rebuild the app`,
+    );
   }
 }
 
