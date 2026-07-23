@@ -25,7 +25,7 @@ import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/
 import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
 import { isAlarmFireOccurrenceDelivered, markAlarmFireDelivered } from '@/lib/alarm-fire-scheduler';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
-import { flushPendingAlarmHistoryWrites, recordAlarmHistoryMissed } from '@/lib/alarm-history-sync';
+import { flushPendingAlarmHistoryWrites } from '@/lib/alarm-history-sync';
 
 async function ensureAlarmFireCategoryRegistered(): Promise<void> {
   await setNotificationCategoryAsync(ALARM_FIRE_CATEGORY_ID, [
@@ -108,9 +108,6 @@ export function AlarmNotificationBootstrap() {
           // Start ringing before any History/network work so foreground alarms
           // still sound immediately if the device/app audio is muted or slow.
           openAlarmRingScreen(parsed);
-          // Create a durable History row as soon as the alarm is delivered. Later
-          // Dismiss/Snooze actions upsert the same occurrence and replace Missed.
-          await recordAlarmHistoryMissed(parsed);
         })();
       });
 

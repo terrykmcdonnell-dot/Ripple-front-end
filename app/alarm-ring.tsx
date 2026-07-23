@@ -41,6 +41,7 @@ function parsedFromParams(params: {
   categoryIcon?: string | string[];
   soundId?: string | string[];
   userId?: string | string[];
+  occurrenceFireAt?: string | string[];
 }): ParsedAlarmFireData | null {
   const alarmIdRaw = paramOne(params.alarmId);
   const fireAt = paramOne(params.fireAt);
@@ -59,6 +60,7 @@ function parsedFromParams(params: {
   const soundId = paramOne(params.soundId);
   const uidRaw = paramOne(params.userId);
   const uid = uidRaw != null ? Number(uidRaw) : NaN;
+  const occurrenceFireAt = paramOne(params.occurrenceFireAt);
   return {
     alarmId,
     fireAt,
@@ -68,6 +70,7 @@ function parsedFromParams(params: {
     ...(categoryIcon ? { categoryIcon } : {}),
     ...(soundId ? { soundId } : {}),
     ...(Number.isFinite(uid) ? { userId: uid } : {}),
+    ...(occurrenceFireAt ? { occurrenceFireAt } : {}),
   };
 }
 
@@ -89,6 +92,7 @@ export default function AlarmRingScreen() {
       rawParams.categoryIcon,
       rawParams.soundId,
       rawParams.userId,
+      rawParams.occurrenceFireAt,
     ],
   );
   const { categories } = useAlarmCategories();

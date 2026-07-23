@@ -12,7 +12,6 @@ import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
 import {
   loadSnoozeMinutesForHistory,
-  recordAlarmHistoryMissed,
   recordAlarmHistoryDismissed,
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
@@ -28,7 +27,6 @@ export function openAlarmRingScreen(parsed: ParsedAlarmFireData): void {
   // AlarmRingScreen owns sound startup. Starting here as well created two near-simultaneous
   // native service starts around navigation; its mount/cleanup could then race an ACTION_STOP
   // against startForegroundService() and crash Android's foreground-service watchdog.
-  void recordAlarmHistoryMissed(parsed);
   router.replace({
     pathname: '/alarm-ring',
     params: {
@@ -40,6 +38,7 @@ export function openAlarmRingScreen(parsed: ParsedAlarmFireData): void {
       ...(parsed.categoryIcon ? { categoryIcon: parsed.categoryIcon } : {}),
       ...(parsed.soundId ? { soundId: parsed.soundId } : {}),
       ...(parsed.userId != null ? { userId: String(parsed.userId) } : {}),
+      ...(parsed.occurrenceFireAt ? { occurrenceFireAt: parsed.occurrenceFireAt } : {}),
     },
   });
 }

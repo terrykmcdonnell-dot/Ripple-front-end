@@ -54,8 +54,47 @@ async function resolveHistoryUserId(parsed: ParsedAlarmFireData): Promise<number
   return id;
 }
 
+/** Canonical UTC ISO for one alarm occurrence — avoids duplicate History keys like `…00Z` vs `…00.000Z`. */
+export function normalizeScheduledFireAt(value: string): string {
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : value;
+}
+
 function historyKey(userId: number | null, alarmId: number, fireAt: string): string {
-  return `${userId ?? 'pending'}:${alarmId}:${fireAt}`;
+  return `${userId ?? 'pending'}:${alarmId}:${normalizeScheduledFireAt(fireAt)}`;
+}
+
+function historyStatusRank(status: AlarmHistoryStatus): number {
+  switch (status) {
+    case 'dismissed':
+      return 3;
+    case 'snoozed':
+      return 2;
+    case 'missed':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function historyRowMergeKey(row: AlarmHistoryApiRow): string {
+  return `${row.user_id}:${row.alarm_id ?? 'null'}:${normalizeScheduledFireAt(row.scheduled_fire_at)}`;
+}
+
+/** Merges API rows with not-yet-flushed local writes; prefers snoozed/dismissed over missed for the same occurrence. */
+export function mergeHistoryRows(
+  serverRows: AlarmHistoryApiRow[],
+  pendingRows: AlarmHistoryApiRow[],
+): AlarmHistoryApiRow[] {
+  const merged = new Map<string, AlarmHistoryApiRow>();
+  for (const row of [...serverRows, ...pendingRows]) {
+    const key = historyRowMergeKey(row);
+    const existing = merged.get(key);
+    if (!existing || historyStatusRank(row.status) >= historyStatusRank(existing.status)) {
+      merged.set(key, row);
+    }
+  }
+  return [...merged.values()];
 }
 
 function normalizeActionAt(value: string | null | undefined): string | null {
@@ -182,6 +221,10 @@ export async function clearAllPendingAlarmHistory(): Promise<void> {
   await withPendingHistoryLock(() => savePendingHistoryWrites([]));
 }
 
+function sameScheduledFireAt(a: string, b: string): boolean {
+  return normalizeScheduledFireAt(a) === normalizeScheduledFireAt(b);
+}
+
 async function enqueueAlarmHistory(
   parsed: ParsedAlarmFireData,
   status: AlarmHistoryStatus,
@@ -190,7 +233,7 @@ async function enqueueAlarmHistory(
 ) {
   const userId = await resolveHistoryUserId(parsed);
   const normalizedActionAt = normalizeActionAt(actionAt);
-  const scheduledFireAt = parsed.occurrenceFireAt ?? parsed.fireAt;
+  const scheduledFireAt = normalizeScheduledFireAt(parsed.occurrenceFireAt ?? parsed.fireAt);
   const next: PendingHistoryWrite = {
     key: historyKey(userId, parsed.alarmId, scheduledFireAt),
     user_id: userId,
@@ -211,7 +254,7 @@ async function enqueueAlarmHistory(
     // "missed" row — the original snoozed occurrence stays open until the user dismisses.
     if (status === 'missed') {
       const snoozedParent = findSnoozedParentRow(rows, next);
-      if (snoozedParent && snoozedParent.scheduled_fire_at !== next.scheduled_fire_at) {
+      if (snoozedParent && !sameScheduledFireAt(snoozedParent.scheduled_fire_at, next.scheduled_fire_at)) {
         return false;
       }
     }
@@ -220,11 +263,11 @@ async function enqueueAlarmHistory(
     // a stale "snoozed" entry beside a separate dismiss at the snooze fire time.
     if (status === 'dismissed') {
       const snoozedParent = findSnoozedParentRow(rows, next);
-      if (snoozedParent && snoozedParent.scheduled_fire_at !== next.scheduled_fire_at) {
+      if (snoozedParent && !sameScheduledFireAt(snoozedParent.scheduled_fire_at, next.scheduled_fire_at)) {
         const parentIdx = rows.findIndex(
           (row) =>
             row.alarm_id === snoozedParent.alarm_id &&
-            row.scheduled_fire_at === snoozedParent.scheduled_fire_at &&
+            sameScheduledFireAt(row.scheduled_fire_at, snoozedParent.scheduled_fire_at) &&
             row.status === 'snoozed' &&
             rowsMatchUser(row, next),
         );
@@ -245,7 +288,7 @@ async function enqueueAlarmHistory(
               return true;
             }
             // Drop the snooze-fire duplicate (missed/dismissed keyed to re-ring time).
-            return row.scheduled_fire_at !== next.scheduled_fire_at;
+            return !sameScheduledFireAt(row.scheduled_fire_at, next.scheduled_fire_at);
           });
           await savePendingHistoryWrites(kept);
           return true;
@@ -254,7 +297,7 @@ async function enqueueAlarmHistory(
     }
 
     const existingIndex = rows.findIndex((row) => {
-      const sameOccurrence = row.alarm_id === next.alarm_id && row.scheduled_fire_at === next.scheduled_fire_at;
+      const sameOccurrence = row.alarm_id === next.alarm_id && sameScheduledFireAt(row.scheduled_fire_at, next.scheduled_fire_at);
       const sameKnownUser = row.user_id != null && next.user_id != null && row.user_id === next.user_id;
       const eitherUserPending = row.user_id == null || next.user_id == null;
       return sameOccurrence && (sameKnownUser || eitherUserPending);

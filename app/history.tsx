@@ -19,7 +19,12 @@ import { shouldSkipAuthFailureAlerts } from '@/lib/auth-session-errors';
 import { getAlarmHistoryCache, invalidateAlarmHistoryCache, setAlarmHistoryCache } from '@/lib/alarm-history-cache';
 import { findCategoryByName, useAlarmCategories } from '@/lib/alarm-categories';
 import { clearAllAlarmHistory, fetchAlarmHistory, type AlarmHistoryApiRow } from '@/lib/alarm-history-api';
-import { clearAllPendingAlarmHistory, flushPendingAlarmHistoryWrites, loadPendingAlarmHistoryRows } from '@/lib/alarm-history-sync';
+import {
+  clearAllPendingAlarmHistory,
+  flushPendingAlarmHistoryWrites,
+  loadPendingAlarmHistoryRows,
+  mergeHistoryRows,
+} from '@/lib/alarm-history-sync';
 import {
   buildHistoryGroups,
   monthlyComplianceFromHistory,
@@ -29,17 +34,6 @@ import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const FILTER_ALL = 'all' as const;
-
-function mergeHistoryRows(serverRows: AlarmHistoryApiRow[], pendingRows: AlarmHistoryApiRow[]): AlarmHistoryApiRow[] {
-  const merged = new Map<string, AlarmHistoryApiRow>();
-  for (const row of serverRows) {
-    merged.set(`${row.user_id}:${row.alarm_id ?? 'null'}:${row.scheduled_fire_at}`, row);
-  }
-  for (const row of pendingRows) {
-    merged.set(`${row.user_id}:${row.alarm_id ?? 'null'}:${row.scheduled_fire_at}`, row);
-  }
-  return [...merged.values()];
-}
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
