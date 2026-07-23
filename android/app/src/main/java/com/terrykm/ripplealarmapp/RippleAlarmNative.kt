@@ -78,9 +78,17 @@ object RippleAlarmNative {
   /**
    * Blocks stale OS deliveries on background / lock screen before native sound starts.
    * Fails open when JS has never synced (fresh install) or alarm id cannot be parsed.
+   *
+   * Foreground ring-screen playback uses `ripple_alarm_foreground_*` identifiers — JS has
+   * already validated the alarm via `isAlarmFireDeliveryAllowed` before starting the service,
+   * so skip the native snapshot check (which can be stale right after an in-place app update).
    */
   @JvmStatic
   fun isNativeAlarmDeliveryAllowed(context: Context, intent: Intent?): Boolean {
+    val identifier = intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: ""
+    if (identifier.startsWith("ripple_alarm_foreground_")) {
+      return true
+    }
     if (!RippleAlarmPrefs.hasEnabledAlarmSnapshot(context)) {
       return true
     }

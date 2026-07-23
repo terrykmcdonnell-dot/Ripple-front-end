@@ -144,6 +144,7 @@ export async function scheduleSnoozeNotification(params: {
         type: ALARM_FIRE_DATA_TYPE,
         alarmId: alarmData.alarmId,
         fireAt: snoozeFireAt,
+        occurrenceFireAt: alarmData.occurrenceFireAt ?? alarmData.fireAt,
         label: alarmData.label,
         category: alarmData.category,
         ...(alarmData.categoryId != null ? { categoryId: alarmData.categoryId } : {}),

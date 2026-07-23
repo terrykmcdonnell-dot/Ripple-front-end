@@ -289,6 +289,10 @@ object RippleAlarmNative {
 
   @JvmStatic
   fun isNativeAlarmDeliveryAllowed(context: Context, intent: Intent?): Boolean {
+    val identifier = intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER) ?: ""
+    if (identifier.startsWith("ripple_alarm_foreground_")) {
+      return true
+    }
     if (!RippleAlarmPrefs.hasEnabledAlarmSnapshot(context)) {
       return true
     }

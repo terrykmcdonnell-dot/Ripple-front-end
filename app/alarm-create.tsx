@@ -92,6 +92,11 @@ export default function AlarmCreateScreen() {
     }
   }, [categories, categoryId]);
 
+  // Warm the profile cache so Save does not block on a cold fetchCurrentUserRowId().
+  useEffect(() => {
+    void fetchCurrentUserRowId();
+  }, []);
+
   const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);
 
   const promptAndroidLockScreenPermissionsIfNeeded = async (): Promise<void> => {
@@ -166,10 +171,12 @@ export default function AlarmCreateScreen() {
         sound: labelForAlarmSoundId(resolvedSoundId),
       });
 
+      setIsSaving(false);
       router.replace('/alarm');
       void Promise.all([syncUpcomingReminderNotifications(), syncAlarmFireNotifications()]).catch(
         () => undefined,
       );
+      return;
     } catch (err) {
       notifyAuthError('New Alarm', err);
     } finally {

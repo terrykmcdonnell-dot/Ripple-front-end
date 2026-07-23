@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
+import { AppUpgradeMigrationBootstrap } from '@/components/bootstrap/AppUpgradeMigrationBootstrap';
 import { AppVersionCheckLaunchBootstrap } from '@/components/bootstrap/AppVersionCheckLaunchBootstrap';
 import { IosScheduledNotificationLimitBootstrap } from '@/components/bootstrap/IosScheduledNotificationLimitBootstrap';
 import { AlarmScheduleAuthSync } from '@/components/bootstrap/AlarmScheduleAuthSync';
@@ -96,6 +97,7 @@ function RootLayout() {
       <AlarmThemeProvider>
         <ThemedNavigationShell>
           <AppToastProvider>
+            <AppUpgradeMigrationBootstrap />
             <AppVersionCheckLaunchBootstrap />
             <IosScheduledNotificationLimitBootstrap />
             <AlarmScheduleAuthSync />

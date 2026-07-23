@@ -190,11 +190,12 @@ async function enqueueAlarmHistory(
 ) {
   const userId = await resolveHistoryUserId(parsed);
   const normalizedActionAt = normalizeActionAt(actionAt);
+  const scheduledFireAt = parsed.occurrenceFireAt ?? parsed.fireAt;
   const next: PendingHistoryWrite = {
-    key: historyKey(userId, parsed.alarmId, parsed.fireAt),
+    key: historyKey(userId, parsed.alarmId, scheduledFireAt),
     user_id: userId,
     alarm_id: parsed.alarmId,
-    scheduled_fire_at: parsed.fireAt,
+    scheduled_fire_at: scheduledFireAt,
     status,
     label: parsed.label,
     category: parsed.category,

@@ -60,18 +60,10 @@ class AlarmSoundService : Service() {
       stopSelf()
       return START_NOT_STICKY
     }
-    activeAlarmIntent = intent?.let { Intent(it) }
-    if (!RippleAlarmNative.isNativeAlarmDeliveryAllowed(this, intent)) {
-      RippleAlarmNative.dismissStaleAlarmDelivery(this, intent)
-      stopSelf()
-      return START_NOT_STICKY
-    }
+
+    // startForegroundService() requires startForeground() within ~5 s — even when we
+    // immediately stop for a stale/disabled delivery (Sentry: ForegroundServiceDidNotStartInTimeException).
     val mode = intent?.getStringExtra(EXTRA_ALARM_PRESENTATION_MODE) ?: MODE_LOCKSCREEN
-    RippleAlarmNative.markAlarmFired(
-      this,
-      intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER),
-      intent?.getStringExtra(EXTRA_ALARM_PAYLOAD),
-    )
     ensureChannels()
     val notification = buildNotification(intent, mode)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -79,6 +71,19 @@ class AlarmSoundService : Service() {
     } else {
       startForeground(FOREGROUND_NOTIF_ID, notification)
     }
+
+    activeAlarmIntent = intent?.let { Intent(it) }
+    if (!RippleAlarmNative.isNativeAlarmDeliveryAllowed(this, intent)) {
+      RippleAlarmNative.dismissStaleAlarmDelivery(this, intent)
+      stopForegroundCompat()
+      stopSelf()
+      return START_NOT_STICKY
+    }
+    RippleAlarmNative.markAlarmFired(
+      this,
+      intent?.getStringExtra(EXTRA_ALARM_IDENTIFIER),
+      intent?.getStringExtra(EXTRA_ALARM_PAYLOAD),
+    )
     startPlayback(intent?.getStringExtra(EXTRA_SOUND_NAME) ?: "")
     handler.removeCallbacks(autoStopRunnable)
     handler.postDelayed(autoStopRunnable, AUTO_STOP_MS)
@@ -132,6 +137,15 @@ class AlarmSoundService : Service() {
     try { mediaPlayer?.stop() } catch (_: Exception) {}
     try { mediaPlayer?.release() } catch (_: Exception) {}
     mediaPlayer = null
+  }
+
+  private fun stopForegroundCompat() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      stopForeground(STOP_FOREGROUND_REMOVE)
+    } else {
+      @Suppress("DEPRECATION")
+      stopForeground(true)
+    }
   }
 
   private fun ensureChannels() {

@@ -16,6 +16,8 @@ export type ParsedAlarmFireData = {
   soundId?: string;
   /** Present when the alarm was scheduled from a signed-in session — used so background tasks can POST history without Supabase session hydration. */
   userId?: number;
+  /** Original scheduled occurrence time — preserved across snooze re-rings for history dedup. */
+  occurrenceFireAt?: string;
 };
 
 function coerceAlarmId(value: unknown): number | null {
@@ -51,6 +53,10 @@ export function parseAlarmFireNotificationData(raw: unknown): ParsedAlarmFireDat
   const categoryId = coerceAlarmId(data.categoryId);
   const soundId = typeof data.soundId === 'string' ? data.soundId.trim() : '';
   const uid = coerceAlarmId(data.userId);
+  const occurrenceFireAt =
+    typeof data.occurrenceFireAt === 'string' && data.occurrenceFireAt.trim()
+      ? data.occurrenceFireAt.trim()
+      : undefined;
   return {
     alarmId,
     fireAt,
@@ -60,6 +66,7 @@ export function parseAlarmFireNotificationData(raw: unknown): ParsedAlarmFireDat
     ...(categoryIcon ? { categoryIcon } : {}),
     ...(soundId ? { soundId } : {}),
     ...(uid != null ? { userId: uid } : {}),
+    ...(occurrenceFireAt ? { occurrenceFireAt } : {}),
   };
 }
 

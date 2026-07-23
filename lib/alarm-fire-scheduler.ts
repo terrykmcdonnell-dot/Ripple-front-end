@@ -169,6 +169,18 @@ export async function cancelAlarmFireNotifications(): Promise<void> {
 }
 
 /**
+ * Clears the delivered-occurrence map and scheduled-notification-id cache.
+ *
+ * Used by the app-upgrade migration (`lib/app-upgrade-migration.ts`) so leftover state keyed to a
+ * previous version's identifier format or scheduling logic can never survive an in-place update —
+ * previously the only fix users found for stuck/duplicate/missing alarms after updating was to
+ * uninstall and reinstall the app.
+ */
+export async function clearAlarmFireDeliveryState(): Promise<void> {
+  await AsyncStorage.multiRemove([DELIVERED_KEY, STORAGE_IDS_KEY]).catch(() => undefined);
+}
+
+/**
  * `a3` = full-screen alarm channel revision (IMPORTANCE_MAX + USAGE_ALARM).
  * Android caches channel importance/audio attributes forever, so bump this when lock-screen behavior changes.
  */
@@ -376,10 +388,6 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
   // network reads succeeded, a transient failure can never leave the user with
   // zero scheduled alarms.
   await cancelRippleAlarmFireScheduledNotifications();
-
-  if (specs.length === 0) {
-    await cancelPendingSnoozeNotification();
-  }
 
   const androidChannelIdsBySound = new Map<string, string>();
   const scheduledIds: string[] = [];

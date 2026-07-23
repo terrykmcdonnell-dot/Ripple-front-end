@@ -68,6 +68,7 @@ import { AppModal } from '@/components/ui/AppModal';
 import { notificationPrefsEligibleForDbSync, patchSignedInUserSettings, type UserSettingsDbRow } from '@/lib/sync-user-settings-db';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
+import { resyncAllAlarmSchedules } from '@/lib/app-upgrade-migration';
 import { syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { previewDefaultAlarmSoundAtVolume } from '@/lib/preview-alarm-sound';
 import { openAndroidFullScreenAlarmPermissionSettings } from '@/lib/open-android-full-screen-alarm-settings';
@@ -128,6 +129,21 @@ export default function SettingScreen() {
   const [closeConfirmVisible, setCloseConfirmVisible] = useState(false);
   const [closingAccount, setClosingAccount] = useState(false);
   const [checkingForUpdate, setCheckingForUpdate] = useState(false);
+  const [repairingAlarms, setRepairingAlarms] = useState(false);
+  const onRepairAlarms = useCallback(async () => {
+    if (repairingAlarms || Platform.OS === 'web') {
+      return;
+    }
+    setRepairingAlarms(true);
+    try {
+      await resyncAllAlarmSchedules();
+      showToast('Alarms & notifications resynced.');
+    } catch (e) {
+      notifyAuthError('Repair alarms', e);
+    } finally {
+      setRepairingAlarms(false);
+    }
+  }, [repairingAlarms, showToast]);
   const onCheckForUpdates = useCallback(async () => {
     if (checkingForUpdate || Platform.OS === 'web') {
       return;
@@ -629,10 +645,6 @@ export default function SettingScreen() {
             value="Banner style, sounds & previews — system Settings"
             right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
             onPress={() => void Linking.openSettings()}
-            noBorder={
-              Platform.OS === 'ios' ||
-              (Platform.OS === 'android' && Number(Platform.Version) >= 34)
-            }
           />
           {Platform.OS === 'android' && Number(Platform.Version) >= 34 ? (
             <SettingsRow
@@ -641,7 +653,6 @@ export default function SettingScreen() {
               value="Android 14+ — allow full-screen alarms for Ripple"
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
               onPress={() => void openAndroidFullScreenAlarmPermissionSettings()}
-              noBorder={false}
             />
           ) : null}
           {Platform.OS === 'android' ? (
@@ -651,7 +662,6 @@ export default function SettingScreen() {
               value="Modes access — turn Ripple ON (requires latest app install)"
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
               onPress={() => void openAndroidNotificationPolicyAccessSettings()}
-              noBorder
             />
           ) : null}
           {Platform.OS === 'ios' ? (
@@ -661,6 +671,21 @@ export default function SettingScreen() {
               value="Focus / Scheduled Summary can delay banners — adjust in iOS Settings"
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
               onPress={() => void Linking.openSettings()}
+            />
+          ) : null}
+          {Platform.OS !== 'web' ? (
+            <SettingsRow
+              icon={settingsIcons.snooze}
+              title={repairingAlarms ? 'Repairing…' : 'Repair alarms & notifications'}
+              value="Fixes stuck/missing alarms without reinstalling the app"
+              right={
+                repairingAlarms ? (
+                  <ActivityIndicator size="small" color={palette.accent} />
+                ) : (
+                  <Text style={styles.chevron}>{settingsIcons.chevron}</Text>
+                )
+              }
+              onPress={() => void onRepairAlarms()}
               noBorder
             />
           ) : null}
