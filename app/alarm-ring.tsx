@@ -75,7 +75,22 @@ export default function AlarmRingScreen() {
   useRequireAuth();
   const router = useRouter();
   const rawParams = useLocalSearchParams();
-  const liveParsed = useMemo(() => parsedFromParams(rawParams), [rawParams]);
+  // `useLocalSearchParams()` may return a fresh object on re-render. Depending on the whole
+  // object made the sound effect clean up and restart even though no route value changed,
+  // sending ACTION_STOP while Android was still starting AlarmSoundService.
+  const liveParsed = useMemo(
+    () => parsedFromParams(rawParams),
+    [
+      rawParams.alarmId,
+      rawParams.fireAt,
+      rawParams.label,
+      rawParams.category,
+      rawParams.categoryId,
+      rawParams.categoryIcon,
+      rawParams.soundId,
+      rawParams.userId,
+    ],
+  );
   const { categories } = useAlarmCategories();
 
   const defaultSnoozeMinutes = useDefaultSnoozeMinutes();

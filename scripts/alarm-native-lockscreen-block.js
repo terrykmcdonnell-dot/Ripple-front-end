@@ -527,11 +527,9 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
         putExtra(RippleAlarmNative.EXTRA_ALARM_PAYLOAD, alarmPayload)
         putExtra("alarmPresentationMode", presentationMode)
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        reactApplicationContext.startForegroundService(svc)
-      } else {
-        reactApplicationContext.startService(svc)
-      }
+      // Called only by the already-visible React Native ring UI. Background/lock-screen
+      // scheduling starts the service as a foreground service in ExpoSchedulingDelegate.
+      reactApplicationContext.startService(svc)
     } catch (_: Exception) {}
   }
 

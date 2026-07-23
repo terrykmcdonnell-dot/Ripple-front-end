@@ -21,13 +21,13 @@ import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
 import { scheduleSnoozeNotification } from '@/lib/device-snooze';
 import { clearMissedAlarmAppBadge } from '@/lib/missed-alarm-app-badge';
 import { stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
-import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
+import { stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 
 /** Full-screen ring UI. Use `replace` so a cold start from a notification is not overwritten by `/alarm`. */
 export function openAlarmRingScreen(parsed: ParsedAlarmFireData): void {
-  // Passing `parsed` lets Android always (re-)assert native STREAM_ALARM playback — see
-  // `reassertNativeAlarmSound` in ring-alarm-sound.ts — instead of a separate, easy-to-desync call.
-  void startRingAlarmSound(parsed.soundId, parsed);
+  // AlarmRingScreen owns sound startup. Starting here as well created two near-simultaneous
+  // native service starts around navigation; its mount/cleanup could then race an ACTION_STOP
+  // against startForegroundService() and crash Android's foreground-service watchdog.
   void recordAlarmHistoryMissed(parsed);
   router.replace({
     pathname: '/alarm-ring',

@@ -55,8 +55,23 @@ class AlarmSoundService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent?.action == ACTION_STOP) {
+      // A STOP can race a preceding startForegroundService() request while Android is still
+      // waiting for this service to promote itself. Returning before startForeground() in that
+      // race causes ForegroundServiceDidNotStartInTimeException and kills the whole app.
+      ensureChannels()
+      val stopNotification = buildNotification(intent, MODE_BACKGROUND)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(
+          FOREGROUND_NOTIF_ID,
+          stopNotification,
+          ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+        )
+      } else {
+        startForeground(FOREGROUND_NOTIF_ID, stopNotification)
+      }
       activeAlarmIntent = null
       stopPlayback()
+      stopForegroundCompat()
       stopSelf()
       return START_NOT_STICKY
     }

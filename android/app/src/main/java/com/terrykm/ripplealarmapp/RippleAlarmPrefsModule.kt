@@ -66,11 +66,12 @@ class RippleAlarmPrefsModule(reactContext: ReactApplicationContext) :
         putExtra(RippleAlarmNative.EXTRA_ALARM_PAYLOAD, alarmPayload)
         putExtra("alarmPresentationMode", presentationMode)
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        reactApplicationContext.startForegroundService(svc)
-      } else {
-        reactApplicationContext.startService(svc)
-      }
+      // This bridge method is called only by the already-visible React Native ring UI.
+      // A regular service start avoids Android's five-second FGS promotion watchdog and its
+      // process-killing exception when a near-simultaneous screen cleanup sends ACTION_STOP.
+      // Background/lock-screen OS delivery still uses startForegroundService() in the patched
+      // Expo scheduling delegate, where AlarmSoundService promotes itself immediately.
+      reactApplicationContext.startService(svc)
     } catch (_: Exception) {}
   }
 
