@@ -43,7 +43,7 @@ export function ValueBanner() {
       <Text style={styles.icon}>{signUpIcons.cloud}</Text>
       <Text style={styles.text}>
         <Text style={styles.strong}>Free account includes cloud sync.</Text> Upgrade to Pro for unlimited alarms
-        and widgets.
+        and templates.
       </Text>
     </View>
   );
