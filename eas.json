@@ -29,6 +29,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "terrykmcdonnell@gmail.com",
+        "ascAppId": "6768576208",
+        "appleTeamId": "ZTC334YD7P"
+      }
+    }
   }
 }
+  
