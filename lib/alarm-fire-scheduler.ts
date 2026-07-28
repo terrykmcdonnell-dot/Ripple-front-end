@@ -11,7 +11,8 @@ import { Platform } from 'react-native';
 
 import { getNativeAlarmFireDeliveredMap, syncEnabledAlarmIdsToNative, syncNativeAlarmFireDelivered } from '@/lib/android-alarm-native-prefs';
 
-import { fetchAlarms } from '@/lib/alarm-api';
+import { fetchAlarms, patchAlarm } from '@/lib/alarm-api';
+import { incrementFreeRingCount } from '@/lib/alarm-free-ring-limit';
 import type { AlarmListItem } from '@/lib/alarm-format';
 import { formatScheduledLocalParts } from '@/lib/alarm-format';
 import {
@@ -28,7 +29,7 @@ import {
   loadDefaultVibrationEnabled,
   loadNotificationsMasterEnabled,
 } from '@/lib/settings-preferences';
-import { fetchIsSubscriberFresh } from '@/lib/subscription-access';
+import { fetchIsSubscriberFresh, limitsApply } from '@/lib/subscription-access';
 import {
   alignAlarmNotificationTriggerDate,
   MIN_ALARM_SCHEDULE_LEAD_MS,
@@ -67,11 +68,42 @@ export async function markAlarmFireDelivered(alarmId: number, fireAtMs: number):
   try {
     const raw = await AsyncStorage.getItem(DELIVERED_KEY);
     const map: Record<string, number> = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    // Every code path that fires for the same occurrence (foreground receive, notification
+    // tap, android native action, ring-screen mount) calls this with the same fireAtMs, so
+    // comparing against the previous value here is what keeps the free-ring counter below
+    // from double-counting a single ring.
+    const isNewOccurrence = map[String(alarmId)] !== fireAtMs;
     map[String(alarmId)] = fireAtMs;
     await AsyncStorage.setItem(DELIVERED_KEY, JSON.stringify(map));
     syncNativeAlarmFireDelivered(alarmId, fireAtMs);
+    if (isNewOccurrence) {
+      void enforceFreeRingLimitOnDelivery(alarmId);
+    }
   } catch {
     /* ignore storage errors */
+  }
+}
+
+/**
+ * Free-tier gate: once a non-Pro alarm has rung `FREE_TIER_MAX_RINGS_PER_ALARM` times, turn
+ * it off so the next sync stops scheduling it, and let the alarm list surface an
+ * "upgrade to re-enable" state. The ring that just fired always completes normally — this
+ * only prevents the *next* occurrence from being scheduled.
+ */
+async function enforceFreeRingLimitOnDelivery(alarmId: number): Promise<void> {
+  try {
+    const isSubscriber = await fetchIsSubscriberFresh();
+    if (!limitsApply(isSubscriber)) {
+      return;
+    }
+    const { justReachedLimit } = await incrementFreeRingCount(alarmId);
+    if (!justReachedLimit) {
+      return;
+    }
+    await patchAlarm(alarmId, { is_enabled: false }).catch(() => undefined);
+    void syncAlarmFireNotifications();
+  } catch {
+    /* best-effort free-tier gate; never block ring delivery */
   }
 }
 

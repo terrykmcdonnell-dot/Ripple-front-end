@@ -29,6 +29,11 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
+import {
+  clearFreeRingCount,
+  FREE_TIER_MAX_RINGS_PER_ALARM,
+  isFreeRingLimitReached,
+} from '@/lib/alarm-free-ring-limit';
 import { parseAlarmDate, toAlarmIsoString } from '@/lib/alarm-date';
 import { coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
 import { peekStashedAlarmForEditMatch } from '@/lib/alarm-navigation-cache';
@@ -165,6 +170,14 @@ export default function AlarmEditScreen() {
       return;
     }
 
+    if (alarmEnabled && limitsApply && (await isFreeRingLimitReached(alarmIdParsed))) {
+      showToast(
+        `Free plan limits an alarm to ${FREE_TIER_MAX_RINGS_PER_ALARM} rings. Upgrade to Pro to keep using it.`,
+      );
+      router.push('/paywall?ringLimit=1');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const selectedCategory = categories.find((item) => item.id === categoryId) ?? findDefaultCategory(categories);
@@ -197,9 +210,11 @@ export default function AlarmEditScreen() {
     interval,
     isSkipping,
     label,
+    limitsApply,
     selectedSoundId,
     isSubscriber,
     router,
+    showToast,
     unit,
   ]);
 
@@ -210,6 +225,7 @@ export default function AlarmEditScreen() {
     setIsDeleting(true);
     try {
       await deleteAlarm(alarmIdParsed);
+      void clearFreeRingCount(alarmIdParsed);
       setDeleteConfirmVisible(false);
       router.replace('/alarm');
       void Promise.all([syncUpcomingReminderNotifications(), syncAlarmFireNotifications()]).catch(

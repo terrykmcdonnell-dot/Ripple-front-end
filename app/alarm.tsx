@@ -43,6 +43,7 @@ import {
   nextCanonicalAlarmFire,
   syncUpcomingReminderNotifications,
 } from '@/lib/upcoming-reminder-scheduler';
+import { getFreeRingLockedAlarmIds } from '@/lib/alarm-free-ring-limit';
 import { canAddAlarm, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
@@ -148,9 +149,10 @@ export default function AlarmScreen() {
   useRequireAuth();
   const router = useRouter();
   const { showToast } = useAppToast();
-  const { isSubscriber } = useSubscriptionStatus();
+  const { isSubscriber, limitsApply: subscriptionLimitsApply } = useSubscriptionStatus();
 
   const [alarms, setAlarms] = useState<AlarmListItem[]>(() => getAlarmListCache() ?? []);
+  const [lockedAlarmIds, setLockedAlarmIds] = useState<Set<number>>(new Set());
   const [listError, setListError] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(() => getAlarmListCache() == null);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,6 +164,25 @@ export default function AlarmScreen() {
   useEffect(() => {
     alarmsRef.current = alarms;
   }, [alarms]);
+
+  // Free-tier alarms that hit the per-alarm ring limit auto-lock (see enforceFreeRingLimitOnDelivery
+  // in alarm-fire-scheduler.ts) — recomputed whenever the list refreshes so a lock applied while
+  // ringing shows up as soon as the user returns to this screen.
+  useEffect(() => {
+    let cancelled = false;
+    if (!subscriptionLimitsApply) {
+      setLockedAlarmIds(new Set());
+      return;
+    }
+    void getFreeRingLockedAlarmIds().then((ids) => {
+      if (!cancelled) {
+        setLockedAlarmIds(ids);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [subscriptionLimitsApply, alarms]);
 
   const [clockTick, setClockTick] = useState(() => Date.now());
   useEffect(() => {
@@ -303,6 +324,11 @@ export default function AlarmScreen() {
     void loadAlarms({ silent: true });
   };
 
+  const goUnlockRingLimitedAlarm = useCallback(() => {
+    showToast('This alarm hit the free ring limit. Upgrade to Pro to keep using it.');
+    router.push('/paywall?ringLimit=1');
+  }, [router, showToast]);
+
   const toggleAlarmEnabled = useCallback(async (alarm: AlarmListItem) => {
     if (patchingIdsRef.current.has(alarm.id)) {
       return;
@@ -420,7 +446,10 @@ export default function AlarmScreen() {
           <Text style={styles.emptyText}>No alarms yet. Tap + to create one.</Text>
         ) : null}
         {sortedAlarms.map((alarm) => {
-          const nextFireText = formatNextFireSubtitle(alarm, now);
+          const locked = lockedAlarmIds.has(alarm.id);
+          const nextFireText = locked
+            ? 'Free limit reached · Tap to unlock'
+            : formatNextFireSubtitle(alarm, now);
           const tagText = formatRepeatEveryTag(alarm.interval, alarm.unit);
           const categoryMeta = resolveCategoryMeta(categories, {
             categoryId: alarm.categoryId,
@@ -430,7 +459,7 @@ export default function AlarmScreen() {
           });
           const { icon, tone, toggleOnColor } = presentationForAlarmCategory(
             categoryMeta.name,
-            alarm.isEnabled,
+            alarm.isEnabled && !locked,
             palette,
             categoryMeta.icon,
             categoryMeta.colorKey,
@@ -442,12 +471,16 @@ export default function AlarmScreen() {
               label={alarm.label || 'Alarm'}
               nextFireText={nextFireText}
               tagText={tagText}
-              active={alarm.isEnabled}
-              tone={tone}
+              active={alarm.isEnabled && !locked}
+              tone={locked ? 'off' : tone}
               toggleOnColor={toggleOnColor}
               toggleDisabled={patchingIds.includes(alarm.id)}
-              onToggle={() => void toggleAlarmEnabled(alarm)}
+              onToggle={locked ? goUnlockRingLimitedAlarm : () => void toggleAlarmEnabled(alarm)}
               onPress={() => {
+                if (locked) {
+                  goUnlockRingLimitedAlarm();
+                  return;
+                }
                 stashAlarmForEdit(alarm);
                 router.push({
                   pathname: '/alarm-edit',

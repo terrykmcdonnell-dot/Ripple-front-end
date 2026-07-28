@@ -22,6 +22,7 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
+import { FREE_TIER_MAX_RINGS_PER_ALARM } from '@/lib/alarm-free-ring-limit';
 import { derivePremiumPlan, FREE_TIER_MAX_ALARMS, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
 import { fetchAlarms } from '@/lib/alarm-api';
 import { capturePaywallDismissed, capturePaywallViewed } from '@/lib/posthog-analytics';
@@ -278,8 +279,9 @@ export default function PaywallScreen() {
   const bottomPad = useBottomSafePadding(24);
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
   const router = useRouter();
-  const { alarmLimit } = useLocalSearchParams<{ alarmLimit?: string }>();
+  const { alarmLimit, ringLimit } = useLocalSearchParams<{ alarmLimit?: string; ringLimit?: string }>();
   const isAlarmLimitPaywall = alarmLimit === '1' || alarmLimit === 'true';
+  const isRingLimitPaywall = ringLimit === '1' || ringLimit === 'true';
   const paywallViewedRef = useRef(false);
   const purchasedThisSessionRef = useRef(false);
   const { showToast } = useAppToast();
@@ -479,7 +481,7 @@ export default function PaywallScreen() {
   useEffect(() => {
     if (
       Platform.OS === 'web' ||
-      !isAlarmLimitPaywall ||
+      !(isAlarmLimitPaywall || isRingLimitPaywall) ||
       subscriptionGatePending ||
       paywallViewedRef.current
     ) {
@@ -487,7 +489,7 @@ export default function PaywallScreen() {
     }
     paywallViewedRef.current = true;
     capturePaywallViewed();
-  }, [isAlarmLimitPaywall, subscriptionGatePending]);
+  }, [isAlarmLimitPaywall, isRingLimitPaywall, subscriptionGatePending]);
 
   const onSubscribe = useCallback(async () => {
     if (!selectedPackage || purchasing) {
@@ -554,7 +556,7 @@ export default function PaywallScreen() {
 
   const onClose = () => {
     if (
-      isAlarmLimitPaywall &&
+      (isAlarmLimitPaywall || isRingLimitPaywall) &&
       paywallViewedRef.current &&
       !isSubscriber &&
       !purchasedThisSessionRef.current
@@ -741,7 +743,13 @@ export default function PaywallScreen() {
           </View>
         </View>
 
-        {showAlarmLimitReached ? (
+        {isRingLimitPaywall ? (
+          <View style={styles.limitBox}>
+            <Text style={styles.limitText}>
+              This alarm hit the {FREE_TIER_MAX_RINGS_PER_ALARM}-ring free limit and turned off
+            </Text>
+          </View>
+        ) : showAlarmLimitReached ? (
           <View style={styles.limitBox}>
             <Text style={styles.limitText}>
               You&apos;ve reached the {FREE_TIER_MAX_ALARMS}-alarm free limit
