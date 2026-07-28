@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * auto-locks (turned off + requires upgrade to re-enable). Device-local only — this is a
  * soft usage nudge, not a security boundary, so it does not need to sync across devices.
  */
-export const FREE_TIER_MAX_RINGS_PER_ALARM = 2;
+export const FREE_TIER_MAX_RINGS_PER_ALARM = 5;
 
 const RING_COUNT_KEY = 'ripple_alarm_free_ring_count_v1';
 
