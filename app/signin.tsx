@@ -272,7 +272,7 @@ export default function SignInScreen() {
         </View>
 
         <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to sync your alarms across devices</Text>
+        <Text style={styles.subtitle}>Sign in to access your saved alarms and history.</Text>
 
         <SignInField
           label="Email"

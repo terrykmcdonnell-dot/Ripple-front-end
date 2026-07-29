@@ -8,6 +8,26 @@ export type UserProfileRow = {
   password: string;
 };
 
+/** Postgres / PostgREST unique violation on public.users.email. */
+export function isDuplicateUsersEmailError(error: unknown): boolean {
+  if (error == null || typeof error !== 'object') {
+    return false;
+  }
+  const blob = [
+    'message' in error ? String((error as { message?: unknown }).message ?? '') : '',
+    'code' in error ? String((error as { code?: unknown }).code ?? '') : '',
+    'details' in error ? String((error as { details?: unknown }).details ?? '') : '',
+  ]
+    .join(' ')
+    .toLowerCase();
+  return (
+    blob.includes('23505') ||
+    blob.includes('duplicate key') ||
+    blob.includes('unique constraint') ||
+    blob.includes('users_email_key')
+  );
+}
+
 /** Display name from Auth metadata (OTP signup stores `name` in user_metadata). */
 export function deriveProfileNameFromAuthUser(authUser: {
   email?: string | null;
@@ -57,6 +77,10 @@ export async function ensureUsersRowFromAuthUser(authUser: User) {
     email,
     password: '',
   });
+  if (error && isDuplicateUsersEmailError(error)) {
+    // Profile row already exists (e.g. prior signup or social sign-in) — treat as success.
+    return { error: null };
+  }
   return { error };
 }
 
@@ -82,6 +106,13 @@ export async function syncUserProfileToTable(profile: UserProfileRow) {
     email,
     password: profile.password,
   });
+  if (error && isDuplicateUsersEmailError(error)) {
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ name: profile.name, password: profile.password })
+      .eq('email', email);
+    return { error: updateError, isNewUser: false };
+  }
   return { error, isNewUser: true };
 }
 

@@ -1,5 +1,6 @@
 import type { AuthResponse } from '@supabase/supabase-js';
 
+import { createAccountViaBackend } from '@/lib/auth-api';
 import { supabase } from '@/lib/supabase';
 
 export const EMAIL_ALREADY_REGISTERED_MESSAGE =

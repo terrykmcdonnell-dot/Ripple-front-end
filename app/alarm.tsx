@@ -245,7 +245,7 @@ export default function AlarmScreen() {
           notifyAuthError('Alarms', userErr ?? new Error('Missing user profile.'));
         }
         if (loadGenRef.current === gen) {
-          setListError(userErr?.message ?? 'Could not resolve your profile.');
+          setListError(getAuthErrorDisplayText(userErr ?? 'Could not resolve your profile.'));
         }
         return;
       }

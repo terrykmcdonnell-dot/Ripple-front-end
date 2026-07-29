@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { signUpIcons } from '@/assets/icons/signup-icons';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
+import { FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -40,10 +41,10 @@ export function ValueBanner() {
 
   return (
     <View style={styles.banner}>
-      <Text style={styles.icon}>{signUpIcons.cloud}</Text>
+      <Text style={styles.icon}>{signUpIcons.alarm}</Text>
       <Text style={styles.text}>
-        <Text style={styles.strong}>Free account includes cloud sync.</Text> Upgrade to Pro for unlimited alarms
-        and templates.
+        <Text style={styles.strong}>Free accounts include up to {FREE_TIER_MAX_ALARMS} alarms.</Text> Upgrade to
+        Pro for unlimited alarms and templates.
       </Text>
     </View>
   );

@@ -1,6 +1,6 @@
 export const signUpIcons = {
   back: '←',
-  cloud: '☁️',
+  alarm: '⏰',
   user: '👤',
   email: '✉️',
   check: '✓',

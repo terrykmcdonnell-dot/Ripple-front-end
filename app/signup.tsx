@@ -254,9 +254,7 @@ export default function SignUpScreen() {
         <TopBrandRow onBack={() => router.push('/signin')} />
 
         <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>
-          Sync your alarms across all your devices with a free account.
-        </Text>
+        <Text style={styles.subtitle}>Create a free account to save your alarms and history.</Text>
 
         <ValueBanner />
 

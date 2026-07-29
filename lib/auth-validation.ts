@@ -64,7 +64,11 @@ export function formatAuthErrorMessage(message: string, meta?: AuthErrorMeta) {
   if (
     lower.includes('already registered') ||
     lower.includes('user already exists') ||
-    lower.includes('already been registered')
+    lower.includes('already been registered') ||
+    lower.includes('duplicate key') ||
+    lower.includes('unique constraint') ||
+    lower.includes('users_email_key') ||
+    code === '23505'
   ) {
     return 'This email is already registered. Sign in or use a different email.';
   }
