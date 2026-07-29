@@ -11,10 +11,10 @@ import { Platform } from 'react-native';
 
 import { getNativeAlarmFireDeliveredMap, syncEnabledAlarmIdsToNative, syncNativeAlarmFireDelivered } from '@/lib/android-alarm-native-prefs';
 
-import { fetchAlarms, patchAlarm } from '@/lib/alarm-api';
-import { incrementFreeRingCount } from '@/lib/alarm-free-ring-limit';
+import { fetchAlarms } from '@/lib/alarm-api';
+import { getFreeRingLockedAlarmIds, incrementFreeRingCount } from '@/lib/alarm-free-ring-limit';
 import type { AlarmListItem } from '@/lib/alarm-format';
-import { formatScheduledLocalParts } from '@/lib/alarm-format';
+import { formatScheduledLocalParts, resolveAlarmCategoryIcon } from '@/lib/alarm-format';
 import {
   ALARM_FIRE_CATEGORY_ID,
   ALARM_FIRE_DATA_TYPE,
@@ -84,11 +84,22 @@ export async function markAlarmFireDelivered(alarmId: number, fireAtMs: number):
   }
 }
 
+/** Marks every alarm in a same-time batch as delivered for this occurrence. */
+export async function markAlarmFiresDelivered(
+  alarms: Array<{ alarmId: number; fireAt: string }>,
+): Promise<void> {
+  for (const alarm of alarms) {
+    const fireAtMs = new Date(alarm.fireAt).getTime();
+    if (Number.isFinite(fireAtMs)) {
+      await markAlarmFireDelivered(alarm.alarmId, fireAtMs);
+    }
+  }
+}
+
 /**
- * Free-tier gate: once a non-Pro alarm has rung `FREE_TIER_MAX_RINGS_PER_ALARM` times, turn
- * it off so the next sync stops scheduling it, and let the alarm list surface an
- * "upgrade to re-enable" state. The ring that just fired always completes normally — this
- * only prevents the *next* occurrence from being scheduled.
+ * Free-tier gate: count each delivered occurrence. After `FREE_TIER_MAX_RINGS_PER_ALARM`
+ * rings, the alarm stays enabled but the next sync stops scheduling it until Pro. The ring
+ * that just fired always completes normally — the wall is at the next ring, not a teardown.
  */
 async function enforceFreeRingLimitOnDelivery(alarmId: number): Promise<void> {
   try {
@@ -97,11 +108,9 @@ async function enforceFreeRingLimitOnDelivery(alarmId: number): Promise<void> {
       return;
     }
     const { justReachedLimit } = await incrementFreeRingCount(alarmId);
-    if (!justReachedLimit) {
-      return;
+    if (justReachedLimit) {
+      void syncAlarmFireNotifications();
     }
-    await patchAlarm(alarmId, { is_enabled: false }).catch(() => undefined);
-    void syncAlarmFireNotifications();
   } catch {
     /* best-effort free-tier gate; never block ring delivery */
   }
@@ -351,6 +360,7 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
   const isSubscriber = await fetchIsSubscriberFresh();
   const defaultSoundId = resolveAlarmSoundForUser(await loadDefaultAlarmSoundId(), isSubscriber);
   const vibrationEnabled = await loadDefaultVibrationEnabled();
+  const ringLimitBlockedIds = limitsApply(isSubscriber) ? await getFreeRingLockedAlarmIds() : new Set<number>();
 
   const now = new Date();
   // Look back PAST_FIRE_GRACE_MS so an alarm whose scheduled moment just
@@ -370,6 +380,9 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
   let earliestGraceExpiresAt: number | null = null;
 
   for (const alarm of rows.filter((a) => a.isEnabled)) {
+    if (ringLimitBlockedIds.has(alarm.id)) {
+      continue;
+    }
     const rawSoundId = coerceAlarmSoundId(alarm.sound) ?? defaultSoundId;
     const soundId = resolveAlarmSoundForUser(rawSoundId, isSubscriber);
 
@@ -424,71 +437,128 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
   const androidChannelIdsBySound = new Map<string, string>();
   const scheduledIds: string[] = [];
 
+  const specsByOccurrence = new Map<number, AlarmFireSpec[]>();
   for (const spec of specs) {
-    const { alarm, soundId, fireAt, fireAtRaw } = spec;
-    const soundFile = bundledNotificationSoundFilename(soundId);
+    const key = spec.fireAtRaw.getTime();
+    const bucket = specsByOccurrence.get(key) ?? [];
+    bucket.push(spec);
+    specsByOccurrence.set(key, bucket);
+  }
 
+  for (const [fireAtRawMs, groupSpecs] of specsByOccurrence) {
+    const leader = groupSpecs[0];
+    const { fireAt, fireAtRaw } = leader;
+    const fireAtIso = fireAtRaw.toISOString();
+    const { time, ampm } = formatScheduledLocalParts(fireAtIso);
+
+    if (groupSpecs.length === 1) {
+      const { alarm, soundId } = leader;
+      const soundFile = bundledNotificationSoundFilename(soundId);
+      let androidChannelId = '';
+      if (Platform.OS === 'android') {
+        const cached = androidChannelIdsBySound.get(soundId);
+        if (cached) {
+          androidChannelId = cached;
+        } else {
+          androidChannelId = await ensureAndroidAlarmFireChannel(soundId, vibrationEnabled);
+          androidChannelIdsBySound.set(soundId, androidChannelId);
+        }
+      }
+      const label = alarm.label.trim() || 'Alarm';
+      try {
+        const notificationId = await scheduleNotificationAsync({
+          identifier: `ripple_alarm_fire_${alarm.id}_${fireAtRawMs}`,
+          content: {
+            title: `Alarm · ${label}`,
+            body: `Ringing · ${time} ${ampm}`,
+            sound: soundFile,
+            priority: AndroidNotificationPriority.MAX,
+            categoryIdentifier: ALARM_FIRE_CATEGORY_ID,
+            ...(Platform.OS === 'android' ? { sticky: true, autoDismiss: false } : {}),
+            data: {
+              type: ALARM_FIRE_DATA_TYPE,
+              alarmId: alarm.id,
+              fireAt: fireAtIso,
+              label,
+              category: alarm.category,
+              ...(alarm.categoryId != null ? { categoryId: alarm.categoryId } : {}),
+              ...(alarm.categoryIcon ? { categoryIcon: alarm.categoryIcon } : {}),
+              soundId,
+              ...(schedulingUserId != null ? { userId: schedulingUserId } : {}),
+            },
+            ...(Platform.OS === 'android' && vibrationEnabled ? { vibrate: [...FIRE_VIBRATION_PATTERN] } : {}),
+            ...(Platform.OS === 'android' ? { android: { channelId: androidChannelId } } : {}),
+            ...(Platform.OS === 'ios' ? { interruptionLevel: getIosAlarmInterruptionLevel() } : {}),
+          },
+          trigger: {
+            type: SchedulableTriggerInputTypes.DATE,
+            date: fireAt,
+            ...(Platform.OS === 'android' ? { channelId: androidChannelId } : {}),
+          },
+        });
+        scheduledIds.push(notificationId);
+      } catch {
+        /* skip single alarm */
+      }
+      continue;
+    }
+
+    const batchSoundId = leader.soundId;
+    const soundFile = bundledNotificationSoundFilename(batchSoundId);
     let androidChannelId = '';
     if (Platform.OS === 'android') {
-      const cached = androidChannelIdsBySound.get(soundId);
+      const cached = androidChannelIdsBySound.get(batchSoundId);
       if (cached) {
         androidChannelId = cached;
       } else {
-        androidChannelId = await ensureAndroidAlarmFireChannel(soundId, vibrationEnabled);
-        androidChannelIdsBySound.set(soundId, androidChannelId);
+        androidChannelId = await ensureAndroidAlarmFireChannel(batchSoundId, vibrationEnabled);
+        androidChannelIdsBySound.set(batchSoundId, androidChannelId);
       }
     }
 
-    // Show the original scheduled time in the notification body, not the
-    // adjusted delivery time (e.g. show "7:45 PM" not "7:45:05 PM").
-    const { time, ampm } = formatScheduledLocalParts(fireAtRaw.toISOString());
-    const label = alarm.label.trim() || 'Alarm';
+    const batchEntries = groupSpecs.map(({ alarm, soundId }) => {
+      const label = alarm.label.trim() || 'Alarm';
+      const icon = resolveAlarmCategoryIcon(alarm.category, alarm.categoryIcon);
+      return {
+        alarmId: alarm.id,
+        fireAt: fireAtIso,
+        label,
+        category: alarm.category,
+        ...(alarm.categoryId != null ? { categoryId: alarm.categoryId } : {}),
+        ...(alarm.categoryIcon ? { categoryIcon: alarm.categoryIcon } : {}),
+        soundId,
+        display: `${icon} ${label}`,
+      };
+    });
+    const summaryLabels = batchEntries.map((entry) => entry.display).join(' · ');
+    const count = batchEntries.length;
 
     try {
       const notificationId = await scheduleNotificationAsync({
-        // Keyed on fireAtRaw so duplicate syncs for the same occurrence produce
-        // the same identifier and the OS overwrites rather than stacks them.
-        identifier: `ripple_alarm_fire_${alarm.id}_${fireAtRaw.getTime()}`,
+        identifier: `ripple_alarm_fire_group_${fireAtRawMs}`,
         content: {
-          title: `Alarm · ${label}`,
-          body: `Ringing · ${time} ${ampm}`,
+          title: `${count} alarms · ${time} ${ampm}`,
+          body: summaryLabels,
           sound: soundFile,
           priority: AndroidNotificationPriority.MAX,
           categoryIdentifier: ALARM_FIRE_CATEGORY_ID,
-          ...(Platform.OS === 'android'
-            ? {
-                // Match alarm-app FSI requirements: ongoing + no auto-cancel so Android
-                // treats this as a full-screen alarm, not a dismissible heads-up banner.
-                sticky: true,
-                autoDismiss: false,
-              }
-            : {}),
+          ...(Platform.OS === 'android' ? { sticky: true, autoDismiss: false } : {}),
           data: {
             type: ALARM_FIRE_DATA_TYPE,
-            alarmId: alarm.id,
-            // Pass the original time so history + ring screen show the correct
-            // moment rather than the ±5 s adjusted delivery time.
-            fireAt: fireAtRaw.toISOString(),
-            label,
-            category: alarm.category,
-            ...(alarm.categoryId != null ? { categoryId: alarm.categoryId } : {}),
-            ...(alarm.categoryIcon ? { categoryIcon: alarm.categoryIcon } : {}),
-            soundId,
+            batch: true,
+            fireAt: fireAtIso,
+            alarmId: batchEntries[0].alarmId,
+            label: batchEntries[0].label,
+            category: batchEntries[0].category,
+            ...(batchEntries[0].categoryId != null ? { categoryId: batchEntries[0].categoryId } : {}),
+            ...(batchEntries[0].categoryIcon ? { categoryIcon: batchEntries[0].categoryIcon } : {}),
+            soundId: batchEntries[0].soundId,
+            alarms: batchEntries.map(({ display: _display, ...entry }) => entry),
             ...(schedulingUserId != null ? { userId: schedulingUserId } : {}),
           },
           ...(Platform.OS === 'android' && vibrationEnabled ? { vibrate: [...FIRE_VIBRATION_PATTERN] } : {}),
-          ...(Platform.OS === 'android'
-            ? {
-                android: {
-                  channelId: androidChannelId,
-                },
-              }
-            : {}),
-          ...(Platform.OS === 'ios'
-            ? {
-                interruptionLevel: getIosAlarmInterruptionLevel(),
-              }
-            : {}),
+          ...(Platform.OS === 'android' ? { android: { channelId: androidChannelId } } : {}),
+          ...(Platform.OS === 'ios' ? { interruptionLevel: getIosAlarmInterruptionLevel() } : {}),
         },
         trigger: {
           type: SchedulableTriggerInputTypes.DATE,
@@ -498,7 +568,7 @@ async function _syncAlarmFireNotificationsCore(alarms?: AlarmListItem[]): Promis
       });
       scheduledIds.push(notificationId);
     } catch {
-      /* skip single alarm */
+      /* skip batch */
     }
   }
 

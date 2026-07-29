@@ -1,11 +1,39 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+
+import { notifyAuthWarning } from '@/lib/auth-notify';
+import { fetchIsSubscriberFresh, limitsApply } from '@/lib/subscription-access';
 
 /**
- * Free-tier cap: without Ripple Pro, a single alarm rings this many times before it
- * auto-locks (turned off + requires upgrade to re-enable). Device-local only — this is a
- * soft usage nudge, not a security boundary, so it does not need to sync across devices.
+ * Free-tier cap: without Ripple Pro, a single alarm rings this many times before the next
+ * occurrence is blocked at ring time (the alarm stays set up and enabled). Device-local only —
+ * this is a soft usage nudge, not a security boundary, so it does not need to sync across devices.
  */
-export const FREE_TIER_MAX_RINGS_PER_ALARM = 5;
+export const FREE_TIER_MAX_RINGS_PER_ALARM = 2;
+
+/** Encouraging copy when the free ring cap blocks the next occurrence. */
+export function freeTierRingLimitToastMessage(): string {
+  return `This alarm has rung ${FREE_TIER_MAX_RINGS_PER_ALARM} times on the free plan — subscribe to Ripple Pro to keep it ringing.`;
+}
+
+/** Paywall banner when opened from a blocked ring. */
+export function freeTierRingLimitPaywallBanner(): string {
+  return `Your free alarm has rung ${FREE_TIER_MAX_RINGS_PER_ALARM} times — subscribe to keep it ringing.`;
+}
+
+export function openFreeTierRingLimitPaywall(): void {
+  notifyAuthWarning('Subscribe to keep ringing', freeTierRingLimitToastMessage());
+  router.replace('/paywall?ringLimit=1');
+}
+
+/** True when a free user has used all included rings and the next occurrence must not fire. */
+export async function isFreeTierRingDeliveryBlocked(alarmId: number): Promise<boolean> {
+  const isSubscriber = await fetchIsSubscriberFresh();
+  if (!limitsApply(isSubscriber)) {
+    return false;
+  }
+  return isFreeRingLimitReached(alarmId);
+}
 
 const RING_COUNT_KEY = 'ripple_alarm_free_ring_count_v1';
 
@@ -40,7 +68,7 @@ export async function isFreeRingLimitReached(alarmId: number): Promise<boolean> 
   return (await getFreeRingCount(alarmId)) >= FREE_TIER_MAX_RINGS_PER_ALARM;
 }
 
-/** IDs of every alarm that has hit the free ring limit (for bulk UI locking on the list screen). */
+/** IDs of every alarm that has hit the free ring limit (scheduling skips these until Pro). */
 export async function getFreeRingLockedAlarmIds(): Promise<Set<number>> {
   const map = await loadRingCountMap();
   const ids = new Set<number>();

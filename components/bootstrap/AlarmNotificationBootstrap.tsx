@@ -15,15 +15,24 @@ import {
   ALARM_NOTIFICATION_ACTION_DISMISS,
   ALARM_NOTIFICATION_ACTION_SNOOZE,
 } from '@/lib/alarm-notification-constants';
-import { ensureAllAndroidAlarmChannelsAsync, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
-import { parseAlarmFireFromNotification } from '@/lib/alarm-fire-notification-data';
+import {
+  ensureAllAndroidAlarmChannelsAsync,
+  isAlarmFireOccurrenceDelivered,
+  markAlarmFiresDelivered,
+  syncAlarmFireNotifications,
+} from '@/lib/alarm-fire-scheduler';
+import { parseAlarmFiresFromNotification } from '@/lib/alarm-fire-notification-data';
 import { consumeInitialAlarmFireResponse } from '@/lib/android-alarm-cold-start';
 import { stopNativeAlarmSound } from '@/lib/android-alarm-native-prefs';
 import { stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 import { processPendingNativeAlarmActions } from '@/lib/android-native-alarm-actions';
-import { handleAlarmFireNotificationResponse, openAlarmRingScreen } from '@/lib/alarm-notification-response';
+import {
+  blockFreeTierRingDelivery,
+  handleAlarmFireNotificationResponse,
+  openAlarmRingScreen,
+} from '@/lib/alarm-notification-response';
 import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
-import { isAlarmFireOccurrenceDelivered, markAlarmFireDelivered } from '@/lib/alarm-fire-scheduler';
+import { isFreeTierRingDeliveryBlocked } from '@/lib/alarm-free-ring-limit';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
 import { flushPendingAlarmHistoryWrites } from '@/lib/alarm-history-sync';
 
@@ -86,28 +95,52 @@ export function AlarmNotificationBootstrap() {
         if (nData?.type !== ALARM_FIRE_DATA_TYPE) {
           return;
         }
-        const parsed = parseAlarmFireFromNotification(notification);
-        if (!parsed) {
-          return;
-        }
         void (async () => {
-          if (!(await isAlarmFireDeliveryAllowed(parsed))) {
+          const alarms = parseAlarmFiresFromNotification(notification);
+          if (alarms.length === 0) {
+            return;
+          }
+
+          const deliverable: typeof alarms = [];
+          for (const parsed of alarms) {
+            if (!(await isAlarmFireDeliveryAllowed(parsed))) {
+              continue;
+            }
+            if (await isFreeTierRingDeliveryBlocked(parsed.alarmId)) {
+              continue;
+            }
+            deliverable.push(parsed);
+          }
+
+          if (deliverable.length === 0) {
+            const anyBlocked = await Promise.all(
+              alarms.map((parsed) => isFreeTierRingDeliveryBlocked(parsed.alarmId)),
+            );
+            if (anyBlocked.some(Boolean)) {
+              await blockFreeTierRingDelivery(notification.request.identifier);
+              return;
+            }
             await dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
             stopNativeAlarmSound();
             await stopRingAlarmSound();
             await syncAlarmFireNotifications();
             return;
           }
-          const fireAtMs = new Date(parsed.fireAt).getTime();
+
+          const fireAtMs = new Date(deliverable[0].fireAt).getTime();
           if (Number.isFinite(fireAtMs)) {
-            if (await isAlarmFireOccurrenceDelivered(parsed.alarmId, fireAtMs)) {
+            const allDelivered = await Promise.all(
+              deliverable.map((parsed) =>
+                isAlarmFireOccurrenceDelivered(parsed.alarmId, fireAtMs),
+              ),
+            );
+            if (allDelivered.every(Boolean)) {
               return;
             }
-            await markAlarmFireDelivered(parsed.alarmId, fireAtMs);
           }
-          // Start ringing before any History/network work so foreground alarms
-          // still sound immediately if the device/app audio is muted or slow.
-          openAlarmRingScreen(parsed);
+
+          await markAlarmFiresDelivered(deliverable);
+          openAlarmRingScreen(deliverable);
         })();
       });
 

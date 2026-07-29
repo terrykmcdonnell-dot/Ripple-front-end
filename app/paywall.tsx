@@ -22,7 +22,7 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
-import { FREE_TIER_MAX_RINGS_PER_ALARM } from '@/lib/alarm-free-ring-limit';
+import { FREE_TIER_MAX_RINGS_PER_ALARM, freeTierRingLimitPaywallBanner } from '@/lib/alarm-free-ring-limit';
 import { derivePremiumPlan, FREE_TIER_MAX_ALARMS, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
 import { fetchAlarms } from '@/lib/alarm-api';
 import { capturePaywallDismissed, capturePaywallViewed } from '@/lib/posthog-analytics';
@@ -45,6 +45,7 @@ import type { PurchasesPackage } from 'react-native-purchases';
 
 const PRO_PLAN_FEATURES = [
   'Unlimited alarms — no cap, ever',
+  `Unlimited rings per alarm — no ${FREE_TIER_MAX_RINGS_PER_ALARM}-ring cap`,
   'Template gallery — install ready-made alarm packs',
   'Auto theme — matches your device',
   'Premium alarm sounds',
@@ -745,9 +746,7 @@ export default function PaywallScreen() {
 
         {isRingLimitPaywall ? (
           <View style={styles.limitBox}>
-            <Text style={styles.limitText}>
-              This alarm hit the {FREE_TIER_MAX_RINGS_PER_ALARM}-ring free limit and turned off
-            </Text>
+            <Text style={styles.limitText}>{freeTierRingLimitPaywallBanner()}</Text>
           </View>
         ) : showAlarmLimitReached ? (
           <View style={styles.limitBox}>
@@ -761,7 +760,7 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, template gallery, Auto theme, and more — billed through{' '}
+          Unlimited alarms, unlimited rings per alarm, template gallery, Auto theme, and more — billed through{' '}
           {subscriptionBillingProviderLabel()}.
         </Text>
 

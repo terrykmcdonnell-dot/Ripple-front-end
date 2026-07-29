@@ -524,7 +524,7 @@ export default function SettingScreen() {
             ) : (
               <>
                 <Text style={styles.proTitle}>Upgrade to Pro</Text>
-                <Text style={styles.proSub}>Unlimited alarms · Templates · Themes</Text>
+                <Text style={styles.proSub}>Unlimited alarms · Unlimited rings · Templates · Themes</Text>
               </>
             )}
           </View>

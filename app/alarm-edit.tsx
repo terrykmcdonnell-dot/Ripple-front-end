@@ -31,8 +31,6 @@ import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { deleteAlarm, fetchAlarmForEdit, patchAlarm } from '@/lib/alarm-api';
 import {
   clearFreeRingCount,
-  FREE_TIER_MAX_RINGS_PER_ALARM,
-  isFreeRingLimitReached,
 } from '@/lib/alarm-free-ring-limit';
 import { parseAlarmDate, toAlarmIsoString } from '@/lib/alarm-date';
 import { coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
@@ -167,14 +165,6 @@ export default function AlarmEditScreen() {
     const scheduledAtIso = toAlarmIsoString(alarmTime);
     if (!scheduledAtIso) {
       notifyAuthWarning('Edit Alarm', 'Choose a valid alarm time.');
-      return;
-    }
-
-    if (alarmEnabled && limitsApply && (await isFreeRingLimitReached(alarmIdParsed))) {
-      showToast(
-        `Free plan limits an alarm to ${FREE_TIER_MAX_RINGS_PER_ALARM} rings. Upgrade to Pro to keep using it.`,
-      );
-      router.push('/paywall?ringLimit=1');
       return;
     }
 

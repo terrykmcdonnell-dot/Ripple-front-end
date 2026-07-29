@@ -1,6 +1,7 @@
 import * as TaskManager from 'expo-task-manager';
 
-import { parseAlarmFireFromTaskPayload } from '@/lib/alarm-fire-notification-data';
+import { parseAlarmFiresFromTaskPayload } from '@/lib/alarm-fire-notification-data';
+import { isFreeTierRingDeliveryBlocked } from '@/lib/alarm-free-ring-limit';
 import { flushPendingAlarmHistoryWrites, recordAlarmHistoryMissed } from '@/lib/alarm-history-sync';
 import type { NotificationTaskPayload } from 'expo-notifications/build/Notifications.types';
 
@@ -11,10 +12,15 @@ TaskManager.defineTask(RIPPLE_ALARM_HISTORY_BG_TASK, async ({ data, error }) => 
   if (error) {
     return;
   }
-  const parsed = parseAlarmFireFromTaskPayload(data as NotificationTaskPayload);
-  if (!parsed) {
+  const alarms = parseAlarmFiresFromTaskPayload(data as NotificationTaskPayload);
+  if (alarms.length === 0) {
     return;
   }
-  await recordAlarmHistoryMissed(parsed);
+  for (const parsed of alarms) {
+    if (await isFreeTierRingDeliveryBlocked(parsed.alarmId)) {
+      continue;
+    }
+    await recordAlarmHistoryMissed(parsed);
+  }
   await flushPendingAlarmHistoryWrites();
 });

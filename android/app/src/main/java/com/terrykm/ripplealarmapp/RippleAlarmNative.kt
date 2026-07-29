@@ -112,6 +112,16 @@ object RippleAlarmNative {
     if (identifier.isNullOrBlank() || !identifier.startsWith("ripple_alarm_fire_")) {
       return
     }
+    if (identifier.contains("_group_")) {
+      val fireAtMs = identifier.substringAfterLast("_").toLongOrNull() ?: return
+      val alarmIds = parseAlarmIdsFromPayload(payloadJson)
+      if (alarmIds.isNotEmpty()) {
+        for (alarmId in alarmIds) {
+          RippleAlarmPrefs.markAlarmFireDelivered(context, alarmId, fireAtMs)
+        }
+        return
+      }
+    }
     val parts = identifier.split("_")
     if (parts.size < 5) {
       return
@@ -119,6 +129,30 @@ object RippleAlarmNative {
     val alarmId = parts[parts.size - 2].toIntOrNull() ?: return
     val fireAtMs = parts.last().toLongOrNull() ?: return
     RippleAlarmPrefs.markAlarmFireDelivered(context, alarmId, fireAtMs)
+  }
+
+  private fun parseAlarmIdsFromPayload(payloadJson: String?): List<Int> {
+    if (payloadJson.isNullOrBlank()) {
+      return emptyList()
+    }
+    return try {
+      val json = JSONObject(payloadJson)
+      val alarms = json.optJSONArray("alarms")
+      if (alarms != null && alarms.length() > 0) {
+        buildList {
+          for (i in 0 until alarms.length()) {
+            val item = alarms.optJSONObject(i) ?: continue
+            val id = item.optInt("alarmId", -1)
+            if (id > 0) add(id)
+          }
+        }
+      } else {
+        val single = json.optInt("alarmId", -1)
+        if (single > 0) listOf(single) else emptyList()
+      }
+    } catch (_: Exception) {
+      emptyList()
+    }
   }
 
   private fun stopAlarmSound(context: Context) {

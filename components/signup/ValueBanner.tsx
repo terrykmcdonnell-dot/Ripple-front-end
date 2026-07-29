@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { signUpIcons } from '@/assets/icons/signup-icons';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
+import { FREE_TIER_MAX_RINGS_PER_ALARM } from '@/lib/alarm-free-ring-limit';
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -43,8 +44,11 @@ export function ValueBanner() {
     <View style={styles.banner}>
       <Text style={styles.icon}>{signUpIcons.alarm}</Text>
       <Text style={styles.text}>
-        <Text style={styles.strong}>Free accounts include up to {FREE_TIER_MAX_ALARMS} alarms.</Text> Upgrade to
-        Pro for unlimited alarms and templates.
+        <Text style={styles.strong}>
+          Free accounts include up to {FREE_TIER_MAX_ALARMS} alarms and {FREE_TIER_MAX_RINGS_PER_ALARM} rings per
+          alarm.
+        </Text>{' '}
+        Upgrade to Pro for unlimited alarms, unlimited rings, and templates.
       </Text>
     </View>
   );
