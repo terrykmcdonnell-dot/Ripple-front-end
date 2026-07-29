@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ripple-Alarm",
     "slug": "repple-alarm",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "alarm-app",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "10008",
+      "buildNumber": "10009",
       "bundleIdentifier": "com.terrykm.ripplealarm",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "versionCode": 10007,
+      "versionCode": 10009,
       "intentFilters": [
         {
           "action": "VIEW",
