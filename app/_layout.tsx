@@ -9,9 +9,12 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
+import { AndroidAlarmPermissionsBootstrap } from '@/components/bootstrap/AndroidAlarmPermissionsBootstrap';
 import { AppUpgradeMigrationBootstrap } from '@/components/bootstrap/AppUpgradeMigrationBootstrap';
 import { AppVersionCheckLaunchBootstrap } from '@/components/bootstrap/AppVersionCheckLaunchBootstrap';
+import { IosNotificationPermissionBootstrap } from '@/components/bootstrap/IosNotificationPermissionBootstrap';
 import { IosScheduledNotificationLimitBootstrap } from '@/components/bootstrap/IosScheduledNotificationLimitBootstrap';
+import { NotificationAccessBootstrap } from '@/components/bootstrap/NotificationAccessBootstrap';
 import { AlarmScheduleAuthSync } from '@/components/bootstrap/AlarmScheduleAuthSync';
 import { PostHogProviderShell } from '@/components/bootstrap/PostHogBootstrap';
 import { RevenueCatBootstrap } from '@/components/bootstrap/RevenueCatBootstrap';
@@ -99,7 +102,10 @@ function RootLayout() {
           <AppToastProvider>
             <AppUpgradeMigrationBootstrap />
             <AppVersionCheckLaunchBootstrap />
+            <IosNotificationPermissionBootstrap />
             <IosScheduledNotificationLimitBootstrap />
+            <NotificationAccessBootstrap />
+            <AndroidAlarmPermissionsBootstrap />
             <AlarmScheduleAuthSync />
             <SupabaseAuthAutoRefreshBootstrap />
             <RevenueCatBootstrap />

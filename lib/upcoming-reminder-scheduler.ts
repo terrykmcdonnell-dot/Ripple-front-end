@@ -18,6 +18,7 @@ import type { AlarmListItem } from '@/lib/alarm-format';
 import { coerceAlarmUnit, formatScheduledLocalParts } from '@/lib/alarm-format';
 import { bundledNotificationSoundFilename } from '@/lib/alarm-sound-files';
 import { resolveAlarmSoundForUser } from '@/lib/alarm-sound-access';
+import { getIosAlarmInterruptionLevel } from '@/lib/ios-alarm-notification-options';
 import type { AlarmSoundId } from '@/lib/settings-preferences';
 import {
   formatUpcomingReminderLeadLabel,
@@ -249,7 +250,9 @@ export async function syncUpcomingReminderNotifications(alarms?: AlarmListItem[]
                   channelId: androidChannelId,
                 },
               }
-            : {}),
+            : {
+                interruptionLevel: getIosAlarmInterruptionLevel(),
+              }),
         },
         trigger: {
           type: SchedulableTriggerInputTypes.DATE,

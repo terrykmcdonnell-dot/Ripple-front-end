@@ -2,6 +2,7 @@ import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications
 import { Linking, Platform } from 'react-native';
 
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
+import { areIosCriticalAlertsConfigured } from '@/lib/ios-alarm-notification-options';
 import { saveNotificationsMasterEnabled } from '@/lib/settings-preferences';
 
 export type RequestNotificationAccessResult =
@@ -27,6 +28,7 @@ export async function requestNotificationAccess(): Promise<RequestNotificationAc
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
+          ...(areIosCriticalAlertsConfigured() ? { allowCriticalAlerts: true } : {}),
         },
       });
     }

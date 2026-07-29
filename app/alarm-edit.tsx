@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AlarmSetupPermissionsModal } from '@/components/alarms/AlarmSetupPermissionsModal';
 import { createSoundIcon } from '@/assets/icons/alarm-create-icons';
 import { editActionIcons } from '@/assets/icons/alarm-edit-icons';
 import { AlarmTimePickRow } from '@/components/alarms-create/AlarmTimePickRow';
@@ -47,6 +48,8 @@ import { syncUpcomingReminderNotifications } from '@/lib/upcoming-reminder-sched
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import { findCategoryByName, findDefaultCategory, useAlarmCategories } from '@/lib/alarm-categories';
+import type { AndroidAlarmPermissionWarning } from '@/lib/android-alarm-permissions-status';
+import { prepareAlarmPermissionsForSetup } from '@/lib/ensure-alarm-permissions';
 import {
   type AlarmSoundId,
   coerceAlarmSoundId,
@@ -91,6 +94,9 @@ export default function AlarmEditScreen() {
   const [skipConfirmVisible, setSkipConfirmVisible] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
   const [labelError, setLabelError] = useState<string | null>(null);
+  const [androidPermWarnings, setAndroidPermWarnings] = useState<AndroidAlarmPermissionWarning[]>([]);
+  const [androidPermModalVisible, setAndroidPermModalVisible] = useState(false);
+  const androidPermResolverRef = useRef<(() => void) | null>(null);
 
   const palette = useAlarmTheme();
   const { showToast } = useAppToast();
@@ -150,6 +156,25 @@ export default function AlarmEditScreen() {
 
   const selectedSoundLabel = labelForAlarmSoundId(selectedSoundId);
 
+  const promptAlarmPermissionsIfNeeded = async (): Promise<void> => {
+    const warnings = await prepareAlarmPermissionsForSetup();
+    if (warnings.length === 0) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      androidPermResolverRef.current = resolve;
+      setAndroidPermWarnings(warnings);
+      setAndroidPermModalVisible(true);
+    });
+  };
+
+  const onAndroidPermModalComplete = () => {
+    setAndroidPermModalVisible(false);
+    setAndroidPermWarnings([]);
+    androidPermResolverRef.current?.();
+    androidPermResolverRef.current = null;
+  };
+
   const handleSave = useCallback(async () => {
     const labelValue = label.trim();
     if (!labelValue) {
@@ -170,6 +195,8 @@ export default function AlarmEditScreen() {
 
     setIsSaving(true);
     try {
+      await promptAlarmPermissionsIfNeeded();
+
       const selectedCategory = categories.find((item) => item.id === categoryId) ?? findDefaultCategory(categories);
       await patchAlarm(alarmIdParsed, {
         label: labelValue,
@@ -588,6 +615,11 @@ export default function AlarmEditScreen() {
           </View>
         </View>
       </AppModal>
+      <AlarmSetupPermissionsModal
+        visible={androidPermModalVisible}
+        warnings={androidPermWarnings}
+        onComplete={onAndroidPermModalComplete}
+      />
       <FullScreenLoadingOverlay visible={isSaving || isDeleting || isSkipping} />
     </View>
   );
