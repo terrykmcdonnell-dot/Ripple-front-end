@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ripple-Alarm",
     "slug": "repple-alarm",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "alarm-app",
@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "versionCode": 10010,
+      "versionCode": 10011,
       "intentFilters": [
         {
           "action": "VIEW",
