@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "10009",
+      "buildNumber": "10010",
       "bundleIdentifier": "com.terrykm.ripplealarm",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

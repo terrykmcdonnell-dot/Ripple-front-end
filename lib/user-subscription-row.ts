@@ -26,6 +26,8 @@ export function dbIndicatesActivePro(row: UserRcSubscriptionRow | null | undefin
 export function displayPlanFromDb(row: UserRcSubscriptionRow | null | undefined): string {
   const p = normalizeStatus(row?.rc_subscription_plan);
   switch (p) {
+    case 'lifetime':
+      return 'Lifetime';
     case 'annual':
       return 'Annual';
     case 'monthly':

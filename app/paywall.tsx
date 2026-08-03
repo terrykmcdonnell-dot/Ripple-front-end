@@ -23,7 +23,7 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { FREE_TIER_MAX_RINGS_PER_ALARM, freeTierRingLimitPaywallBanner } from '@/lib/alarm-free-ring-limit';
-import { derivePremiumPlan, FREE_TIER_MAX_ALARMS, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
+import { derivePremiumPlan, FREE_TIER_MAX_ALARMS, isLifetimePremiumPlan, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
 import { fetchAlarms } from '@/lib/alarm-api';
 import { capturePaywallDismissed, capturePaywallViewed } from '@/lib/posthog-analytics';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
@@ -305,9 +305,10 @@ export default function PaywallScreen() {
     }
   }, [managementURL]);
 
-  const [plan, setPlan] = useState<PricingPlan>('annual');
-  /** When true, do not overwrite `plan` from subscription sync (user tapped Annual / Monthly). */
+  const [plan, setPlan] = useState<PricingPlan>('lifetime');
+  /** When true, do not overwrite `plan` from subscription sync (user tapped a plan). */
   const userPickedPlanRef = useRef(false);
+  const [lifetimePkg, setLifetimePkg] = useState<PurchasesPackage | undefined>();
   const [monthlyPkg, setMonthlyPkg] = useState<PurchasesPackage | undefined>();
   const [annualPkg, setAnnualPkg] = useState<PurchasesPackage | undefined>();
   const [loadingOfferings, setLoadingOfferings] = useState(Platform.OS !== 'web');
@@ -337,10 +338,14 @@ export default function PaywallScreen() {
   const showAlarmLimitReached =
     alarmCount !== null && alarmCount >= FREE_TIER_MAX_ALARMS;
 
+  const lifetimePriceLabel = lifetimePkg?.product.priceString ?? null;
   const monthlyPriceLabel = monthlyPkg?.product.priceString ?? null;
   const annualPriceLabel = annualPkg?.product.priceString ?? null;
 
-  const selectedPackage = plan === 'annual' ? annualPkg : monthlyPkg;
+  const selectedPackage =
+    plan === 'lifetime' ? lifetimePkg : plan === 'annual' ? annualPkg : monthlyPkg;
+  const showLifetimeOption = !!lifetimePkg;
+  const showSubscriptionOptions = !!monthlyPkg || !!annualPkg;
   const canPurchase =
     Platform.OS !== 'web' && isRevenueCatConfigured() && !!selectedPackage && !loadingOfferings && !loadError;
 
@@ -350,6 +355,7 @@ export default function PaywallScreen() {
   );
 
   const ownsSelectedPlan = useMemo(() => {
+    if (displayedPremiumPlan === 'lifetime') return plan === 'lifetime';
     if (displayedPremiumPlan === 'annual') return plan === 'annual';
     if (displayedPremiumPlan === 'monthly') return plan === 'monthly';
     return (
@@ -358,6 +364,8 @@ export default function PaywallScreen() {
       isPackageInActiveSubscription(selectedPackage, customerInfo)
     );
   }, [displayedPremiumPlan, plan, customerInfo, selectedPackage]);
+
+  const isLifetimeOwner = isLifetimePremiumPlan(displayedPremiumPlan);
 
   const selectPlan = useCallback((next: PricingPlan) => {
     userPickedPlanRef.current = true;
@@ -369,6 +377,10 @@ export default function PaywallScreen() {
       return;
     }
     const resolved = resolveDisplayedPremiumPlan(customerInfo, dbRow);
+    if (resolved === 'lifetime') {
+      setPlan('lifetime');
+      return;
+    }
     if (resolved === 'annual') {
       setPlan('annual');
       return;
@@ -382,6 +394,11 @@ export default function PaywallScreen() {
     }
     const monthlyActive = monthlyPkg && isPackageInActiveSubscription(monthlyPkg, customerInfo);
     const annualActive = annualPkg && isPackageInActiveSubscription(annualPkg, customerInfo);
+    const lifetimeActive = lifetimePkg && isPackageInActiveSubscription(lifetimePkg, customerInfo);
+    if (lifetimeActive) {
+      setPlan('lifetime');
+      return;
+    }
     if (annualActive) {
       setPlan('annual');
       return;
@@ -391,12 +408,14 @@ export default function PaywallScreen() {
       return;
     }
     const derived = derivePremiumPlan(customerInfo);
-    if (derived === 'annual') {
+    if (derived === 'lifetime') {
+      setPlan('lifetime');
+    } else if (derived === 'annual') {
       setPlan('annual');
     } else if (derived === 'monthly') {
       setPlan('monthly');
     }
-  }, [isSubscriber, customerInfo, dbRow, monthlyPkg, annualPkg, loadingOfferings]);
+  }, [isSubscriber, customerInfo, dbRow, monthlyPkg, annualPkg, lifetimePkg, loadingOfferings]);
 
   const navigateAfterSubscriptionSuccess = useCallback(() => {
     if (router.canGoBack()) {
@@ -433,6 +452,7 @@ export default function PaywallScreen() {
       setLoadingOfferings(false);
       setMonthlyPkg(undefined);
       setAnnualPkg(undefined);
+      setLifetimePkg(undefined);
       return;
     }
 
@@ -442,26 +462,29 @@ export default function PaywallScreen() {
     try {
       const offerings = await Purchases.getOfferings();
       const current = offerings.current;
-      const { monthly, annual } = pickMonthlyAnnualPackages(current ?? undefined);
+      const { monthly, annual, lifetime } = pickMonthlyAnnualPackages(current ?? undefined);
       setMonthlyPkg(monthly);
       setAnnualPkg(annual);
-      if (!monthly && !annual) {
+      setLifetimePkg(lifetime);
+      if (!monthly && !annual && !lifetime) {
         setLoadError(
           current
-            ? 'No subscription packages in this offering. Add Monthly / Annual packages in the RevenueCat dashboard.'
+            ? 'No purchase packages in this offering. Add Lifetime / Monthly / Annual packages in the RevenueCat dashboard.'
             : 'No current offering. Configure an offering as "current" in RevenueCat.',
         );
       }
-      if (monthly && !annual) {
+      if (lifetime) {
+        setPlan('lifetime');
+      } else if (monthly && !annual) {
         setPlan('monthly');
-      }
-      if (annual && !monthly) {
+      } else if (annual && !monthly) {
         setPlan('annual');
       }
     } catch (e) {
       setLoadError(purchasesErrorMessage(e));
       setMonthlyPkg(undefined);
       setAnnualPkg(undefined);
+      setLifetimePkg(undefined);
     } finally {
       setLoadingOfferings(false);
     }
@@ -505,7 +528,13 @@ export default function PaywallScreen() {
       invalidateSubscriptionCache();
       if (hasPremiumEntitlement(nextInfo)) {
         purchasedThisSessionRef.current = true;
-        showToast(wasExistingSubscriber ? 'Plan updated.' : 'Subscription active. Welcome to Ripple Pro!');
+        showToast(
+          wasExistingSubscriber
+            ? 'Plan updated.'
+            : plan === 'lifetime'
+              ? 'Lifetime Pro unlocked. Welcome to Ripple Pro!'
+              : 'Subscription active. Welcome to Ripple Pro!',
+        );
       } else {
         showToast('Purchase completed. It may take a moment for access to unlock.');
       }
@@ -525,6 +554,7 @@ export default function PaywallScreen() {
     scheduleExitAfterPurchaseFlow,
     selectedPackage,
     showToast,
+    plan,
   ]);
 
   const onRestore = useCallback(async () => {
@@ -541,7 +571,7 @@ export default function PaywallScreen() {
         invalidateSubscriptionCache();
         scheduleExitAfterPurchaseFlow(navigateAfterSubscriptionSuccess);
       } else {
-        showToast('No active subscription found for this account.');
+        showToast('No active Pro purchase found for this account.');
       }
     } catch (e) {
       showToast(purchasesErrorMessage(e));
@@ -631,7 +661,7 @@ export default function PaywallScreen() {
           </View>
 
           <View style={styles.subscribedBox}>
-            <Text style={styles.subscribedText}>Subscription active</Text>
+            <Text style={styles.subscribedText}>{isLifetimeOwner ? 'Lifetime Pro active' : 'Subscription active'}</Text>
           </View>
 
           <Text style={styles.headline}>
@@ -645,10 +675,18 @@ export default function PaywallScreen() {
             ) : null}
           </View>
 
-          <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>
-            Switch between monthly and annual anytime — {subscriptionBillingProviderLabel()} may prorate or schedule the
-            change for your next renewal.
-          </Text>
+          {!isLifetimeOwner ? (
+            <>
+              <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>
+                Switch between monthly and annual anytime — {subscriptionBillingProviderLabel()} may prorate or schedule the
+                change for your next renewal.
+              </Text>
+            </>
+          ) : (
+            <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>
+              You own Ripple Pro forever on this account. No renewals or cancellation needed.
+            </Text>
+          )}
 
           <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>Included with your plan:</Text>
 
@@ -674,49 +712,62 @@ export default function PaywallScreen() {
             </View>
           ) : null}
 
-          <PricingToggle
-            selected={plan}
-            onSelect={selectPlan}
-            annualPriceLabel={annualPriceLabel}
-            monthlyPriceLabel={monthlyPriceLabel}
-            disabled={loadingOfferings || purchasing}
-          />
+          {!isLifetimeOwner ? (
+            <PricingToggle
+              selected={plan}
+              onSelect={selectPlan}
+              lifetimePriceLabel={lifetimePriceLabel}
+              annualPriceLabel={annualPriceLabel}
+              monthlyPriceLabel={monthlyPriceLabel}
+              showLifetime={showLifetimeOption}
+              showSubscriptions={showSubscriptionOptions}
+              disabled={loadingOfferings || purchasing}
+            />
+          ) : null}
 
-          <Pressable
-            disabled={ownsSelectedPlan || !canPurchase || purchasing}
-            onPress={() => void onSubscribe()}>
-            <LinearGradient
-              colors={ownsSelectedPlan ? ['#334155', '#475569'] : ['#06b6d4', '#0891b2']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[
-                styles.ctaBtn,
-                (ownsSelectedPlan || !canPurchase || purchasing) && styles.ctaDisabled,
-              ]}>
-              <Text style={styles.ctaText}>
-                {purchasing
-                  ? 'Processing…'
-                  : ownsSelectedPlan
-                    ? 'Current plan'
-                    : plan === 'annual'
-                      ? 'Switch to Annual'
-                      : 'Switch to Monthly'}
+          {!isLifetimeOwner ? (
+            <Pressable
+              disabled={ownsSelectedPlan || !canPurchase || purchasing}
+              onPress={() => void onSubscribe()}>
+              <LinearGradient
+                colors={ownsSelectedPlan ? ['#334155', '#475569'] : ['#06b6d4', '#0891b2']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.ctaBtn,
+                  (ownsSelectedPlan || !canPurchase || purchasing) && styles.ctaDisabled,
+                ]}>
+                <Text style={styles.ctaText}>
+                  {purchasing
+                    ? 'Processing…'
+                    : ownsSelectedPlan
+                      ? 'Current plan'
+                      : plan === 'lifetime'
+                        ? 'Buy Lifetime Pro'
+                        : plan === 'annual'
+                          ? 'Switch to Annual'
+                          : 'Switch to Monthly'}
+                </Text>
+              </LinearGradient>
+            </Pressable>
+          ) : null}
+
+          {!isLifetimeOwner ? (
+            <>
+              <Text style={[styles.footerNote, { marginBottom: 6 }]}>
+                Subscriptions are billed through {subscriptionBillingProviderLabel()}. To stop future charges, cancel in your
+                store account.
               </Text>
-            </LinearGradient>
-          </Pressable>
-
-          <Text style={[styles.footerNote, { marginBottom: 6 }]}>
-            Subscriptions are billed through {subscriptionBillingProviderLabel()}. To stop future charges, cancel in your
-            store account.
-          </Text>
-          <Pressable disabled={purchasing} onPress={() => openSubscriptionManagement()}>
-            <Text style={[styles.cancelSubscriptionLink, purchasing && styles.restoreMuted]}>
-              Cancel subscription
-            </Text>
-          </Pressable>
-          <Text style={[styles.footerNote, { marginTop: 4 }]}>
-            Opens {subscriptionStoreLabel()} subscription management for Ripple Pro.
-          </Text>
+              <Pressable disabled={purchasing} onPress={() => openSubscriptionManagement()}>
+                <Text style={[styles.cancelSubscriptionLink, purchasing && styles.restoreMuted]}>
+                  Cancel subscription
+                </Text>
+              </Pressable>
+              <Text style={[styles.footerNote, { marginTop: 4 }]}>
+                Opens {subscriptionStoreLabel()} subscription management for Ripple Pro.
+              </Text>
+            </>
+          ) : null}
         </ScrollView>
 
         <FullScreenLoadingOverlay variant="embedded" visible={purchasing && !loadError} />
@@ -760,8 +811,8 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, unlimited rings per alarm, template gallery, Auto theme, and more — billed through{' '}
-          {subscriptionBillingProviderLabel()}.
+          Unlimited alarms, unlimited rings per alarm, template gallery, Auto theme, and more — one lifetime purchase or
+          subscribe through {subscriptionBillingProviderLabel()}.
         </Text>
 
         <View style={styles.features}>
@@ -789,8 +840,11 @@ export default function PaywallScreen() {
         <PricingToggle
           selected={plan}
           onSelect={selectPlan}
+          lifetimePriceLabel={lifetimePriceLabel}
           annualPriceLabel={annualPriceLabel}
           monthlyPriceLabel={monthlyPriceLabel}
+          showLifetime={showLifetimeOption}
+          showSubscriptions={showSubscriptionOptions}
           disabled={loadingOfferings || restoring}
         />
 
@@ -801,13 +855,19 @@ export default function PaywallScreen() {
             end={{ x: 1, y: 1 }}
             style={[styles.ctaBtn, (!canPurchase || purchasing || restoring) && styles.ctaDisabled]}>
             <Text style={styles.ctaText}>
-              {purchasing ? 'Processing…' : `Subscribe ${paywallIcons.arrow}`}
+              {purchasing
+                ? 'Processing…'
+                : plan === 'lifetime'
+                  ? `Buy Lifetime Pro ${paywallIcons.arrow}`
+                  : `Subscribe ${paywallIcons.arrow}`}
             </Text>
           </LinearGradient>
         </Pressable>
 
         <Text style={styles.footerNote}>
-          Subscriptions managed by the {subscriptionStoreLabel()} · Cancel anytime in Settings
+          {plan === 'lifetime'
+            ? `One-time purchase through the ${subscriptionStoreLabel()} · Restore on new devices anytime`
+            : `Subscriptions managed by the ${subscriptionStoreLabel()} · Cancel anytime in Settings`}
         </Text>
 
         <Pressable disabled={restoring || purchasing || loadingOfferings} onPress={() => void onRestore()}>

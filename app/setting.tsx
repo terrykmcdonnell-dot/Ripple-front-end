@@ -23,6 +23,7 @@ import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
 import { VolumePickerSheet } from '@/components/settings/VolumePickerSheet';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
+import { isLifetimePremiumPlan } from '@/lib/subscription-access';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { cancelAllRippleScheduledNotifications } from '@/lib/cancel-all-app-notifications';
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
@@ -98,7 +99,10 @@ export default function SettingScreen() {
     limitsApply,
     renewalHint,
     managementURL,
+    planKind,
   } = useSubscriptionStatus();
+
+  const isLifetimeOwner = isLifetimePremiumPlan(planKind);
 
   const openSubscriptionManagement = useCallback(() => {
     if (managementURL) {
@@ -518,7 +522,10 @@ export default function SettingScreen() {
               <>
                 <Text style={styles.proTitle}>{titleLine}</Text>
                 <Text style={styles.proSub}>
-                  {renewalHint ?? 'Tap Manage to switch billing (monthly / annual)'}
+                  {renewalHint ??
+                    (isLifetimeOwner
+                      ? 'Lifetime access on this account'
+                      : 'Tap Manage to switch billing (monthly / annual)')}
                 </Text>
               </>
             ) : (
@@ -530,7 +537,7 @@ export default function SettingScreen() {
           </View>
           {Platform.OS !== 'web' && !subLoading && isSubscriber ? (
             <Pressable style={styles.proBtn} onPress={() => router.push('/paywall?changePlan=1')}>
-              <Text style={styles.proBtnText}>Manage</Text>
+              <Text style={styles.proBtnText}>{isLifetimeOwner ? 'View Pro' : 'Manage'}</Text>
             </Pressable>
           ) : Platform.OS !== 'web' && !subLoading && !isSubscriber ? (
             <Pressable style={styles.proBtn} onPress={() => router.push('/paywall')}>
@@ -539,7 +546,7 @@ export default function SettingScreen() {
           ) : null}
         </LinearGradient>
 
-        {Platform.OS !== 'web' && !subLoading && isSubscriber ? (
+        {Platform.OS !== 'web' && !subLoading && isSubscriber && !isLifetimeOwner ? (
           <SettingsGroup>
             <SettingsRow
               icon={settingsIcons.cancelSubscription}

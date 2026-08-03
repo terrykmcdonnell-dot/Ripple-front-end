@@ -17,7 +17,7 @@ import {
 /** Free tier cap — must match paywall copy. */
 export const FREE_TIER_MAX_ALARMS = 3;
 
-export type DerivedPremiumPlan = 'annual' | 'monthly' | 'trial' | 'intro' | 'unknown';
+export type DerivedPremiumPlan = 'lifetime' | 'annual' | 'monthly' | 'trial' | 'intro' | 'unknown';
 
 /**
  * Plan shown in Settings / paywall.
@@ -28,6 +28,7 @@ export function resolveDisplayedPremiumPlan(
   dbRow: UserRcSubscriptionRow | null | undefined,
 ): DerivedPremiumPlan {
   const dbRaw = (dbRow?.rc_subscription_plan ?? '').trim().toLowerCase();
+  if (dbRaw === 'lifetime') return 'lifetime';
   if (dbRaw === 'annual') return 'annual';
   if (dbRaw === 'monthly') return 'monthly';
   if (dbRaw === 'trial') return 'trial';
@@ -52,6 +53,9 @@ export function derivePremiumPlan(info: CustomerInfo | null | undefined): Derive
   }
 
   const pid = ent.productIdentifier.toLowerCase();
+  if (pid.includes('lifetime') || pid.includes('forever')) {
+    return 'lifetime';
+  }
   if (
     pid.includes('annual') ||
     pid.includes('year') ||
@@ -83,6 +87,8 @@ export function derivePremiumPlan(info: CustomerInfo | null | undefined): Derive
 /** Short label for Settings / paywall (exact plan family). */
 export function subscriptionPlanHeadline(plan: DerivedPremiumPlan): string {
   switch (plan) {
+    case 'lifetime':
+      return 'Lifetime';
     case 'annual':
       return 'Annual';
     case 'monthly':
@@ -194,6 +200,10 @@ export async function canAddAlarmFresh(alarmCount: number): Promise<boolean> {
   return alarmCount < FREE_TIER_MAX_ALARMS;
 }
 
+export function isLifetimePremiumPlan(plan: DerivedPremiumPlan): boolean {
+  return plan === 'lifetime';
+}
+
 /** User-facing renewal / trial line for subscriber UI. */
 export function subscriptionRenewalHint(info: CustomerInfo | null | undefined): string | null {
   if (!info || !isActiveSubscriber(info)) {
@@ -203,6 +213,10 @@ export function subscriptionRenewalHint(info: CustomerInfo | null | undefined): 
   const ent = info.entitlements.active[id];
   if (!ent) {
     return null;
+  }
+  const plan = derivePremiumPlan(info);
+  if (plan === 'lifetime') {
+    return 'Lifetime access — no renewal needed';
   }
   if (!ent.expirationDate) {
     return 'Active subscription';
@@ -225,6 +239,9 @@ export function subscriptionRenewalDisplay(
   subscriberSdk: boolean,
   subscriberDb: boolean,
 ): string | null {
+  if (resolvedPlan === 'lifetime') {
+    return 'Lifetime access — no renewal needed';
+  }
   if (subscriberSdk) {
     const line = subscriptionRenewalHint(customerInfo);
     if (!line) {

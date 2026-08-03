@@ -2,6 +2,7 @@
 export const SUBSCRIPTION_PRICING_USD = {
   monthly: 2.99,
   annual: 19.99,
+  lifetime: 34.99,
 } as const;
 
 export function formatSubscriptionUsd(amount: number): string {

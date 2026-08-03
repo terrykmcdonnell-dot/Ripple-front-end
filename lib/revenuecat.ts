@@ -50,10 +50,11 @@ export function isRevenueCatConfigured(): boolean {
 
 export function pickMonthlyAnnualPackages(
   offering: PurchasesOffering | null | undefined,
-): { monthly?: PurchasesPackage; annual?: PurchasesPackage } {
+): { monthly?: PurchasesPackage; annual?: PurchasesPackage; lifetime?: PurchasesPackage } {
   const packages = offering?.availablePackages ?? [];
   let monthly: PurchasesPackage | undefined;
   let annual: PurchasesPackage | undefined;
+  let lifetime: PurchasesPackage | undefined;
   for (const pkg of packages) {
     if (pkg.packageType === Purchases.PACKAGE_TYPE.MONTHLY) {
       monthly ??= pkg;
@@ -61,10 +62,18 @@ export function pickMonthlyAnnualPackages(
     if (pkg.packageType === Purchases.PACKAGE_TYPE.ANNUAL) {
       annual ??= pkg;
     }
+    if (pkg.packageType === Purchases.PACKAGE_TYPE.LIFETIME) {
+      lifetime ??= pkg;
+    }
   }
   const idHint = (p: PurchasesPackage) => p.identifier.toLowerCase();
+  const productHint = (p: PurchasesPackage) => p.product.identifier.toLowerCase();
   for (const pkg of packages) {
     const id = idHint(pkg);
+    const pid = productHint(pkg);
+    if (!lifetime && (id.includes('lifetime') || id.includes('forever') || pid.includes('lifetime') || pid.includes('forever'))) {
+      lifetime = pkg;
+    }
     if (!monthly && (id.includes('month') || id.includes('monthly'))) {
       monthly = pkg;
     }
@@ -72,7 +81,7 @@ export function pickMonthlyAnnualPackages(
       annual = pkg;
     }
   }
-  return { monthly, annual };
+  return { monthly, annual, lifetime };
 }
 
 export function hasPremiumEntitlement(info: CustomerInfo): boolean {
@@ -93,7 +102,12 @@ export function isPackageInActiveSubscription(
   info: CustomerInfo | null | undefined,
 ): boolean {
   if (!pkg || !info) return false;
-  return activeSubscriptionProductIds(info).includes(pkg.product.identifier);
+  const pid = pkg.product.identifier;
+  const ent = info.entitlements.active[getRevenueCatEntitlementId()];
+  if (ent?.productIdentifier === pid) {
+    return true;
+  }
+  return activeSubscriptionProductIds(info).includes(pid);
 }
 
 export function isPurchasesUserCancelled(error: unknown): boolean {
