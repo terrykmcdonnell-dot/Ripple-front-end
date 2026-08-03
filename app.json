@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "10010",
+      "buildNumber": "10011",
       "bundleIdentifier": "com.terrykm.ripplealarm",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "versionCode": 10011,
+      "versionCode": 10012,
       "intentFilters": [
         {
           "action": "VIEW",

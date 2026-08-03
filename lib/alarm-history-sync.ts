@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { ParsedAlarmFireData } from '@/lib/alarm-fire-notification-data';
 import { type AlarmHistoryApiRow, type AlarmHistoryStatus, upsertAlarmHistory } from '@/lib/alarm-history-api';
+import { suppressInAppReviewAfterMissedAlarm } from '@/lib/in-app-review';
 import { loadDefaultSnoozeMinutes } from '@/lib/settings-preferences';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
@@ -385,6 +386,7 @@ export async function flushPendingAlarmHistoryWrites(): Promise<void> {
 
 /** Records `missed` at fire time so every delivered alarm has a History row. */
 export async function recordAlarmHistoryMissed(parsed: ParsedAlarmFireData): Promise<void> {
+  suppressInAppReviewAfterMissedAlarm();
   await enqueueAlarmHistory(parsed, 'missed', null).catch(() => undefined);
 }
 

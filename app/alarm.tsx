@@ -49,6 +49,7 @@ import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { resolveCategoryMeta, useAlarmCategories } from '@/lib/alarm-categories';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 import { getAlarmListCache, setAlarmListCache } from '@/lib/alarm-list-cache';
+import { recordSuccessfulAlarmTurnOff } from '@/lib/in-app-review';
 
 function formatDeviceClock(now: Date): { time: string; ampm: 'AM' | 'PM' } {
   const h24 = now.getHours();
@@ -356,6 +357,7 @@ export default function AlarmScreen() {
         void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
       } else {
         await syncAlarmFireNotifications(updatedRows);
+        void recordSuccessfulAlarmTurnOff();
       }
     } catch (e) {
       const revertedRows = alarmsRef.current.map((a) =>

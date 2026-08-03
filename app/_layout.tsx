@@ -12,6 +12,7 @@ import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotifica
 import { AndroidAlarmPermissionsBootstrap } from '@/components/bootstrap/AndroidAlarmPermissionsBootstrap';
 import { AppUpgradeMigrationBootstrap } from '@/components/bootstrap/AppUpgradeMigrationBootstrap';
 import { AppVersionCheckLaunchBootstrap } from '@/components/bootstrap/AppVersionCheckLaunchBootstrap';
+import { InAppReviewBootstrap } from '@/components/bootstrap/InAppReviewBootstrap';
 import { IosNotificationPermissionBootstrap } from '@/components/bootstrap/IosNotificationPermissionBootstrap';
 import { IosScheduledNotificationLimitBootstrap } from '@/components/bootstrap/IosScheduledNotificationLimitBootstrap';
 import { NotificationAccessBootstrap } from '@/components/bootstrap/NotificationAccessBootstrap';
@@ -101,6 +102,7 @@ function RootLayout() {
         <ThemedNavigationShell>
           <AppToastProvider>
             <AppUpgradeMigrationBootstrap />
+            <InAppReviewBootstrap />
             <AppVersionCheckLaunchBootstrap />
             <IosNotificationPermissionBootstrap />
             <IosScheduledNotificationLimitBootstrap />
