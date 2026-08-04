@@ -357,7 +357,9 @@ export default function AlarmScreen() {
         void promptAndroidFullScreenAlarmPermissionIfNeeded(showToast);
       } else {
         await syncAlarmFireNotifications(updatedRows);
-        void recordSuccessfulAlarmTurnOff();
+        if (previous) {
+          void recordSuccessfulAlarmTurnOff();
+        }
       }
     } catch (e) {
       const revertedRows = alarmsRef.current.map((a) =>

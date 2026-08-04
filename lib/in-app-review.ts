@@ -37,13 +37,14 @@ async function writeCount(key: string, value: number): Promise<void> {
   await AsyncStorage.setItem(key, String(value));
 }
 
-/** Call once per cold start so the first app launch never triggers a review. */
+/** Call on cold start and when returning to the foreground (not first install open). */
 export async function markInAppReviewAppOpened(): Promise<void> {
   if (!isReviewPlatformEnabled()) {
     return;
   }
   const count = await readCount(APP_OPEN_COUNT_KEY);
   await writeCount(APP_OPEN_COUNT_KEY, count + 1);
+  await maybeOfferInAppReviewPrompt();
 }
 
 async function hasCompletedFirstLaunch(): Promise<boolean> {
@@ -74,6 +75,11 @@ export function suppressInAppReviewAfterMissedAlarm(): void {
   suppressAfterMissedAlarm = true;
 }
 
+/** Clears the missed-alarm block when the user returns after backgrounding the app. */
+export function clearInAppReviewMissedAlarmSuppressOnForeground(): void {
+  suppressAfterMissedAlarm = false;
+}
+
 async function canPromptForReviewNow(): Promise<boolean> {
   if (!isReviewPlatformEnabled()) {
     return false;
@@ -101,6 +107,17 @@ function offerInAppReviewPrompt(): void {
   publishInAppReviewPrompt();
 }
 
+async function maybeOfferInAppReviewPrompt(): Promise<void> {
+  const turnOffCount = await readCount(ALARM_TURNOFF_COUNT_KEY);
+  if (turnOffCount < TURNOFF_THRESHOLD) {
+    return;
+  }
+  if (!(await canPromptForReviewNow())) {
+    return;
+  }
+  offerInAppReviewPrompt();
+}
+
 /** User dismissed the in-app review modal without submitting. */
 export function dismissInAppReviewPrompt(): void {
   reviewPromptVisible = false;
@@ -119,7 +136,7 @@ export async function completeInAppReviewSubmission(stars: number, message: stri
  * review trigger. On the third successful turn-off, show the in-app review modal.
  */
 export async function recordSuccessfulAlarmTurnOff(): Promise<void> {
-  if (!(await canPromptForReviewNow())) {
+  if (!isReviewPlatformEnabled()) {
     return;
   }
 
@@ -127,9 +144,5 @@ export async function recordSuccessfulAlarmTurnOff(): Promise<void> {
   const next = previous + 1;
   await writeCount(ALARM_TURNOFF_COUNT_KEY, next);
 
-  if (next < TURNOFF_THRESHOLD) {
-    return;
-  }
-
-  offerInAppReviewPrompt();
+  await maybeOfferInAppReviewPrompt();
 }

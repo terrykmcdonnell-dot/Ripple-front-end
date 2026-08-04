@@ -50,6 +50,7 @@ import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import { findCategoryByName, findDefaultCategory, useAlarmCategories } from '@/lib/alarm-categories';
 import type { AndroidAlarmPermissionWarning } from '@/lib/android-alarm-permissions-status';
 import { prepareAlarmPermissionsForSetup } from '@/lib/ensure-alarm-permissions';
+import { recordSuccessfulAlarmTurnOff } from '@/lib/in-app-review';
 import {
   type AlarmSoundId,
   coerceAlarmSoundId,
@@ -97,6 +98,7 @@ export default function AlarmEditScreen() {
   const [androidPermWarnings, setAndroidPermWarnings] = useState<AndroidAlarmPermissionWarning[]>([]);
   const [androidPermModalVisible, setAndroidPermModalVisible] = useState(false);
   const androidPermResolverRef = useRef<(() => void) | null>(null);
+  const loadedEnabledRef = useRef<boolean | null>(null);
 
   const palette = useAlarmTheme();
   const { showToast } = useAppToast();
@@ -124,7 +126,9 @@ export default function AlarmEditScreen() {
         : findCategoryByName(categories, payload.categoryName ?? String(payload.categoryRef))?.id;
       setCategoryId(id ?? findDefaultCategory(categories).id);
       setSelectedSoundId(resolveAlarmSoundForUser(coerceAlarmSoundId(payload.sound), isSubscriber));
-      setAlarmEnabled(typeof payload.isEnabled === 'boolean' ? payload.isEnabled : true);
+      const enabled = typeof payload.isEnabled === 'boolean' ? payload.isEnabled : true;
+      loadedEnabledRef.current = enabled;
+      setAlarmEnabled(enabled);
       setError(null);
     },
     [categories, isSubscriber],
@@ -208,6 +212,10 @@ export default function AlarmEditScreen() {
         sound: labelForAlarmSoundId(resolveAlarmSoundForUser(selectedSoundId, isSubscriber)),
         is_enabled: alarmEnabled,
       });
+      if (loadedEnabledRef.current === true && !alarmEnabled) {
+        void recordSuccessfulAlarmTurnOff();
+      }
+      loadedEnabledRef.current = alarmEnabled;
       router.replace('/alarm');
       void Promise.all([syncUpcomingReminderNotifications(), syncAlarmFireNotifications()]).catch(
         () => undefined,
