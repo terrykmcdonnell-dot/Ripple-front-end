@@ -1,22 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-import { Alert, Linking, Platform } from 'react-native';
+import { Platform } from 'react-native';
+
+import { publishInAppReviewPrompt } from '@/lib/in-app-review-hub';
+import { submitInAppReview } from '@/lib/submit-in-app-review';
 
 const APP_OPEN_COUNT_KEY = 'ripple_in_app_review_app_open_count_v1';
 const ALARM_TURNOFF_COUNT_KEY = 'ripple_in_app_review_alarm_turnoff_count_v1';
 const REVIEW_REQUESTED_KEY = 'ripple_in_app_review_requested_v1';
 const REVIEW_PROMPT_DECLINED_KEY = 'ripple_in_app_review_prompt_declined_v1';
 
-/** App Store Connect app id — matches eas.json `ascAppId`. */
-const IOS_APP_STORE_ID = '6768576208';
-
-/** Successful alarm turn-offs before offering a store review. */
+/** Successful alarm turn-offs before offering an in-app review. */
 const TURNOFF_THRESHOLD = 3;
 
 const IN_APP_REVIEW_ENABLED_ON_ANDROID = true;
 
 let suppressAfterMissedAlarm = false;
-let reviewConfirmVisible = false;
+let reviewPromptVisible = false;
 
 function isReviewPlatformEnabled(): boolean {
   if (Platform.OS === 'ios') {
@@ -26,22 +25,6 @@ function isReviewPlatformEnabled(): boolean {
     return IN_APP_REVIEW_ENABLED_ON_ANDROID;
   }
   return false;
-}
-
-function storeLabel(): string {
-  return Platform.OS === 'ios' ? 'App Store' : 'Play Store';
-}
-
-/** iOS opens the write-review sheet; Android opens the Play listing (user taps Rate). */
-function storeReviewPageUrl(): string | null {
-  if (Platform.OS === 'ios') {
-    return `https://apps.apple.com/app/id${IOS_APP_STORE_ID}?action=write-review`;
-  }
-  if (Platform.OS === 'android') {
-    const pkg = Constants.expoConfig?.android?.package?.trim() || 'com.terrykm.ripplealarmapp';
-    return `https://play.google.com/store/apps/details?id=${pkg}`;
-  }
-  return null;
 }
 
 async function readCount(key: string): Promise<number> {
@@ -110,62 +93,30 @@ async function canPromptForReviewNow(): Promise<boolean> {
   return true;
 }
 
-async function openStoreReviewPage(): Promise<void> {
-  const url = storeReviewPageUrl();
-  if (!url) {
+function offerInAppReviewPrompt(): void {
+  if (reviewPromptVisible) {
     return;
   }
-  try {
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-      return;
-    }
-    await Linking.openURL(url);
-    await markReviewRequested();
-  } catch {
-    /* Store app unavailable */
-  }
+  reviewPromptVisible = true;
+  publishInAppReviewPrompt();
 }
 
-function offerStoreReviewConfirm(): void {
-  if (reviewConfirmVisible) {
-    return;
-  }
-  reviewConfirmVisible = true;
+/** User dismissed the in-app review modal without submitting. */
+export function dismissInAppReviewPrompt(): void {
+  reviewPromptVisible = false;
+  void markReviewPromptDeclined();
+}
 
-  Alert.alert(
-    'Enjoying Ripple?',
-    `Tap OK to rate Ripple on the ${storeLabel()}.`,
-    [
-      {
-        text: 'Not now',
-        style: 'cancel',
-        onPress: () => {
-          reviewConfirmVisible = false;
-          void markReviewPromptDeclined();
-        },
-      },
-      {
-        text: 'OK',
-        onPress: () => {
-          reviewConfirmVisible = false;
-          void openStoreReviewPage();
-        },
-      },
-    ],
-    {
-      cancelable: true,
-      onDismiss: () => {
-        reviewConfirmVisible = false;
-        void markReviewPromptDeclined();
-      },
-    },
-  );
+/** User submitted a star rating and optional review text. */
+export async function completeInAppReviewSubmission(stars: number, message: string): Promise<void> {
+  reviewPromptVisible = false;
+  await submitInAppReview(stars, message);
+  await markReviewRequested();
 }
 
 /**
  * After a user successfully turns an alarm off (enabled → disabled), count toward the
- * review trigger. On the third successful turn-off, ask before opening the store review page.
+ * review trigger. On the third successful turn-off, show the in-app review modal.
  */
 export async function recordSuccessfulAlarmTurnOff(): Promise<void> {
   if (!(await canPromptForReviewNow())) {
@@ -180,5 +131,5 @@ export async function recordSuccessfulAlarmTurnOff(): Promise<void> {
     return;
   }
 
-  offerStoreReviewConfirm();
+  offerInAppReviewPrompt();
 }
