@@ -84,7 +84,8 @@ async function requestNativeReviewIfAvailable(): Promise<void> {
     if (!available) {
       return;
     }
-    if (!StoreReview.hasAction()) {
+    const hasAction = await StoreReview.hasAction();
+    if (!hasAction) {
       return;
     }
     await StoreReview.requestReview();
