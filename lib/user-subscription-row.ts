@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { isExpiredJwtOrSessionError, refreshOrSignOutOnExpiredSession } from '@/lib/auth-session-errors';
+import { PRO_TRIAL_DAYS } from '@/lib/subscription-pricing';
 
 export type UserRcSubscriptionRow = {
   rc_customer_id: string | null;
@@ -33,7 +34,7 @@ export function displayPlanFromDb(row: UserRcSubscriptionRow | null | undefined)
     case 'monthly':
       return 'Monthly';
     case 'trial':
-      return 'Free trial';
+      return `${PRO_TRIAL_DAYS}-day trial`;
     case 'intro':
       return 'Intro offer';
     default:

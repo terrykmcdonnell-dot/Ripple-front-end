@@ -8,6 +8,7 @@ import {
   getRevenueCatEntitlementId,
   hasPremiumEntitlement,
 } from '@/lib/revenuecat';
+import { PRO_TRIAL_DAYS } from '@/lib/subscription-pricing';
 import {
   dbIndicatesActivePro,
   fetchUserRcSubscriptionFromDb,
@@ -94,7 +95,7 @@ export function subscriptionPlanHeadline(plan: DerivedPremiumPlan): string {
     case 'monthly':
       return 'Monthly';
     case 'trial':
-      return 'Free trial';
+      return `${PRO_TRIAL_DAYS}-day trial`;
     case 'intro':
       return 'Intro offer';
     default:

@@ -5,6 +5,25 @@ export const SUBSCRIPTION_PRICING_USD = {
   lifetime: 34.99,
 } as const;
 
+/** Free trial length on monthly / annual Pro — must match App Store Connect & Play Console. */
+export const PRO_TRIAL_DAYS = 14;
+
+export function proTrialShortLabel(): string {
+  return `${PRO_TRIAL_DAYS}-day free trial`;
+}
+
+export function proTrialPaywallSubline(): string {
+  return `Try Pro free for ${PRO_TRIAL_DAYS} days on monthly or annual — or buy lifetime. Cancel anytime before the trial ends.`;
+}
+
+export function proTrialSubscribeCtaLabel(): string {
+  return 'Start free trial';
+}
+
+export function proTrialSubscriptionFooter(storeLabel: string): string {
+  return `${PRO_TRIAL_DAYS}-day free trial, then billed through the ${storeLabel}. Cancel anytime in Settings before the trial ends to avoid charges.`;
+}
+
 export function formatSubscriptionUsd(amount: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',

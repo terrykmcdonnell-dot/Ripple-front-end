@@ -5,6 +5,7 @@ import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/compon
 import {
   annualSubscriptionSavingsPercent,
   formatSubscriptionUsd,
+  proTrialShortLabel,
   SUBSCRIPTION_PRICING_USD,
 } from '@/lib/subscription-pricing';
 
@@ -118,6 +119,12 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       textAlign: 'center',
       fontFamily: 'monospace',
     },
+    trialNote: {
+      color: alarmTheme.green,
+      fontSize: alarmTypography.micro,
+      textAlign: 'center',
+      fontFamily: 'monospace',
+    },
   });
 }
 
@@ -163,6 +170,10 @@ export function PricingToggle({
       ) : null}
 
       {showLifetime && showSubscriptions ? <Text style={styles.orSubscribe}>Or subscribe</Text> : null}
+
+      {showSubscriptions ? (
+        <Text style={styles.trialNote}>{proTrialShortLabel()} on monthly & annual</Text>
+      ) : null}
 
       {showSubscriptions ? (
         <View style={styles.subscriptionRow}>

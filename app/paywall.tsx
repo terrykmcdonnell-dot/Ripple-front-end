@@ -24,6 +24,11 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { FREE_TIER_MAX_RINGS_PER_ALARM, freeTierRingLimitPaywallBanner } from '@/lib/alarm-free-ring-limit';
 import { derivePremiumPlan, FREE_TIER_MAX_ALARMS, isLifetimePremiumPlan, resolveDisplayedPremiumPlan } from '@/lib/subscription-access';
+import {
+  proTrialPaywallSubline,
+  proTrialSubscribeCtaLabel,
+  proTrialSubscriptionFooter,
+} from '@/lib/subscription-pricing';
 import { fetchAlarms } from '@/lib/alarm-api';
 import { capturePaywallDismissed, capturePaywallViewed } from '@/lib/posthog-analytics';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
@@ -533,7 +538,7 @@ export default function PaywallScreen() {
             ? 'Plan updated.'
             : plan === 'lifetime'
               ? 'Lifetime Pro unlocked. Welcome to Ripple Pro!'
-              : 'Subscription active. Welcome to Ripple Pro!',
+              : 'Your free trial has started. Welcome to Ripple Pro!',
         );
       } else {
         showToast('Purchase completed. It may take a moment for access to unlock.');
@@ -811,8 +816,8 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, unlimited rings per alarm, template gallery, Auto theme, and more — one lifetime purchase or
-          subscribe through {subscriptionBillingProviderLabel()}.
+          Unlimited alarms, unlimited rings per alarm, template gallery, Auto theme, and more —{' '}
+          {proTrialPaywallSubline()}
         </Text>
 
         <View style={styles.features}>
@@ -859,7 +864,7 @@ export default function PaywallScreen() {
                 ? 'Processing…'
                 : plan === 'lifetime'
                   ? `Buy Lifetime Pro ${paywallIcons.arrow}`
-                  : `Subscribe ${paywallIcons.arrow}`}
+                  : `${proTrialSubscribeCtaLabel()} ${paywallIcons.arrow}`}
             </Text>
           </LinearGradient>
         </Pressable>
@@ -867,7 +872,7 @@ export default function PaywallScreen() {
         <Text style={styles.footerNote}>
           {plan === 'lifetime'
             ? `One-time purchase through the ${subscriptionStoreLabel()} · Restore on new devices anytime`
-            : `Subscriptions managed by the ${subscriptionStoreLabel()} · Cancel anytime in Settings`}
+            : proTrialSubscriptionFooter(subscriptionStoreLabel())}
         </Text>
 
         <Pressable disabled={restoring || purchasing || loadingOfferings} onPress={() => void onRestore()}>

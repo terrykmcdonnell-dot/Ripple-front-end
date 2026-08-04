@@ -5,6 +5,7 @@ import { signUpIcons } from '@/assets/icons/signup-icons';
 import { type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
 import { FREE_TIER_MAX_RINGS_PER_ALARM } from '@/lib/alarm-free-ring-limit';
+import { proTrialShortLabel } from '@/lib/subscription-pricing';
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
@@ -48,7 +49,7 @@ export function ValueBanner() {
           Free accounts include up to {FREE_TIER_MAX_ALARMS} alarms and {FREE_TIER_MAX_RINGS_PER_ALARM} rings per
           alarm.
         </Text>{' '}
-        Upgrade to Pro for unlimited alarms, unlimited rings, and templates.
+        Upgrade to Pro — {proTrialShortLabel()} on subscriptions, or lifetime access.
       </Text>
     </View>
   );

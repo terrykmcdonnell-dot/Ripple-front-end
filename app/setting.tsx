@@ -24,6 +24,7 @@ import { VolumePickerSheet } from '@/components/settings/VolumePickerSheet';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { isLifetimePremiumPlan } from '@/lib/subscription-access';
+import { proTrialShortLabel } from '@/lib/subscription-pricing';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { cancelAllRippleScheduledNotifications } from '@/lib/cancel-all-app-notifications';
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
@@ -531,7 +532,9 @@ export default function SettingScreen() {
             ) : (
               <>
                 <Text style={styles.proTitle}>Upgrade to Pro</Text>
-                <Text style={styles.proSub}>Unlimited alarms · Unlimited rings · Templates · Themes</Text>
+                <Text style={styles.proSub}>
+                  {proTrialShortLabel()} on monthly & annual · Unlimited alarms, rings & templates
+                </Text>
               </>
             )}
           </View>
