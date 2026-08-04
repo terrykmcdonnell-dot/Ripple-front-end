@@ -1,18 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as StoreReview from 'expo-store-review';
-import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { Alert, Linking, Platform } from 'react-native';
 
 const APP_OPEN_COUNT_KEY = 'ripple_in_app_review_app_open_count_v1';
 const ALARM_TURNOFF_COUNT_KEY = 'ripple_in_app_review_alarm_turnoff_count_v1';
 const REVIEW_REQUESTED_KEY = 'ripple_in_app_review_requested_v1';
+const REVIEW_PROMPT_DECLINED_KEY = 'ripple_in_app_review_prompt_declined_v1';
 
-/** Successful alarm turn-offs before the native review prompt may appear. */
+/** App Store Connect app id — matches eas.json `ascAppId`. */
+const IOS_APP_STORE_ID = '6768576208';
+
+/** Successful alarm turn-offs before offering a store review. */
 const TURNOFF_THRESHOLD = 3;
 
-/** iOS and Android use the native in-app review APIs via expo-store-review. */
 const IN_APP_REVIEW_ENABLED_ON_ANDROID = true;
 
 let suppressAfterMissedAlarm = false;
+let reviewConfirmVisible = false;
 
 function isReviewPlatformEnabled(): boolean {
   if (Platform.OS === 'ios') {
@@ -22,6 +26,22 @@ function isReviewPlatformEnabled(): boolean {
     return IN_APP_REVIEW_ENABLED_ON_ANDROID;
   }
   return false;
+}
+
+function storeLabel(): string {
+  return Platform.OS === 'ios' ? 'App Store' : 'Play Store';
+}
+
+/** iOS opens the write-review sheet; Android opens the Play listing (user taps Rate). */
+function storeReviewPageUrl(): string | null {
+  if (Platform.OS === 'ios') {
+    return `https://apps.apple.com/app/id${IOS_APP_STORE_ID}?action=write-review`;
+  }
+  if (Platform.OS === 'android') {
+    const pkg = Constants.expoConfig?.android?.package?.trim() || 'com.terrykm.ripplealarmapp';
+    return `https://play.google.com/store/apps/details?id=${pkg}`;
+  }
+  return null;
 }
 
 async function readCount(key: string): Promise<number> {
@@ -53,8 +73,17 @@ async function hasAlreadyRequestedReview(): Promise<boolean> {
   return raw === '1';
 }
 
+async function hasDeclinedReviewPrompt(): Promise<boolean> {
+  const raw = await AsyncStorage.getItem(REVIEW_PROMPT_DECLINED_KEY);
+  return raw === '1';
+}
+
 async function markReviewRequested(): Promise<void> {
   await AsyncStorage.setItem(REVIEW_REQUESTED_KEY, '1');
+}
+
+async function markReviewPromptDeclined(): Promise<void> {
+  await AsyncStorage.setItem(REVIEW_PROMPT_DECLINED_KEY, '1');
 }
 
 /** Block review prompts for the rest of this app session after a missed alarm. */
@@ -75,29 +104,68 @@ async function canPromptForReviewNow(): Promise<boolean> {
   if (await hasAlreadyRequestedReview()) {
     return false;
   }
+  if (await hasDeclinedReviewPrompt()) {
+    return false;
+  }
   return true;
 }
 
-async function requestNativeReviewIfAvailable(): Promise<void> {
+async function openStoreReviewPage(): Promise<void> {
+  const url = storeReviewPageUrl();
+  if (!url) {
+    return;
+  }
   try {
-    const available = await StoreReview.isAvailableAsync();
-    if (!available) {
+    const canOpen = await Linking.canOpenURL(url);
+    if (!canOpen) {
       return;
     }
-    const hasAction = await StoreReview.hasAction();
-    if (!hasAction) {
-      return;
-    }
-    await StoreReview.requestReview();
+    await Linking.openURL(url);
     await markReviewRequested();
   } catch {
-    /* OS may decline to show the sheet — do not retry aggressively */
+    /* Store app unavailable */
   }
+}
+
+function offerStoreReviewConfirm(): void {
+  if (reviewConfirmVisible) {
+    return;
+  }
+  reviewConfirmVisible = true;
+
+  Alert.alert(
+    'Enjoying Ripple?',
+    `Tap OK to rate Ripple on the ${storeLabel()}.`,
+    [
+      {
+        text: 'Not now',
+        style: 'cancel',
+        onPress: () => {
+          reviewConfirmVisible = false;
+          void markReviewPromptDeclined();
+        },
+      },
+      {
+        text: 'OK',
+        onPress: () => {
+          reviewConfirmVisible = false;
+          void openStoreReviewPage();
+        },
+      },
+    ],
+    {
+      cancelable: true,
+      onDismiss: () => {
+        reviewConfirmVisible = false;
+        void markReviewPromptDeclined();
+      },
+    },
+  );
 }
 
 /**
  * After a user successfully turns an alarm off (enabled → disabled), count toward the
- * in-app review trigger. On the third successful turn-off, ask the store to show the rating sheet.
+ * review trigger. On the third successful turn-off, ask before opening the store review page.
  */
 export async function recordSuccessfulAlarmTurnOff(): Promise<void> {
   if (!(await canPromptForReviewNow())) {
@@ -112,5 +180,5 @@ export async function recordSuccessfulAlarmTurnOff(): Promise<void> {
     return;
   }
 
-  await requestNativeReviewIfAvailable();
+  offerStoreReviewConfirm();
 }
