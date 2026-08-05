@@ -26,7 +26,8 @@ import {
   recordAlarmHistoryMissed,
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
-import { recordSuccessfulAlarmDismiss } from '@/lib/in-app-review';
+import { suppressInAppReviewAfterMissedAlarm } from '@/lib/in-app-review';
+import { recordSuccessfulAlarmDismiss, tryShowPendingNativeStoreReview } from '@/lib/in-app-review';
 import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 
 function paramOne(v: string | string[] | undefined): string | undefined {
@@ -162,22 +163,26 @@ export default function AlarmRingScreen() {
         return;
       }
       router.replace('/alarm');
+      void tryShowPendingNativeStoreReview();
     },
     [limitsApply, router],
   );
 
   const onDismissAlarm = useCallback(
     (alarm: ParsedAlarmFireData) => {
-      void recordAlarmHistoryDismissed(alarm).catch(() => undefined);
-      void recordSuccessfulAlarmDismiss();
-      setPendingAlarms((current) => {
-        const next = current.filter((item) => item.alarmId !== alarm.alarmId);
-        if (next.length === 0) {
-          void finishRingSession(alarm);
-        }
-        void syncAlarmFireNotifications();
-        return next;
-      });
+      void (async () => {
+        await recordAlarmHistoryDismissed(alarm).catch(() => undefined);
+        await recordSuccessfulAlarmDismiss();
+
+        setPendingAlarms((current) => {
+          const next = current.filter((item) => item.alarmId !== alarm.alarmId);
+          if (next.length === 0) {
+            void finishRingSession(alarm);
+          }
+          void syncAlarmFireNotifications();
+          return next;
+        });
+      })();
     },
     [finishRingSession],
   );
@@ -273,6 +278,7 @@ export default function AlarmRingScreen() {
         for (const alarm of pendingAlarms) {
           await recordAlarmHistoryMissed(alarm).catch(() => undefined);
         }
+        suppressInAppReviewAfterMissedAlarm();
         await syncAlarmFireNotifications();
         router.replace('/alarm');
       })();

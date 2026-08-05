@@ -4,6 +4,7 @@ import { InteractionManager, Platform } from 'react-native';
 
 const APP_OPEN_COUNT_KEY = 'ripple_in_app_review_app_open_count_v1';
 const ALARM_DISMISS_COUNT_KEY = 'ripple_in_app_review_alarm_dismiss_count_v1';
+const PENDING_NATIVE_REVIEW_KEY = 'ripple_in_app_review_pending_native_v1';
 
 /** Successful alarm dismissals before requesting a native store review. */
 const DISMISS_THRESHOLD = 3;
@@ -33,6 +34,19 @@ async function writeCount(key: string, value: number): Promise<void> {
   await AsyncStorage.setItem(key, String(value));
 }
 
+async function markPendingNativeStoreReview(): Promise<void> {
+  await AsyncStorage.setItem(PENDING_NATIVE_REVIEW_KEY, '1');
+}
+
+async function clearPendingNativeStoreReview(): Promise<void> {
+  await AsyncStorage.removeItem(PENDING_NATIVE_REVIEW_KEY);
+}
+
+async function hasPendingNativeStoreReview(): Promise<boolean> {
+  const raw = await AsyncStorage.getItem(PENDING_NATIVE_REVIEW_KEY);
+  return raw === '1';
+}
+
 /** Tracks app opens so the review prompt never appears on first install open. */
 export async function markInAppReviewAppOpened(): Promise<void> {
   if (!isReviewPlatformEnabled()) {
@@ -40,6 +54,7 @@ export async function markInAppReviewAppOpened(): Promise<void> {
   }
   const count = await readCount(APP_OPEN_COUNT_KEY);
   await writeCount(APP_OPEN_COUNT_KEY, count + 1);
+  await tryShowPendingNativeStoreReview();
 }
 
 async function hasCompletedFirstLaunch(): Promise<boolean> {
@@ -47,7 +62,7 @@ async function hasCompletedFirstLaunch(): Promise<boolean> {
   return openCount >= 2;
 }
 
-/** Block review prompts for the rest of this app session after a missed alarm. */
+/** Block review prompts for the rest of this app session after a genuine missed alarm. */
 export function suppressInAppReviewAfterMissedAlarm(): void {
   suppressAfterMissedAlarm = true;
 }
@@ -70,33 +85,43 @@ async function canRequestNativeStoreReviewNow(): Promise<boolean> {
   return true;
 }
 
-async function requestNativeStoreReview(): Promise<void> {
+async function requestNativeStoreReview(): Promise<boolean> {
   if (reviewRequestInFlight) {
-    return;
+    return false;
   }
   if (!(await canRequestNativeStoreReviewNow())) {
-    return;
+    return false;
   }
 
   reviewRequestInFlight = true;
   try {
     const available = await StoreReview.isAvailableAsync();
     if (!available) {
-      return;
+      return false;
     }
     await StoreReview.requestReview();
+    return true;
   } catch {
-    /* Store unavailable (e.g. Android without Play Store). */
+    return false;
   } finally {
     reviewRequestInFlight = false;
   }
 }
 
-async function maybeRequestNativeStoreReviewAfterDismiss(): Promise<void> {
-  const dismissCount = await readCount(ALARM_DISMISS_COUNT_KEY);
-  if (dismissCount < DISMISS_THRESHOLD) {
+/**
+ * Shows a queued native store review once navigation has settled (e.g. on the Alarms tab).
+ */
+export async function tryShowPendingNativeStoreReview(): Promise<void> {
+  if (!(await hasPendingNativeStoreReview())) {
     return;
   }
+
+  const dismissCount = await readCount(ALARM_DISMISS_COUNT_KEY);
+  if (dismissCount < DISMISS_THRESHOLD) {
+    await clearPendingNativeStoreReview();
+    return;
+  }
+
   if (!(await canRequestNativeStoreReviewNow())) {
     return;
   }
@@ -104,13 +129,26 @@ async function maybeRequestNativeStoreReviewAfterDismiss(): Promise<void> {
   await new Promise<void>((resolve) => {
     InteractionManager.runAfterInteractions(() => resolve());
   });
-  await requestNativeStoreReview();
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 450);
+  });
+
+  if (!(await hasPendingNativeStoreReview())) {
+    return;
+  }
+  if (!(await canRequestNativeStoreReviewNow())) {
+    return;
+  }
+
+  const shown = await requestNativeStoreReview();
+  if (shown) {
+    await clearPendingNativeStoreReview();
+  }
 }
 
 /**
  * After the user successfully dismisses a ringing alarm, count toward the native
- * store review trigger. On the third dismissal, request Apple's / Google's in-app review UI.
- * OS-level throttling (e.g. three prompts per year on iOS) is handled by the platform.
+ * store review trigger. On the third dismissal, queue Apple's / Google's in-app review UI.
  */
 export async function recordSuccessfulAlarmDismiss(): Promise<void> {
   if (!isReviewPlatformEnabled()) {
@@ -121,5 +159,7 @@ export async function recordSuccessfulAlarmDismiss(): Promise<void> {
   const next = previous + 1;
   await writeCount(ALARM_DISMISS_COUNT_KEY, next);
 
-  await maybeRequestNativeStoreReviewAfterDismiss();
+  if (next >= DISMISS_THRESHOLD) {
+    await markPendingNativeStoreReview();
+  }
 }

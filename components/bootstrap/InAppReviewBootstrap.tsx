@@ -4,6 +4,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import {
   clearInAppReviewMissedAlarmSuppressOnForeground,
   markInAppReviewAppOpened,
+  tryShowPendingNativeStoreReview,
 } from '@/lib/in-app-review';
 
 /** Tracks app opens for the first-launch guard on native store review prompts. */
@@ -16,6 +17,7 @@ export function InAppReviewBootstrap() {
       if (lastState.match(/inactive|background/) && nextState === 'active') {
         clearInAppReviewMissedAlarmSuppressOnForeground();
         void markInAppReviewAppOpened();
+        void tryShowPendingNativeStoreReview();
       }
       lastState = nextState;
     });

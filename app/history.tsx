@@ -31,6 +31,7 @@ import {
   type HistoryGroupUi,
 } from '@/lib/history-format';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
+import { tryShowPendingNativeStoreReview } from '@/lib/in-app-review';
 import { fetchCurrentUserRowId } from '@/lib/users-table';
 
 const FILTER_ALL = 'all' as const;
@@ -167,6 +168,8 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void tryShowPendingNativeStoreReview();
+
       const hasCachedRows = getAlarmHistoryCache() != null;
       let cancelled = false;
 

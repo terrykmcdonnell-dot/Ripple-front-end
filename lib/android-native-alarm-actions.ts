@@ -7,6 +7,7 @@ import {
   recordAlarmHistoryMissed,
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
+import { suppressInAppReviewAfterMissedAlarm } from '@/lib/in-app-review';
 import { markAlarmFireDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { consumeNativePendingAlarmActionsRaw } from '@/lib/android-alarm-native-prefs';
 
@@ -99,6 +100,7 @@ export async function processPendingNativeAlarmActions(): Promise<void> {
       await recordAlarmHistoryDismissed(parsed, action.actionAt).catch(() => undefined);
     } else if (action.type === 'missed') {
       await recordAlarmHistoryMissed(parsed).catch(() => undefined);
+      suppressInAppReviewAfterMissedAlarm();
     } else {
       await recordAlarmHistorySnoozed(parsed, action.snoozeMinutes ?? 10, action.actionAt).catch(() => undefined);
     }
