@@ -12,7 +12,6 @@ export const POSTHOG_EVENTS = {
   alarmCreated: 'alarm_created',
   onboardingCompleted: 'onboarding_completed',
   androidExactAlarmStatus: 'android_exact_alarm_status',
-  appReviewSubmitted: 'app_review_submitted',
 } as const;
 
 /** Person property key for Android exact-alarm permission state. */

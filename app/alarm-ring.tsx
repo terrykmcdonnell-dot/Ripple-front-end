@@ -26,6 +26,7 @@ import {
   recordAlarmHistoryMissed,
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
+import { recordSuccessfulAlarmDismiss } from '@/lib/in-app-review';
 import { startRingAlarmSound, stopRingAlarmSound } from '@/lib/ring-alarm-sound';
 
 function paramOne(v: string | string[] | undefined): string | undefined {
@@ -168,6 +169,7 @@ export default function AlarmRingScreen() {
   const onDismissAlarm = useCallback(
     (alarm: ParsedAlarmFireData) => {
       void recordAlarmHistoryDismissed(alarm).catch(() => undefined);
+      void recordSuccessfulAlarmDismiss();
       setPendingAlarms((current) => {
         const next = current.filter((item) => item.alarmId !== alarm.alarmId);
         if (next.length === 0) {

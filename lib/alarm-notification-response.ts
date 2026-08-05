@@ -18,6 +18,7 @@ import {
   recordAlarmHistoryDismissed,
   recordAlarmHistorySnoozed,
 } from '@/lib/alarm-history-sync';
+import { recordSuccessfulAlarmDismiss } from '@/lib/in-app-review';
 import { markAlarmFiresDelivered, syncAlarmFireNotifications } from '@/lib/alarm-fire-scheduler';
 import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
 import {
@@ -141,6 +142,7 @@ export async function handleAlarmFireNotificationResponse(response: Notification
     await stopRingAlarmSound();
     for (const parsed of deliverable) {
       await recordAlarmHistoryDismissed(parsed);
+      await recordSuccessfulAlarmDismiss();
     }
   }
 
