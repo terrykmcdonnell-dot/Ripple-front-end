@@ -13,7 +13,11 @@ export function proTrialShortLabel(): string {
 }
 
 export function proTrialPaywallSubline(): string {
-  return `Try Pro free for ${PRO_TRIAL_DAYS} days on monthly or annual — or buy lifetime. Cancel anytime before the trial ends.`;
+  return `Own Pro forever with a one-time purchase — or try monthly or annual free for ${PRO_TRIAL_DAYS} days.`;
+}
+
+export function lifetimePaywallHeadlineSuffix(): string {
+  return 'One payment. Pro forever.';
 }
 
 export function proTrialSubscribeCtaLabel(): string {

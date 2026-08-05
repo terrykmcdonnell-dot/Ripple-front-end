@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -21,13 +22,15 @@ type PricingToggleProps = {
   showLifetime?: boolean;
   showSubscriptions?: boolean;
   disabled?: boolean;
+  /** Rendered directly under the lifetime card (e.g. primary Buy CTA). */
+  afterLifetime?: ReactNode;
 };
 
 function createStyles(alarmTheme: AlarmThemePalette) {
   return StyleSheet.create({
     wrap: {
       width: '100%',
-      gap: 10,
+      gap: 12,
       marginBottom: 16,
     },
     wrapDisabled: {
@@ -35,33 +38,70 @@ function createStyles(alarmTheme: AlarmThemePalette) {
     },
     lifetimeCard: {
       width: '100%',
-      borderRadius: 12,
+      borderRadius: 16,
+      borderWidth: 2,
+      borderColor: alarmTheme.accent,
+      backgroundColor: alarmTheme.accentDim,
+      paddingVertical: 18,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      shadowColor: alarmTheme.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    lifetimeCardInactive: {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       backgroundColor: alarmTheme.surface2,
-      paddingVertical: 14,
-      paddingHorizontal: 14,
-      alignItems: 'center',
+      shadowOpacity: 0,
+      elevation: 0,
     },
-    lifetimeCardActive: {
-      borderColor: alarmTheme.accent,
-      backgroundColor: alarmTheme.accentDim,
-      shadowColor: alarmTheme.accent,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
-      elevation: 3,
-    },
-    lifetimeBadge: {
-      color: alarmTheme.green,
-      backgroundColor: alarmTheme.greenDim,
+    recommendedBadge: {
+      color: alarmTheme.bg,
+      backgroundColor: alarmTheme.accentBright,
       fontSize: 10,
-      fontFamily: 'monospace',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 6,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 999,
       overflow: 'hidden',
-      marginBottom: 6,
+      marginBottom: 8,
+    },
+    lifetimeTitle: {
+      fontSize: alarmTypography.bodyLarge,
+      fontWeight: '800',
+      color: alarmTheme.text,
+      textAlign: 'center',
+    },
+    lifetimePrice: {
+      marginTop: 6,
+      fontSize: alarmTypography.title,
+      fontWeight: '800',
+      color: alarmTheme.accentBright,
+      textAlign: 'center',
+    },
+    lifetimeSubline: {
+      marginTop: 4,
+      fontSize: alarmTypography.micro,
+      color: alarmTheme.muted,
+      textAlign: 'center',
+      fontFamily: 'monospace',
+    },
+    subscriptionSection: {
+      width: '100%',
+      gap: 8,
+      paddingTop: 4,
+    },
+    subscriptionHeading: {
+      color: alarmTheme.muted,
+      fontSize: alarmTypography.micro,
+      textAlign: 'center',
+      fontFamily: 'monospace',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
     },
     subscriptionRow: {
       width: '100%',
@@ -70,58 +110,52 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       borderWidth: 1,
       borderColor: alarmTheme.border,
       borderRadius: 12,
-      padding: 4,
-      gap: 4,
+      padding: 3,
+      gap: 3,
     },
     option: {
       flex: 1,
       borderRadius: 9,
-      paddingVertical: 11,
-      paddingHorizontal: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 52,
+      minHeight: 48,
     },
     optionActive: {
-      backgroundColor: alarmTheme.accent,
-      shadowColor: alarmTheme.accent,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.35,
-      shadowRadius: 6,
-      elevation: 3,
+      backgroundColor: alarmTheme.surface,
+      borderWidth: 1,
+      borderColor: alarmTheme.accent,
     },
     name: {
-      fontSize: alarmTypography.caption,
-      fontWeight: '600',
-      color: alarmTheme.text,
-    },
-    price: {
-      marginTop: 4,
       fontSize: alarmTypography.micro,
+      fontWeight: '600',
       color: alarmTheme.muted,
     },
-    activeText: {
-      color: '#ffffff',
+    price: {
+      marginTop: 3,
+      fontSize: 10,
+      color: alarmTheme.muted,
+    },
+    activeName: {
+      color: alarmTheme.text,
+    },
+    activePrice: {
+      color: alarmTheme.muted,
     },
     saveBadge: {
       color: alarmTheme.green,
       backgroundColor: alarmTheme.greenDim,
-      fontSize: 10,
+      fontSize: 9,
       fontFamily: 'monospace',
-      paddingHorizontal: 6,
+      paddingHorizontal: 5,
       paddingVertical: 1,
       borderRadius: 6,
       overflow: 'hidden',
     },
-    orSubscribe: {
-      color: alarmTheme.muted,
-      fontSize: alarmTypography.micro,
-      textAlign: 'center',
-      fontFamily: 'monospace',
-    },
     trialNote: {
-      color: alarmTheme.green,
-      fontSize: alarmTypography.micro,
+      color: alarmTheme.muted,
+      fontSize: 10,
       textAlign: 'center',
       fontFamily: 'monospace',
     },
@@ -137,72 +171,107 @@ export function PricingToggle({
   showLifetime = true,
   showSubscriptions = true,
   disabled,
+  afterLifetime,
 }: PricingToggleProps) {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
-  const lifetimeLine = lifetimePriceLabel?.trim()
-    ? `${lifetimePriceLabel} once`
-    : `${formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.lifetime)} once`;
+  const lifetimeAmount = lifetimePriceLabel?.trim()
+    ? lifetimePriceLabel
+    : formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.lifetime);
   const annualLine = annualPriceLabel?.trim()
-    ? `${annualPriceLabel} / year`
-    : `${formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.annual)} / year`;
+    ? `${annualPriceLabel}/yr`
+    : `${formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.annual)}/yr`;
   const monthlyLine = monthlyPriceLabel?.trim()
-    ? `${monthlyPriceLabel} / month`
-    : `${formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.monthly)} / month`;
+    ? `${monthlyPriceLabel}/mo`
+    : `${formatSubscriptionUsd(SUBSCRIPTION_PRICING_USD.monthly)}/mo`;
   const savingsPercent = annualSubscriptionSavingsPercent();
+  const lifetimeSelected = selected === 'lifetime';
 
   return (
     <View style={[styles.wrap, disabled ? styles.wrapDisabled : null]} pointerEvents={disabled ? 'none' : 'auto'}>
       {showLifetime ? (
-        <Pressable
-          disabled={disabled}
-          accessibilityRole="button"
-          accessibilityState={{ selected: selected === 'lifetime' }}
-          style={[styles.lifetimeCard, selected === 'lifetime' ? styles.lifetimeCardActive : null]}
-          onPress={() => onSelect('lifetime')}>
-          <Text style={styles.lifetimeBadge}>PAY ONCE · KEEP FOREVER</Text>
-          <Text style={[styles.name, selected === 'lifetime' ? { color: alarmTheme.accentBright } : null]}>
-            Lifetime Pro
-          </Text>
-          <Text style={[styles.price, selected === 'lifetime' ? { color: alarmTheme.text } : null]}>{lifetimeLine}</Text>
-        </Pressable>
-      ) : null}
-
-      {showLifetime && showSubscriptions ? <Text style={styles.orSubscribe}>Or subscribe</Text> : null}
-
-      {showSubscriptions ? (
-        <Text style={styles.trialNote}>{proTrialShortLabel()} on monthly & annual</Text>
-      ) : null}
-
-      {showSubscriptions ? (
-        <View style={styles.subscriptionRow}>
+        <>
           <Pressable
             disabled={disabled}
             accessibilityRole="button"
-            accessibilityState={{ selected: selected === 'annual' }}
-            hitSlop={8}
-            style={[styles.option, selected === 'annual' ? styles.optionActive : null]}
-            onPress={() => onSelect('annual')}>
-            <View style={{ alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Text style={[styles.name, selected === 'annual' ? styles.activeText : null]}>Annual</Text>
-                <Text style={styles.saveBadge}>SAVE {savingsPercent}%</Text>
+            accessibilityState={{ selected: lifetimeSelected }}
+            style={[styles.lifetimeCard, !lifetimeSelected ? styles.lifetimeCardInactive : null]}
+            onPress={() => onSelect('lifetime')}>
+            <Text style={styles.recommendedBadge}>RECOMMENDED</Text>
+            <Text style={styles.lifetimeTitle}>Lifetime Pro</Text>
+            <Text style={styles.lifetimePrice}>{lifetimeAmount}</Text>
+            <Text style={styles.lifetimeSubline}>Pay once · Keep forever · No subscription</Text>
+          </Pressable>
+          {afterLifetime}
+        </>
+      ) : null}
+
+      {showLifetime && showSubscriptions ? (
+        <View style={styles.subscriptionSection}>
+          <Text style={styles.subscriptionHeading}>Prefer a subscription?</Text>
+          <Text style={styles.trialNote}>{proTrialShortLabel()} on monthly & annual plans</Text>
+          <View style={styles.subscriptionRow}>
+            <Pressable
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selected === 'annual' }}
+              hitSlop={8}
+              style={[styles.option, selected === 'annual' ? styles.optionActive : null]}
+              onPress={() => onSelect('annual')}>
+              <View style={{ alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <Text style={[styles.name, selected === 'annual' ? styles.activeName : null]}>Annual</Text>
+                  <Text style={styles.saveBadge}>−{savingsPercent}%</Text>
+                </View>
+                <Text style={[styles.price, selected === 'annual' ? styles.activePrice : null]}>{annualLine}</Text>
               </View>
-              <Text style={[styles.price, selected === 'annual' ? styles.activeText : null]}>{annualLine}</Text>
-            </View>
-          </Pressable>
-          <Pressable
-            disabled={disabled}
-            accessibilityRole="button"
-            accessibilityState={{ selected: selected === 'monthly' }}
-            hitSlop={8}
-            style={[styles.option, selected === 'monthly' ? styles.optionActive : null]}
-            onPress={() => onSelect('monthly')}>
-            <Text style={[styles.name, selected === 'monthly' ? styles.activeText : null]}>Monthly</Text>
-            <Text style={[styles.price, selected === 'monthly' ? styles.activeText : null]}>{monthlyLine}</Text>
-          </Pressable>
+            </Pressable>
+            <Pressable
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selected === 'monthly' }}
+              hitSlop={8}
+              style={[styles.option, selected === 'monthly' ? styles.optionActive : null]}
+              onPress={() => onSelect('monthly')}>
+              <Text style={[styles.name, selected === 'monthly' ? styles.activeName : null]}>Monthly</Text>
+              <Text style={[styles.price, selected === 'monthly' ? styles.activePrice : null]}>{monthlyLine}</Text>
+            </Pressable>
+          </View>
         </View>
+      ) : null}
+
+      {!showLifetime && showSubscriptions ? (
+        <>
+          <Text style={styles.trialNote}>{proTrialShortLabel()} on monthly & annual</Text>
+          <View style={styles.subscriptionRow}>
+            <Pressable
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selected === 'annual' }}
+              hitSlop={8}
+              style={[styles.option, selected === 'annual' ? styles.optionActive : null]}
+              onPress={() => onSelect('annual')}>
+              <View style={{ alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <Text style={[styles.name, selected === 'annual' ? styles.activeName : null]}>Annual</Text>
+                  <Text style={styles.saveBadge}>−{savingsPercent}%</Text>
+                </View>
+                <Text style={[styles.price, selected === 'annual' ? styles.activePrice : null]}>{annualLine}</Text>
+              </View>
+            </Pressable>
+            <Pressable
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selected === 'monthly' }}
+              hitSlop={8}
+              style={[styles.option, selected === 'monthly' ? styles.optionActive : null]}
+              onPress={() => onSelect('monthly')}>
+              <Text style={[styles.name, selected === 'monthly' ? styles.activeName : null]}>Monthly</Text>
+              <Text style={[styles.price, selected === 'monthly' ? styles.activePrice : null]}>{monthlyLine}</Text>
+            </Pressable>
+          </View>
+        </>
       ) : null}
     </View>
   );

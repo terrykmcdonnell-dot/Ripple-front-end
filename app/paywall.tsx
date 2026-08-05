@@ -28,6 +28,7 @@ import {
   proTrialPaywallSubline,
   proTrialSubscribeCtaLabel,
   proTrialSubscriptionFooter,
+  lifetimePaywallHeadlineSuffix,
 } from '@/lib/subscription-pricing';
 import { fetchAlarms } from '@/lib/alarm-api';
 import { capturePaywallDismissed, capturePaywallViewed } from '@/lib/posthog-analytics';
@@ -727,10 +728,35 @@ export default function PaywallScreen() {
               showLifetime={showLifetimeOption}
               showSubscriptions={showSubscriptionOptions}
               disabled={loadingOfferings || purchasing}
+              afterLifetime={
+                showLifetimeOption && plan === 'lifetime' ? (
+                  <Pressable
+                    disabled={ownsSelectedPlan || !canPurchase || purchasing}
+                    onPress={() => void onSubscribe()}>
+                    <LinearGradient
+                      colors={ownsSelectedPlan ? ['#334155', '#475569'] : ['#06b6d4', '#0891b2']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[
+                        styles.ctaBtn,
+                        { marginBottom: 4 },
+                        (ownsSelectedPlan || !canPurchase || purchasing) && styles.ctaDisabled,
+                      ]}>
+                      <Text style={styles.ctaText}>
+                        {purchasing
+                          ? 'Processing…'
+                          : ownsSelectedPlan
+                            ? 'Current plan'
+                            : 'Buy Lifetime Pro'}
+                      </Text>
+                    </LinearGradient>
+                  </Pressable>
+                ) : null
+              }
             />
           ) : null}
 
-          {!isLifetimeOwner ? (
+          {!isLifetimeOwner && (!showLifetimeOption || plan !== 'lifetime') ? (
             <Pressable
               disabled={ownsSelectedPlan || !canPurchase || purchasing}
               onPress={() => void onSubscribe()}>
@@ -747,11 +773,9 @@ export default function PaywallScreen() {
                     ? 'Processing…'
                     : ownsSelectedPlan
                       ? 'Current plan'
-                      : plan === 'lifetime'
-                        ? 'Buy Lifetime Pro'
-                        : plan === 'annual'
-                          ? 'Switch to Annual'
-                          : 'Switch to Monthly'}
+                      : plan === 'annual'
+                        ? 'Switch to Annual'
+                        : 'Switch to Monthly'}
                 </Text>
               </LinearGradient>
             </Pressable>
@@ -816,8 +840,9 @@ export default function PaywallScreen() {
           Unlock <Text style={styles.headlineAccent}>Ripple Pro</Text>
         </Text>
         <Text style={styles.sub}>
-          Unlimited alarms, unlimited rings per alarm, template gallery, Auto theme, and more —{' '}
-          {proTrialPaywallSubline()}
+          {showLifetimeOption
+            ? `${lifetimePaywallHeadlineSuffix()} ${proTrialPaywallSubline()}`
+            : proTrialPaywallSubline()}
         </Text>
 
         <View style={styles.features}>
@@ -851,29 +876,57 @@ export default function PaywallScreen() {
           showLifetime={showLifetimeOption}
           showSubscriptions={showSubscriptionOptions}
           disabled={loadingOfferings || restoring}
+          afterLifetime={
+            showLifetimeOption && plan === 'lifetime' ? (
+              <>
+                <Pressable
+                  disabled={!canPurchase || purchasing || restoring}
+                  onPress={() => void onSubscribe()}>
+                  <LinearGradient
+                    colors={['#06b6d4', '#0891b2']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                      styles.ctaBtn,
+                      { marginBottom: 4 },
+                      (!canPurchase || purchasing || restoring) && styles.ctaDisabled,
+                    ]}>
+                    <Text style={styles.ctaText}>
+                      {purchasing
+                        ? 'Processing…'
+                        : `Buy Lifetime Pro ${paywallIcons.arrow}`}
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+                <Text style={[styles.footerNote, { marginBottom: 0 }]}>
+                  {`One-time purchase through the ${subscriptionStoreLabel()} · Restore on new devices anytime`}
+                </Text>
+              </>
+            ) : null
+          }
         />
 
-        <Pressable disabled={!canPurchase || purchasing || restoring} onPress={() => void onSubscribe()}>
-          <LinearGradient
-            colors={['#06b6d4', '#0891b2']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.ctaBtn, (!canPurchase || purchasing || restoring) && styles.ctaDisabled]}>
-            <Text style={styles.ctaText}>
-              {purchasing
-                ? 'Processing…'
-                : plan === 'lifetime'
-                  ? `Buy Lifetime Pro ${paywallIcons.arrow}`
-                  : `${proTrialSubscribeCtaLabel()} ${paywallIcons.arrow}`}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+        {!showLifetimeOption || plan !== 'lifetime' ? (
+          <>
+            <Pressable disabled={!canPurchase || purchasing || restoring} onPress={() => void onSubscribe()}>
+              <LinearGradient
+                colors={['#06b6d4', '#0891b2']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.ctaBtn, (!canPurchase || purchasing || restoring) && styles.ctaDisabled]}>
+                <Text style={styles.ctaText}>
+                  {purchasing
+                    ? 'Processing…'
+                    : `${proTrialSubscribeCtaLabel()} ${paywallIcons.arrow}`}
+                </Text>
+              </LinearGradient>
+            </Pressable>
 
-        <Text style={styles.footerNote}>
-          {plan === 'lifetime'
-            ? `One-time purchase through the ${subscriptionStoreLabel()} · Restore on new devices anytime`
-            : proTrialSubscriptionFooter(subscriptionStoreLabel())}
-        </Text>
+            <Text style={styles.footerNote}>
+              {proTrialSubscriptionFooter(subscriptionStoreLabel())}
+            </Text>
+          </>
+        ) : null}
 
         <Pressable disabled={restoring || purchasing || loadingOfferings} onPress={() => void onRestore()}>
           <Text style={[styles.restore, restoring && styles.restoreMuted]}>
