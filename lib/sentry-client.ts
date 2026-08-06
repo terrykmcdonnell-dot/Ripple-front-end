@@ -29,10 +29,19 @@ export function initSentry(): void {
     release: `${slug}@${version}`,
     dist: version,
     sendDefaultPii: true,
-    enableLogs: true,
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1,
-    integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+    // Mobile replay writes frames to disk (pread/pwrite) and caused Background ANRs on
+    // low-memory Android devices — disable until we need it with strict sampling.
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 0,
+    enableAutoSessionTracking: false,
+    enableLogs: false,
+    integrations: (integrations) =>
+      integrations.filter(
+        (integration) =>
+          integration.name !== 'MobileReplay' &&
+          integration.name !== 'Replay' &&
+          integration.name !== 'Feedback',
+      ),
   });
 }
 

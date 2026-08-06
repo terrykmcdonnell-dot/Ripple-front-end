@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
+import { runDeferredAppWork } from '@/lib/defer-app-work';
 import { runAppUpgradeMigrationIfNeeded } from '@/lib/app-upgrade-migration';
 
 /**
@@ -17,7 +18,9 @@ export function AppUpgradeMigrationBootstrap() {
     if (Platform.OS === 'web') {
       return;
     }
-    void runAppUpgradeMigrationIfNeeded();
+    runDeferredAppWork(() => {
+      void runAppUpgradeMigrationIfNeeded();
+    });
   }, []);
 
   return null;

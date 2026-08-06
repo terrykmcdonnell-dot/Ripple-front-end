@@ -35,6 +35,7 @@ import { isAlarmFireDeliveryAllowed } from '@/lib/alarm-fire-delivery-guard';
 import { isFreeTierRingDeliveryBlocked } from '@/lib/alarm-free-ring-limit';
 import { RIPPLE_ALARM_HISTORY_BG_TASK } from '@/lib/alarm-history-notification-task';
 import { flushPendingAlarmHistoryWrites } from '@/lib/alarm-history-sync';
+import { runDeferredAppWork, runOnAppForeground } from '@/lib/defer-app-work';
 
 async function ensureAlarmFireCategoryRegistered(): Promise<void> {
   await setNotificationCategoryAsync(ALARM_FIRE_CATEGORY_ID, [
@@ -66,88 +67,92 @@ export function AlarmNotificationBootstrap() {
     let responseSub: ReturnType<typeof addNotificationResponseReceivedListener> | undefined;
     const appStateSub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void flushPendingAlarmHistoryWrites();
-        void processPendingNativeAlarmActions();
+        runOnAppForeground(() => {
+          void flushPendingAlarmHistoryWrites();
+          void processPendingNativeAlarmActions();
+        });
       }
     });
 
-    void (async () => {
-      await ensureAlarmFireCategoryRegistered().catch(() => undefined);
-      await ensureAllAndroidAlarmChannelsAsync().catch(() => undefined);
-      await flushPendingAlarmHistoryWrites().catch(() => undefined);
-      await processPendingNativeAlarmActions().catch(() => undefined);
-      await registerTaskAsync(RIPPLE_ALARM_HISTORY_BG_TASK).catch(() => undefined);
+    void runDeferredAppWork(() => {
+      void (async () => {
+        await ensureAlarmFireCategoryRegistered().catch(() => undefined);
+        await ensureAllAndroidAlarmChannelsAsync().catch(() => undefined);
+        await flushPendingAlarmHistoryWrites().catch(() => undefined);
+        await processPendingNativeAlarmActions().catch(() => undefined);
+        await registerTaskAsync(RIPPLE_ALARM_HISTORY_BG_TASK).catch(() => undefined);
 
-      try {
-        if (!cancelled) {
-          await consumeInitialAlarmFireResponse();
+        try {
+          if (!cancelled) {
+            await consumeInitialAlarmFireResponse();
+          }
+        } catch {
+          /* native module unavailable */
         }
-      } catch {
-        /* native module unavailable */
-      }
 
-      if (cancelled) {
-        return;
-      }
-
-      receivedSub = addNotificationReceivedListener((notification) => {
-        const nData = notification.request.content.data as Record<string, unknown> | undefined;
-        if (nData?.type !== ALARM_FIRE_DATA_TYPE) {
+        if (cancelled) {
           return;
         }
-        void (async () => {
-          const alarms = parseAlarmFiresFromNotification(notification);
-          if (alarms.length === 0) {
+
+        receivedSub = addNotificationReceivedListener((notification) => {
+          const nData = notification.request.content.data as Record<string, unknown> | undefined;
+          if (nData?.type !== ALARM_FIRE_DATA_TYPE) {
             return;
           }
-
-          const deliverable: typeof alarms = [];
-          for (const parsed of alarms) {
-            if (!(await isAlarmFireDeliveryAllowed(parsed))) {
-              continue;
-            }
-            if (await isFreeTierRingDeliveryBlocked(parsed.alarmId)) {
-              continue;
-            }
-            deliverable.push(parsed);
-          }
-
-          if (deliverable.length === 0) {
-            const anyBlocked = await Promise.all(
-              alarms.map((parsed) => isFreeTierRingDeliveryBlocked(parsed.alarmId)),
-            );
-            if (anyBlocked.some(Boolean)) {
-              await blockFreeTierRingDelivery(notification.request.identifier);
+          void (async () => {
+            const alarms = parseAlarmFiresFromNotification(notification);
+            if (alarms.length === 0) {
               return;
             }
-            await dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
-            stopNativeAlarmSound();
-            await stopRingAlarmSound();
-            await syncAlarmFireNotifications();
-            return;
-          }
 
-          const fireAtMs = new Date(deliverable[0].fireAt).getTime();
-          if (Number.isFinite(fireAtMs)) {
-            const allDelivered = await Promise.all(
-              deliverable.map((parsed) =>
-                isAlarmFireOccurrenceDelivered(parsed.alarmId, fireAtMs),
-              ),
-            );
-            if (allDelivered.every(Boolean)) {
+            const deliverable: typeof alarms = [];
+            for (const parsed of alarms) {
+              if (!(await isAlarmFireDeliveryAllowed(parsed))) {
+                continue;
+              }
+              if (await isFreeTierRingDeliveryBlocked(parsed.alarmId)) {
+                continue;
+              }
+              deliverable.push(parsed);
+            }
+
+            if (deliverable.length === 0) {
+              const anyBlocked = await Promise.all(
+                alarms.map((parsed) => isFreeTierRingDeliveryBlocked(parsed.alarmId)),
+              );
+              if (anyBlocked.some(Boolean)) {
+                await blockFreeTierRingDelivery(notification.request.identifier);
+                return;
+              }
+              await dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
+              stopNativeAlarmSound();
+              await stopRingAlarmSound();
+              await syncAlarmFireNotifications();
               return;
             }
-          }
 
-          await markAlarmFiresDelivered(deliverable);
-          openAlarmRingScreen(deliverable);
-        })();
-      });
+            const fireAtMs = new Date(deliverable[0].fireAt).getTime();
+            if (Number.isFinite(fireAtMs)) {
+              const allDelivered = await Promise.all(
+                deliverable.map((parsed) =>
+                  isAlarmFireOccurrenceDelivered(parsed.alarmId, fireAtMs),
+                ),
+              );
+              if (allDelivered.every(Boolean)) {
+                return;
+              }
+            }
 
-      responseSub = addNotificationResponseReceivedListener((response) => {
-        void handleAlarmFireNotificationResponse(response);
-      });
-    })();
+            await markAlarmFiresDelivered(deliverable);
+            openAlarmRingScreen(deliverable);
+          })();
+        });
+
+        responseSub = addNotificationResponseReceivedListener((response) => {
+          void handleAlarmFireNotificationResponse(response);
+        });
+      })();
+    });
 
     return () => {
       cancelled = true;

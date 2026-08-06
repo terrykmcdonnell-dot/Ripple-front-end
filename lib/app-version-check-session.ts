@@ -1,6 +1,7 @@
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { checkAppVersion, type VersionCheckResult } from '@/lib/app-version-check';
+import { runDeferredAppWork, runOnAppForeground } from '@/lib/defer-app-work';
 
 export type AppVersionCheckSnapshot = {
   result: VersionCheckResult | null;
@@ -77,7 +78,9 @@ export function beginNewAppLaunchVersionCheck(): void {
 
 /** Wire once in root layout — checks on cold start and each foreground. */
 export function subscribeAppLaunchVersionChecks(): () => void {
-  beginNewAppLaunchVersionCheck();
+  runDeferredAppWork(() => {
+    beginNewAppLaunchVersionCheck();
+  });
 
   let lastState: AppStateStatus = AppState.currentState;
 
@@ -85,7 +88,9 @@ export function subscribeAppLaunchVersionChecks(): () => void {
     const wasBackground = lastState === 'background' || lastState === 'inactive';
     lastState = nextState;
     if (nextState === 'active' && wasBackground) {
-      beginNewAppLaunchVersionCheck();
+      runOnAppForeground(() => {
+        beginNewAppLaunchVersionCheck();
+      });
     }
   });
 

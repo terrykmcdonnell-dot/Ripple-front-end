@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { ensureAuthSessionFreshOrSignOut } from '@/lib/auth-session-errors';
+import { runOnAppForeground } from '@/lib/defer-app-work';
 import { supabase } from '@/lib/supabase';
 
 /** Re-check session while app stays in foreground (access JWT default ≈ 1 hour). */
@@ -18,7 +19,6 @@ const SESSION_VALIDATION_INTERVAL_MS = 60_000;
 export function SupabaseAuthAutoRefreshBootstrap() {
   useEffect(() => {
     let validationInterval: ReturnType<typeof setInterval> | null = null;
-    let coldStart = true;
 
     const clearValidationInterval = () => {
       if (validationInterval != null) {
@@ -34,18 +34,14 @@ export function SupabaseAuthAutoRefreshBootstrap() {
       }, SESSION_VALIDATION_INTERVAL_MS);
     };
 
-    const scheduleSessionValidation = (deferForColdStart: boolean) => {
-      if (deferForColdStart) {
-        setTimeout(() => {
-          void ensureAuthSessionFreshOrSignOut();
-        }, 2500);
-        return;
-      }
-      void ensureAuthSessionFreshOrSignOut();
+    const scheduleSessionValidation = () => {
+      runOnAppForeground(() => {
+        void ensureAuthSessionFreshOrSignOut();
+      });
     };
 
     if (Platform.OS === 'web') {
-      scheduleSessionValidation(false);
+      scheduleSessionValidation();
       startValidationInterval();
       return () => {
         clearValidationInterval();
@@ -55,8 +51,7 @@ export function SupabaseAuthAutoRefreshBootstrap() {
     const onChange = (next: AppStateStatus) => {
       if (next === 'active') {
         void supabase.auth.startAutoRefresh();
-        scheduleSessionValidation(coldStart);
-        coldStart = false;
+        scheduleSessionValidation();
         startValidationInterval();
       } else {
         clearValidationInterval();

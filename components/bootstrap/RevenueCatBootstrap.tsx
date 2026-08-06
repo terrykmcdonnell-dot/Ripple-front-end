@@ -4,6 +4,7 @@ import type { CustomerInfoUpdateListener } from 'react-native-purchases';
 import Purchases from 'react-native-purchases';
 
 import { configureRevenueCat } from '@/lib/revenuecat';
+import { runDeferredAppWork, runOnAppForeground } from '@/lib/defer-app-work';
 import { supabase } from '@/lib/supabase';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { resetSubscriptionStatusCache } from '@/hooks/use-subscription-status';
@@ -27,7 +28,9 @@ export function RevenueCatBootstrap() {
 
     const appStateSub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        invalidateSubscriptionCache();
+        runOnAppForeground(() => {
+          invalidateSubscriptionCache();
+        });
       }
     });
 
@@ -45,7 +48,9 @@ export function RevenueCatBootstrap() {
       }
     };
 
-    void syncPurchasesUser();
+    runDeferredAppWork(() => {
+      void syncPurchasesUser();
+    });
 
     const {
       data: { subscription },

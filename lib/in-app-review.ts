@@ -30,6 +30,28 @@ async function readCount(key: string): Promise<number> {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+async function readReviewCounts(): Promise<{
+  appOpens: number;
+  dismissals: number;
+  pending: boolean;
+}> {
+  const pairs = await AsyncStorage.multiGet([
+    APP_OPEN_COUNT_KEY,
+    ALARM_DISMISS_COUNT_KEY,
+    PENDING_NATIVE_REVIEW_KEY,
+  ]);
+  const map = new Map(pairs);
+  const parseCount = (raw: string | null | undefined) => {
+    const parsed = raw != null ? Number(raw) : 0;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  };
+  return {
+    appOpens: parseCount(map.get(APP_OPEN_COUNT_KEY)),
+    dismissals: parseCount(map.get(ALARM_DISMISS_COUNT_KEY)),
+    pending: map.get(PENDING_NATIVE_REVIEW_KEY) === '1',
+  };
+}
+
 async function writeCount(key: string, value: number): Promise<void> {
   await AsyncStorage.setItem(key, String(value));
 }
@@ -47,13 +69,21 @@ async function hasPendingNativeStoreReview(): Promise<boolean> {
   return raw === '1';
 }
 
-/** Tracks app opens so the review prompt never appears on first install open. */
+/** Tracks a cold-start app open for the first-launch guard on native store review prompts. */
 export async function markInAppReviewAppOpened(): Promise<void> {
   if (!isReviewPlatformEnabled()) {
     return;
   }
   const count = await readCount(APP_OPEN_COUNT_KEY);
   await writeCount(APP_OPEN_COUNT_KEY, count + 1);
+}
+
+/** After returning from background: clear suppress flag and try a queued review (deferred by caller). */
+export async function handleInAppReviewForegroundReturn(): Promise<void> {
+  if (!isReviewPlatformEnabled()) {
+    return;
+  }
+  clearInAppReviewMissedAlarmSuppressOnForeground();
   await tryShowPendingNativeStoreReview();
 }
 
@@ -112,17 +142,17 @@ async function requestNativeStoreReview(): Promise<boolean> {
  * Shows a queued native store review once navigation has settled (e.g. on the Alarms tab).
  */
 export async function tryShowPendingNativeStoreReview(): Promise<void> {
-  if (!(await hasPendingNativeStoreReview())) {
+  const { pending, dismissals, appOpens } = await readReviewCounts();
+  if (!pending) {
     return;
   }
 
-  const dismissCount = await readCount(ALARM_DISMISS_COUNT_KEY);
-  if (dismissCount < DISMISS_THRESHOLD) {
+  if (dismissals < DISMISS_THRESHOLD) {
     await clearPendingNativeStoreReview();
     return;
   }
 
-  if (!(await canRequestNativeStoreReviewNow())) {
+  if (suppressAfterMissedAlarm || appOpens < 2) {
     return;
   }
 
@@ -133,10 +163,11 @@ export async function tryShowPendingNativeStoreReview(): Promise<void> {
     setTimeout(resolve, 450);
   });
 
-  if (!(await hasPendingNativeStoreReview())) {
+  const afterDelay = await readReviewCounts();
+  if (!afterDelay.pending || afterDelay.dismissals < DISMISS_THRESHOLD) {
     return;
   }
-  if (!(await canRequestNativeStoreReviewNow())) {
+  if (suppressAfterMissedAlarm || afterDelay.appOpens < 2) {
     return;
   }
 

@@ -9,6 +9,7 @@ import {
   RIPPLE_POSTHOG_APP_NAME,
   setSharedPostHogClient,
 } from '@/lib/posthog-client';
+import { runOnAppForeground } from '@/lib/defer-app-work';
 import { syncPostHogAndroidExactAlarmStatus } from '@/lib/posthog-analytics';
 import { supabase } from '@/lib/supabase';
 
@@ -22,7 +23,9 @@ function PostHogAndroidExactAlarmSync() {
 
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void syncPostHogAndroidExactAlarmStatus();
+        runOnAppForeground(() => {
+          void syncPostHogAndroidExactAlarmStatus();
+        });
       }
     });
 
