@@ -1,5 +1,6 @@
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 
 import { ensureAuthSessionFreshOrSignOut } from '@/lib/auth-session-errors';
 import { replaceWithSignInIfNeeded, isGuestAuthFlowPathname } from '@/lib/auth-sign-in-redirect';
@@ -15,6 +16,10 @@ export function useRequireAuth() {
     // Validate on mount — expired JWT in AsyncStorage does not always emit SIGNED_OUT
     // until the next API call; this forces refresh-or-sign-out on protected screens.
     void (async () => {
+      // Defer so cold-start navigation finishes before the Auth server round-trip.
+      await new Promise<void>((resolve) => {
+        InteractionManager.runAfterInteractions(() => resolve());
+      });
       const ok = await ensureAuthSessionFreshOrSignOut();
       if (!ok && !isGuestAuthFlowPathname(pathnameRef.current)) {
         replaceWithSignInIfNeeded(pathnameRef.current);

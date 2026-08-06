@@ -58,8 +58,25 @@ const ACCESS_TOKEN_REFRESH_BUFFER_SEC = 30;
  *
  * `getSession()` alone can return a locally cached access JWT that is already past
  * `expires_at` — especially after the app was backgrounded with `stopAutoRefresh()`.
+ *
+ * Concurrent callers share one in-flight validation so cold-start bootstraps do not
+ * stack multiple `getUser()` round-trips.
  */
 export async function ensureAuthSessionFreshOrSignOut(): Promise<boolean> {
+  if (inFlightEnsureFresh) {
+    return inFlightEnsureFresh;
+  }
+
+  const request = ensureAuthSessionFreshOrSignOutInner();
+  inFlightEnsureFresh = request;
+  try {
+    return await request;
+  } finally {
+    inFlightEnsureFresh = null;
+  }
+}
+
+async function ensureAuthSessionFreshOrSignOutInner(): Promise<boolean> {
   const {
     data: { session },
     error: sessionError,
@@ -107,6 +124,7 @@ export async function ensureAuthSessionFreshOrSignOut(): Promise<boolean> {
  * their own — racing refreshes against each other can hang well past a normal deadline.
  */
 let inFlightRefresh: Promise<void> | null = null;
+let inFlightEnsureFresh: Promise<boolean> | null = null;
 
 /** After JWT errors: try one refresh; if still no session, sign out so routing sends user to sign-in. */
 export async function refreshOrSignOutOnExpiredSession(): Promise<void> {

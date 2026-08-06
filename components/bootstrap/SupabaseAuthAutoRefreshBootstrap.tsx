@@ -18,6 +18,7 @@ const SESSION_VALIDATION_INTERVAL_MS = 60_000;
 export function SupabaseAuthAutoRefreshBootstrap() {
   useEffect(() => {
     let validationInterval: ReturnType<typeof setInterval> | null = null;
+    let coldStart = true;
 
     const clearValidationInterval = () => {
       if (validationInterval != null) {
@@ -33,8 +34,18 @@ export function SupabaseAuthAutoRefreshBootstrap() {
       }, SESSION_VALIDATION_INTERVAL_MS);
     };
 
-    if (Platform.OS === 'web') {
+    const scheduleSessionValidation = (deferForColdStart: boolean) => {
+      if (deferForColdStart) {
+        setTimeout(() => {
+          void ensureAuthSessionFreshOrSignOut();
+        }, 2500);
+        return;
+      }
       void ensureAuthSessionFreshOrSignOut();
+    };
+
+    if (Platform.OS === 'web') {
+      scheduleSessionValidation(false);
       startValidationInterval();
       return () => {
         clearValidationInterval();
@@ -44,7 +55,8 @@ export function SupabaseAuthAutoRefreshBootstrap() {
     const onChange = (next: AppStateStatus) => {
       if (next === 'active') {
         void supabase.auth.startAutoRefresh();
-        void ensureAuthSessionFreshOrSignOut();
+        scheduleSessionValidation(coldStart);
+        coldStart = false;
         startValidationInterval();
       } else {
         clearValidationInterval();

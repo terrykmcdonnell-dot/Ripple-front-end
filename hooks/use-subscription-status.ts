@@ -11,7 +11,12 @@ import {
   subscriptionPlanHeadline,
   subscriptionRenewalDisplay,
 } from '@/lib/subscription-access';
-import { configureRevenueCat, getRevenueCatApiKey, hasPremiumEntitlement } from '@/lib/revenuecat';
+import {
+  configureRevenueCat,
+  getRevenueCatApiKey,
+  hasActiveAutoRenewingStoreSubscription,
+  hasPremiumEntitlement,
+} from '@/lib/revenuecat';
 import {
   getSubscriptionGeneration,
   subscribeSubscriptionGeneration,
@@ -145,6 +150,11 @@ export function useSubscriptionStatus() {
 
   const limitsActive = limitsApply(isSubscriber);
 
+  const hasActiveStoreSubscription = useMemo(
+    () => hasActiveAutoRenewingStoreSubscription(customerInfo),
+    [customerInfo],
+  );
+
   return {
     customerInfo,
     dbRow,
@@ -159,5 +169,6 @@ export function useSubscriptionStatus() {
     titleLine,
     renewalHint,
     managementURL: customerInfo?.managementURL ?? null,
+    hasActiveStoreSubscription,
   };
 }

@@ -101,6 +101,7 @@ export default function SettingScreen() {
     renewalHint,
     managementURL,
     planKind,
+    hasActiveStoreSubscription,
   } = useSubscriptionStatus();
 
   const isLifetimeOwner = isLifetimePremiumPlan(planKind);
@@ -525,7 +526,9 @@ export default function SettingScreen() {
                 <Text style={styles.proSub}>
                   {renewalHint ??
                     (isLifetimeOwner
-                      ? 'Lifetime access on this account'
+                      ? hasActiveStoreSubscription
+                        ? 'Cancel your store subscription to stop future charges'
+                        : 'Lifetime access on this account'
                       : 'Tap Manage to switch billing (monthly / annual)')}
                 </Text>
               </>
@@ -549,12 +552,16 @@ export default function SettingScreen() {
           ) : null}
         </LinearGradient>
 
-        {Platform.OS !== 'web' && !subLoading && isSubscriber && !isLifetimeOwner ? (
+        {Platform.OS !== 'web' && !subLoading && isSubscriber && hasActiveStoreSubscription ? (
           <SettingsGroup>
             <SettingsRow
               icon={settingsIcons.cancelSubscription}
               title="Cancel subscription"
-              value={`Opens ${Platform.OS === 'ios' ? 'App Store' : 'Play Store'} subscription management`}
+              value={
+                isLifetimeOwner
+                  ? `Lifetime is active — cancel auto-renewing billing in ${Platform.OS === 'ios' ? 'App Store' : 'Play Store'}`
+                  : `Opens ${Platform.OS === 'ios' ? 'App Store' : 'Play Store'} subscription management`
+              }
               titleColor={palette.red}
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}
               onPress={() => openSubscriptionManagement()}

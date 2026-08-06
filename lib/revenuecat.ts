@@ -97,6 +97,23 @@ export function activeSubscriptionProductIds(info: CustomerInfo | null | undefin
   return raw.map((id) => String(id));
 }
 
+export function isLikelyLifetimeProductId(productId: string): boolean {
+  const pid = productId.toLowerCase();
+  return (
+    pid.includes('lifetime') ||
+    pid.includes('forever') ||
+    pid.includes('one_time') ||
+    pid.includes('onetime')
+  );
+}
+
+/** Auto-renewing App Store / Play Store subscriptions still billing (excludes lifetime one-time products). */
+export function hasActiveAutoRenewingStoreSubscription(
+  info: CustomerInfo | null | undefined,
+): boolean {
+  return activeSubscriptionProductIds(info).some((id) => !isLikelyLifetimeProductId(id));
+}
+
 export function isPackageInActiveSubscription(
   pkg: PurchasesPackage | null | undefined,
   info: CustomerInfo | null | undefined,

@@ -478,7 +478,7 @@ export default function AlarmScreen() {
         })}
       </ScrollView>
 
-      <FullScreenLoadingOverlay visible={initialLoad || refreshing} />
+      <FullScreenLoadingOverlay visible={refreshing} />
       <AppVersionCheckPrompt enabled={!initialLoad && !refreshing} />
 
       <BottomNavbar

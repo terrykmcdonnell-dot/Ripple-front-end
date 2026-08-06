@@ -18,6 +18,10 @@ import { paywallIcons } from '@/assets/icons/paywall-icons';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import { FeatureRow } from '@/components/paywall/FeatureRow';
 import { PricingPlan, PricingToggle } from '@/components/paywall/PricingToggle';
+import {
+  CancelStoreSubscriptionBlock,
+  LifetimePurchaseWarning,
+} from '@/components/paywall/StoreSubscriptionNotice';
 import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverlay';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -37,6 +41,7 @@ import { useBottomSafePadding } from '@/lib/screen-safe-area';
 import {
   configureRevenueCat,
   getRevenueCatApiKey,
+  hasActiveAutoRenewingStoreSubscription,
   hasPremiumEntitlement,
   isPackageInActiveSubscription,
   isPurchasesUserCancelled,
@@ -222,13 +227,6 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       fontSize: alarmTypography.caption,
       textAlign: 'center',
     },
-    cancelSubscriptionLink: {
-      color: alarmTheme.red,
-      fontSize: alarmTypography.caption,
-      fontWeight: '700',
-      textAlign: 'center',
-      paddingVertical: 12,
-    },
     noticeBox: {
       marginTop: 48,
       padding: 16,
@@ -301,6 +299,7 @@ export default function PaywallScreen() {
     managementURL,
     customerInfo,
     dbRow,
+    hasActiveStoreSubscription,
   } = useSubscriptionStatus();
 
   const openSubscriptionManagement = useCallback(() => {
@@ -372,6 +371,10 @@ export default function PaywallScreen() {
   }, [displayedPremiumPlan, plan, customerInfo, selectedPackage]);
 
   const isLifetimeOwner = isLifetimePremiumPlan(displayedPremiumPlan);
+
+  const showLifetimePurchaseWarning =
+    plan === 'lifetime' && showLifetimeOption && hasActiveStoreSubscription;
+  const showCancelStoreSubscription = hasActiveStoreSubscription;
 
   const selectPlan = useCallback((next: PricingPlan) => {
     userPickedPlanRef.current = true;
@@ -534,13 +537,18 @@ export default function PaywallScreen() {
       invalidateSubscriptionCache();
       if (hasPremiumEntitlement(nextInfo)) {
         purchasedThisSessionRef.current = true;
-        showToast(
-          wasExistingSubscriber
-            ? 'Plan updated.'
-            : plan === 'lifetime'
-              ? 'Lifetime Pro unlocked. Welcome to Ripple Pro!'
-              : 'Your free trial has started. Welcome to Ripple Pro!',
-        );
+        const stillHasStoreSub = hasActiveAutoRenewingStoreSubscription(nextInfo);
+        if (plan === 'lifetime' && stillHasStoreSub) {
+          showToast(
+            'Lifetime Pro unlocked. Cancel your existing subscription in the store to avoid future charges.',
+          );
+        } else if (wasExistingSubscriber) {
+          showToast('Plan updated.');
+        } else if (plan === 'lifetime') {
+          showToast('Lifetime Pro unlocked. Welcome to Ripple Pro!');
+        } else {
+          showToast('Your free trial has started. Welcome to Ripple Pro!');
+        }
       } else {
         showToast('Purchase completed. It may take a moment for access to unlock.');
       }
@@ -688,9 +696,13 @@ export default function PaywallScreen() {
                 change for your next renewal.
               </Text>
             </>
-          ) : (
+          ) : !hasActiveStoreSubscription ? (
             <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>
               You own Ripple Pro forever on this account. No renewals or cancellation needed.
+            </Text>
+          ) : (
+            <Text style={[styles.sub, { fontSize: alarmTypography.caption, marginBottom: 12 }]}>
+              You own Ripple Pro forever on this account.
             </Text>
           )}
 
@@ -730,27 +742,35 @@ export default function PaywallScreen() {
               disabled={loadingOfferings || purchasing}
               afterLifetime={
                 showLifetimeOption && plan === 'lifetime' ? (
-                  <Pressable
-                    disabled={ownsSelectedPlan || !canPurchase || purchasing}
-                    onPress={() => void onSubscribe()}>
-                    <LinearGradient
-                      colors={ownsSelectedPlan ? ['#334155', '#475569'] : ['#06b6d4', '#0891b2']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[
-                        styles.ctaBtn,
-                        { marginBottom: 4 },
-                        (ownsSelectedPlan || !canPurchase || purchasing) && styles.ctaDisabled,
-                      ]}>
-                      <Text style={styles.ctaText}>
-                        {purchasing
-                          ? 'Processing…'
-                          : ownsSelectedPlan
-                            ? 'Current plan'
-                            : 'Buy Lifetime Pro'}
-                      </Text>
-                    </LinearGradient>
-                  </Pressable>
+                  <>
+                    {showLifetimePurchaseWarning ? (
+                      <LifetimePurchaseWarning
+                        storeLabel={subscriptionStoreLabel()}
+                        billingProviderLabel={subscriptionBillingProviderLabel()}
+                      />
+                    ) : null}
+                    <Pressable
+                      disabled={ownsSelectedPlan || !canPurchase || purchasing}
+                      onPress={() => void onSubscribe()}>
+                      <LinearGradient
+                        colors={ownsSelectedPlan ? ['#334155', '#475569'] : ['#06b6d4', '#0891b2']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[
+                          styles.ctaBtn,
+                          { marginBottom: 4 },
+                          (ownsSelectedPlan || !canPurchase || purchasing) && styles.ctaDisabled,
+                        ]}>
+                        <Text style={styles.ctaText}>
+                          {purchasing
+                            ? 'Processing…'
+                            : ownsSelectedPlan
+                              ? 'Current plan'
+                              : 'Buy Lifetime Pro'}
+                        </Text>
+                      </LinearGradient>
+                    </Pressable>
+                  </>
                 ) : null
               }
             />
@@ -781,21 +801,14 @@ export default function PaywallScreen() {
             </Pressable>
           ) : null}
 
-          {!isLifetimeOwner ? (
-            <>
-              <Text style={[styles.footerNote, { marginBottom: 6 }]}>
-                Subscriptions are billed through {subscriptionBillingProviderLabel()}. To stop future charges, cancel in your
-                store account.
-              </Text>
-              <Pressable disabled={purchasing} onPress={() => openSubscriptionManagement()}>
-                <Text style={[styles.cancelSubscriptionLink, purchasing && styles.restoreMuted]}>
-                  Cancel subscription
-                </Text>
-              </Pressable>
-              <Text style={[styles.footerNote, { marginTop: 4 }]}>
-                Opens {subscriptionStoreLabel()} subscription management for Ripple Pro.
-              </Text>
-            </>
+          {showCancelStoreSubscription ? (
+            <CancelStoreSubscriptionBlock
+              storeLabel={subscriptionStoreLabel()}
+              billingProviderLabel={subscriptionBillingProviderLabel()}
+              onOpenManagement={openSubscriptionManagement}
+              disabled={purchasing}
+              lifetimeOwnerReminder={isLifetimeOwner}
+            />
           ) : null}
         </ScrollView>
 
@@ -879,6 +892,12 @@ export default function PaywallScreen() {
           afterLifetime={
             showLifetimeOption && plan === 'lifetime' ? (
               <>
+                {showLifetimePurchaseWarning ? (
+                  <LifetimePurchaseWarning
+                    storeLabel={subscriptionStoreLabel()}
+                    billingProviderLabel={subscriptionBillingProviderLabel()}
+                  />
+                ) : null}
                 <Pressable
                   disabled={!canPurchase || purchasing || restoring}
                   onPress={() => void onSubscribe()}>

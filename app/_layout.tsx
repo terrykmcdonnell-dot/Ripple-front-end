@@ -2,11 +2,14 @@ import '@/lib/alarm-history-notification-task';
 
 import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 import { AlarmNotificationBootstrap } from '@/components/bootstrap/AlarmNotificationBootstrap';
 import { AndroidAlarmPermissionsBootstrap } from '@/components/bootstrap/AndroidAlarmPermissionsBootstrap';
