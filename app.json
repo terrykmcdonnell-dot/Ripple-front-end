@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "versionCode": 10016,
+      "versionCode": 10017,
       "intentFilters": [
         {
           "action": "VIEW",

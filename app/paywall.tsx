@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   InteractionManager,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -51,6 +50,7 @@ import {
   syncPurchasesAfterTransaction,
 } from '@/lib/revenuecat';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
+import { openStoreSubscriptionManagement } from '@/lib/open-subscription-management';
 import Purchases from 'react-native-purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
 
@@ -302,13 +302,12 @@ export default function PaywallScreen() {
     hasActiveStoreSubscription,
   } = useSubscriptionStatus();
 
-  const openSubscriptionManagement = useCallback(() => {
-    if (managementURL) {
-      void Linking.openURL(managementURL);
-    } else {
-      void Linking.openSettings();
+  const openSubscriptionManagement = useCallback(async () => {
+    const opened = await openStoreSubscriptionManagement(managementURL);
+    if (!opened) {
+      showToast(`Could not open ${subscriptionStoreLabel()} subscriptions. Try again from the store app.`);
     }
-  }, [managementURL]);
+  }, [managementURL, showToast]);
 
   const [plan, setPlan] = useState<PricingPlan>('lifetime');
   /** When true, do not overwrite `plan` from subscription sync (user tapped a plan). */
@@ -746,7 +745,8 @@ export default function PaywallScreen() {
                     {showLifetimePurchaseWarning ? (
                       <LifetimePurchaseWarning
                         storeLabel={subscriptionStoreLabel()}
-                        billingProviderLabel={subscriptionBillingProviderLabel()}
+                        onOpenManagement={() => void openSubscriptionManagement()}
+                        disabled={purchasing}
                       />
                     ) : null}
                     <Pressable
@@ -895,7 +895,8 @@ export default function PaywallScreen() {
                 {showLifetimePurchaseWarning ? (
                   <LifetimePurchaseWarning
                     storeLabel={subscriptionStoreLabel()}
-                    billingProviderLabel={subscriptionBillingProviderLabel()}
+                    onOpenManagement={() => void openSubscriptionManagement()}
+                    disabled={purchasing || restoring}
                   />
                 ) : null}
                 <Pressable

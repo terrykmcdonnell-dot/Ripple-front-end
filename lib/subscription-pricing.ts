@@ -29,20 +29,21 @@ export function proTrialSubscriptionFooter(storeLabel: string): string {
 }
 
 /** Shown before a lifetime purchase when the user already has a store subscription or trial. */
-export function lifetimeExistingSubscriptionWarning(
-  storeLabel: string,
-  billingProviderLabel: string,
-): string {
-  return `You already have an active subscription or trial through ${billingProviderLabel}. Buying Lifetime does not cancel it — open ${storeLabel} subscription settings and cancel to avoid being charged twice.`;
+export function lifetimeExistingSubscriptionWarning(storeLabel: string): string {
+  return `You have an active subscription. Buying Lifetime won't cancel it automatically — you'll need to cancel separately in ${storeLabel} to avoid being charged twice.`;
+}
+
+export function lifetimeCancelSubscriptionFirstLabel(): string {
+  return 'Cancel subscription in store first';
 }
 
 /** Shown after lifetime is owned while an auto-renewing subscription is still active in the store. */
 export function lifetimeOwnerActiveSubscriptionReminder(storeLabel: string): string {
-  return `You still have an active auto-renewing subscription in ${storeLabel}. Cancel it to stop future charges — Lifetime already covers your Pro access.`;
+  return `You still have an active subscription in ${storeLabel}. Cancel it to stop future charges — Lifetime already covers your Pro access.`;
 }
 
 export function cancelStoreSubscriptionFooter(storeLabel: string): string {
-  return `Opens ${storeLabel} subscription management for Ripple Pro.`;
+  return `Opens ${storeLabel} subscriptions for Ripple Pro (not general device settings).`;
 }
 
 export function formatSubscriptionUsd(amount: number): string {

@@ -23,8 +23,9 @@ import { SoundPickerSheet } from '@/components/settings/SoundPickerSheet';
 import { VolumePickerSheet } from '@/components/settings/VolumePickerSheet';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
+import { openStoreSubscriptionManagement } from '@/lib/open-subscription-management';
+import { cancelStoreSubscriptionFooter, proTrialShortLabel } from '@/lib/subscription-pricing';
 import { isLifetimePremiumPlan } from '@/lib/subscription-access';
-import { proTrialShortLabel } from '@/lib/subscription-pricing';
 import { notifyAuthError } from '@/lib/auth-notify';
 import { cancelAllRippleScheduledNotifications } from '@/lib/cancel-all-app-notifications';
 import { isOsNotificationAllowed } from '@/lib/notification-os-status';
@@ -106,13 +107,13 @@ export default function SettingScreen() {
 
   const isLifetimeOwner = isLifetimePremiumPlan(planKind);
 
-  const openSubscriptionManagement = useCallback(() => {
-    if (managementURL) {
-      void Linking.openURL(managementURL);
-    } else {
-      void Linking.openSettings();
+  const openSubscriptionManagement = useCallback(async () => {
+    const storeLabel = Platform.OS === 'ios' ? 'App Store' : 'Play Store';
+    const opened = await openStoreSubscriptionManagement(managementURL);
+    if (!opened) {
+      showToast(`Could not open ${storeLabel} subscriptions. Try again from the store app.`);
     }
-  }, [managementURL]);
+  }, [managementURL, showToast]);
 
   const palette = useAlarmTheme();
   const tabBarPad = useTabBarReservedHeight();
@@ -560,7 +561,7 @@ export default function SettingScreen() {
               value={
                 isLifetimeOwner
                   ? `Lifetime is active — cancel auto-renewing billing in ${Platform.OS === 'ios' ? 'App Store' : 'Play Store'}`
-                  : `Opens ${Platform.OS === 'ios' ? 'App Store' : 'Play Store'} subscription management`
+                  : cancelStoreSubscriptionFooter(Platform.OS === 'ios' ? 'App Store' : 'Play Store')
               }
               titleColor={palette.red}
               right={<Text style={styles.chevron}>{settingsIcons.chevron}</Text>}

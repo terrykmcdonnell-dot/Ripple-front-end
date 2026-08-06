@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { alarmTypography, type AlarmThemePalette, useAlarmTheme } from '@/components/alarms/theme';
 import {
   cancelStoreSubscriptionFooter,
+  lifetimeCancelSubscriptionFirstLabel,
   lifetimeExistingSubscriptionWarning,
   lifetimeOwnerActiveSubscriptionReminder,
 } from '@/lib/subscription-pricing';
@@ -24,6 +25,14 @@ function createStyles(alarmTheme: AlarmThemePalette) {
       fontSize: alarmTypography.caption,
       lineHeight: alarmTypography.caption + 8,
       textAlign: 'center',
+    },
+    warningAction: {
+      color: alarmTheme.accentBright,
+      fontSize: alarmTypography.caption,
+      fontWeight: '700',
+      textAlign: 'center',
+      marginTop: 10,
+      paddingVertical: 4,
     },
     footerNote: {
       color: alarmTheme.muted,
@@ -47,21 +56,26 @@ function createStyles(alarmTheme: AlarmThemePalette) {
 
 type LifetimePurchaseWarningProps = {
   storeLabel: string;
-  billingProviderLabel: string;
+  onOpenManagement: () => void;
+  disabled?: boolean;
 };
 
 export function LifetimePurchaseWarning({
   storeLabel,
-  billingProviderLabel,
+  onOpenManagement,
+  disabled,
 }: LifetimePurchaseWarningProps) {
   const alarmTheme = useAlarmTheme();
   const styles = useMemo(() => createStyles(alarmTheme), [alarmTheme]);
 
   return (
     <View style={styles.warningBox}>
-      <Text style={styles.warningText}>
-        {lifetimeExistingSubscriptionWarning(storeLabel, billingProviderLabel)}
-      </Text>
+      <Text style={styles.warningText}>{lifetimeExistingSubscriptionWarning(storeLabel)}</Text>
+      <Pressable disabled={disabled} onPress={onOpenManagement}>
+        <Text style={[styles.warningAction, disabled ? styles.cancelMuted : null]}>
+          {lifetimeCancelSubscriptionFirstLabel()} →
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -95,8 +109,8 @@ export function CancelStoreSubscriptionBlock({
         </View>
       ) : (
         <Text style={styles.footerNote}>
-          Subscriptions are billed through {billingProviderLabel}. To stop future charges, cancel in
-          your store account.
+          Subscriptions are billed through {billingProviderLabel}. Cancel in {storeLabel} to stop
+          future charges.
         </Text>
       )}
       <Pressable disabled={disabled} onPress={onOpenManagement}>
