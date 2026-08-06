@@ -1,93 +1,52 @@
-"""Generate Ripple app icon assets (1024 square, full bleed, no pre-rounded corners)."""
+"""Generate Ripple app icon assets from icon-source.png (1024 square, full bleed)."""
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "images"
+ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
+SOURCE = OUT / "icon-source.png"
 
 SIZE = 1024
-CX = CY = SIZE // 2
+BG = (10, 20, 35)  # #0a1423 — matches app.json adaptiveIcon.backgroundColor
 
-BG = (10, 20, 35)       # #0a1423
-TEAL = (52, 211, 153)   # #34d399
-WHITE = (255, 255, 255)
+MIPMAP_SIZES = {
+    "mipmap-mdpi": (48, 108),
+    "mipmap-hdpi": (72, 162),
+    "mipmap-xhdpi": (96, 216),
+    "mipmap-xxhdpi": (144, 324),
+    "mipmap-xxxhdpi": (192, 432),
+}
 
-# Scale artwork inward so iOS/Android squircle masks do not clip outer rings.
-ARTWORK_SCALE = 0.90
-
-
-def lerp(a: float, b: float, t: float) -> float:
-    return a + (b - a) * t
-
-
-def draw_icon(size: int = SIZE) -> Image.Image:
-    img = Image.new("RGBA", (size, size), BG + (255,))
-    draw = ImageDraw.Draw(img)
-    s = (size / SIZE) * ARTWORK_SCALE
-    cx = cy = size // 2
-
-    ring_radii = [430, 345, 265, 190]
-    for i, r in enumerate(ring_radii):
-        radius = int(r * s)
-        alpha = int(lerp(55, 210, i / max(len(ring_radii) - 1, 1)))
-        w = max(2, int(3 * s))
-        bbox = (cx - radius, cy - radius, cx + radius, cy + radius)
-        draw.ellipse(bbox, outline=TEAL + (alpha,), width=w)
-
-    disc_r = int(118 * s)
-    draw.ellipse(
-        (cx - disc_r, cy - disc_r, cx + disc_r, cy + disc_r),
-        fill=TEAL,
-    )
-
-    # Circular arrow wrapping clockwise around the center disc
-    arrow_r = int(168 * s)
-    arrow_w = max(12, int(16 * s))
-    bbox = (cx - arrow_r, cy - arrow_r, cx + arrow_r, cy + arrow_r)
-    draw.arc(bbox, start=215, end=355, fill=TEAL, width=arrow_w)
-
-    angle = math.radians(355)
-    tip_x = cx + arrow_r * math.cos(angle)
-    tip_y = cy + arrow_r * math.sin(angle)
-    head = int(24 * s)
-    left_angle = angle + math.radians(145)
-    right_angle = angle - math.radians(145)
-    draw.polygon(
-        [
-            (tip_x, tip_y),
-            (tip_x + head * math.cos(left_angle), tip_y + head * math.sin(left_angle)),
-            (tip_x + head * math.cos(right_angle), tip_y + head * math.sin(right_angle)),
-        ],
-        fill=TEAL,
-    )
-
-    clock_r = int(68 * s)
-    draw.ellipse(
-        (cx - clock_r, cy - clock_r, cx + clock_r, cy + clock_r),
-        outline=WHITE + (230,),
-        width=max(2, int(3 * s)),
-    )
-
-    hand_w = max(3, int(4 * s))
-    draw.line((cx, cy, cx + int(36 * s), cy), fill=WHITE, width=hand_w)
-    draw.line((cx, cy, cx, cy - int(46 * s)), fill=WHITE, width=hand_w)
-
-    dot_r = int(5 * s)
-    draw.ellipse(
-        (cx - dot_r, cy - dot_r, cx + dot_r, cy + dot_r),
-        fill=WHITE,
-    )
-
-    return img.convert("RGB")
+SPLASH_SIZES = {
+    "drawable-mdpi": 288,
+    "drawable-hdpi": 432,
+    "drawable-xhdpi": 576,
+    "drawable-xxhdpi": 864,
+    "drawable-xxxhdpi": 1152,
+}
 
 
-def make_android_foreground(source: Image.Image) -> Image.Image:
-    size = 1024
+def load_source() -> Image.Image:
+    if not SOURCE.is_file():
+        raise SystemExit(
+            f"Missing {SOURCE}. Add a 1024×1024 PNG master icon, then re-run this script.",
+        )
+    img = Image.open(SOURCE)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    if img.size != (SIZE, SIZE):
+        img = img.resize((SIZE, SIZE), Image.Resampling.LANCZOS)
+    return img
+
+
+def make_android_foreground(source: Image.Image, layer_size: int | None = None) -> Image.Image:
+    """Scale artwork into Android adaptive-icon safe zone (~72%)."""
+    size = layer_size or SIZE
     fg = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     inner = int(size * 0.72)
     scaled = source.resize((inner, inner), Image.Resampling.LANCZOS)
@@ -96,36 +55,75 @@ def make_android_foreground(source: Image.Image) -> Image.Image:
     return fg
 
 
-def make_android_background() -> Image.Image:
-    return Image.new("RGB", (SIZE, SIZE), BG)
+def make_android_background(layer_size: int | None = None) -> Image.Image:
+    size = layer_size or SIZE
+    return Image.new("RGB", (size, size), BG)
 
 
-def make_monochrome(source: Image.Image) -> Image.Image:
+def make_monochrome(source: Image.Image, layer_size: int | None = None) -> Image.Image:
+    if layer_size and layer_size != SIZE:
+        source = source.resize((layer_size, layer_size), Image.Resampling.LANCZOS)
+    size = source.size[0]
     gray = source.convert("L")
-    mono = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    mono = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     pixels = gray.load()
     out = mono.load()
-    for y in range(SIZE):
-        for x in range(SIZE):
+    for y in range(size):
+        for x in range(size):
             v = pixels[x, y]
             if v > 35:
                 out[x, y] = (255, 255, 255, min(255, v + 50))
     return mono
 
 
+def save_webp(path: Path, image: Image.Image) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if image.mode not in ("RGB", "RGBA"):
+        image = image.convert("RGBA")
+    image.save(path, "WEBP", quality=90, method=6)
+
+
+def write_android_native(source: Image.Image, foreground_master: Image.Image, mono_master: Image.Image) -> None:
+    if not ANDROID_RES.is_dir():
+        return
+
+    for folder, (launcher_px, layer_px) in MIPMAP_SIZES.items():
+        target = ANDROID_RES / folder
+        launcher = source.resize((launcher_px, launcher_px), Image.Resampling.LANCZOS)
+        save_webp(target / "ic_launcher.webp", launcher)
+        save_webp(target / "ic_launcher_round.webp", launcher)
+        save_webp(
+            target / "ic_launcher_foreground.webp",
+            make_android_foreground(source, layer_px),
+        )
+        save_webp(target / "ic_launcher_background.webp", make_android_background(layer_px))
+        save_webp(target / "ic_launcher_monochrome.webp", make_monochrome(source, layer_px))
+
+    for folder, splash_px in SPLASH_SIZES.items():
+        target = ANDROID_RES / folder
+        splash = make_android_foreground(source, splash_px).convert("RGBA")
+        target.mkdir(parents=True, exist_ok=True)
+        splash.save(target / "splashscreen_logo.png", "PNG", optimize=True)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    icon = draw_icon(SIZE)
+    icon = load_source()
+    foreground = make_android_foreground(icon)
+    mono = make_monochrome(icon)
 
     icon.save(OUT / "icon.png", "PNG", optimize=True)
     icon.save(OUT / "splash-icon.png", "PNG", optimize=True)
-
-    make_android_foreground(icon).save(OUT / "android-icon-foreground.png", "PNG", optimize=True)
+    foreground.save(OUT / "android-icon-foreground.png", "PNG", optimize=True)
     make_android_background().save(OUT / "android-icon-background.png", "PNG", optimize=True)
-    make_monochrome(icon).save(OUT / "android-icon-monochrome.png", "PNG", optimize=True)
+    mono.save(OUT / "android-icon-monochrome.png", "PNG", optimize=True)
     icon.resize((48, 48), Image.Resampling.LANCZOS).save(OUT / "favicon.png", "PNG", optimize=True)
 
-    print(f"Wrote icons to {OUT}")
+    write_android_native(icon, foreground, mono)
+
+    print(f"Wrote Expo assets to {OUT}")
+    if ANDROID_RES.is_dir():
+        print(f"Updated Android native icons in {ANDROID_RES}")
 
 
 if __name__ == "__main__":
