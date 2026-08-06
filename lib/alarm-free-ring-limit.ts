@@ -9,7 +9,7 @@ import { fetchIsSubscriberFresh, limitsApply } from '@/lib/subscription-access';
  * occurrence is blocked at ring time (the alarm stays set up and enabled). Device-local only —
  * this is a soft usage nudge, not a security boundary, so it does not need to sync across devices.
  */
-export const FREE_TIER_MAX_RINGS_PER_ALARM = 2;
+export const FREE_TIER_MAX_RINGS_PER_ALARM = 5;
 
 /** Encouraging copy when the free ring cap blocks the next occurrence. */
 export function freeTierRingLimitToastMessage(): string {
