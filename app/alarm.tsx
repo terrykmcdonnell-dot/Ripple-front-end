@@ -44,6 +44,7 @@ import {
   syncUpcomingReminderNotifications,
 } from '@/lib/upcoming-reminder-scheduler';
 import { canAddAlarm, FREE_TIER_MAX_ALARMS } from '@/lib/subscription-access';
+import { captureAlarmLimitReached } from '@/lib/posthog-analytics';
 import { invalidateSubscriptionCache } from '@/lib/subscription-sync-hub';
 import { navigateToMainTab } from '@/lib/main-tab-navigation';
 import { resolveCategoryMeta, useAlarmCategories } from '@/lib/alarm-categories';
@@ -310,6 +311,7 @@ export default function AlarmScreen() {
 
   const goCreateAlarm = useCallback(() => {
     if (!canAddAlarm(alarms.length, isSubscriber)) {
+      captureAlarmLimitReached('alarm_list');
       showToast(`Free plan allows ${FREE_TIER_MAX_ALARMS} alarms. Upgrade to Pro for unlimited.`);
       router.push('/paywall?alarmLimit=1');
       return;

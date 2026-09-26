@@ -510,18 +510,17 @@ export default function PaywallScreen() {
   const rcKeyPresent = !!getRevenueCatApiKey();
   const subscriptionGatePending = rcKeyPresent && subLoading;
 
+  // Fires as soon as this screen opens with a limit param — not gated on `subscriptionGatePending`
+  // finishing, since a user who closes during the "Checking subscription…" spinner still genuinely
+  // saw the paywall. `capturePaywallViewed` retries internally if the PostHog client hasn't
+  // mounted yet, so this no longer depends on winning a race with PostHogProviderShell.
   useEffect(() => {
-    if (
-      Platform.OS === 'web' ||
-      !(isAlarmLimitPaywall || isRingLimitPaywall) ||
-      subscriptionGatePending ||
-      paywallViewedRef.current
-    ) {
+    if (Platform.OS === 'web' || !(isAlarmLimitPaywall || isRingLimitPaywall) || paywallViewedRef.current) {
       return;
     }
     paywallViewedRef.current = true;
-    capturePaywallViewed();
-  }, [isAlarmLimitPaywall, isRingLimitPaywall, subscriptionGatePending]);
+    capturePaywallViewed(isRingLimitPaywall ? 'ring_limit' : 'alarm_limit');
+  }, [isAlarmLimitPaywall, isRingLimitPaywall]);
 
   const onSubscribe = useCallback(async () => {
     if (!selectedPackage || purchasing) {
@@ -605,7 +604,7 @@ export default function PaywallScreen() {
       !isSubscriber &&
       !purchasedThisSessionRef.current
     ) {
-      capturePaywallDismissed();
+      capturePaywallDismissed(isRingLimitPaywall ? 'ring_limit' : 'alarm_limit');
     }
     if (router.canGoBack()) {
       router.back();

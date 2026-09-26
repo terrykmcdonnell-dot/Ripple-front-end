@@ -16,6 +16,8 @@ import { FullScreenLoadingOverlay } from '@/components/ui/FullScreenLoadingOverl
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSubscriptionStatus } from '@/hooks/use-subscription-status';
 import { fetchAlarms, createAlarm } from '@/lib/alarm-api';
+import { getAlarmListCache } from '@/lib/alarm-list-cache';
+import { captureAlarmLimitReached } from '@/lib/posthog-analytics';
 import { toAlarmIsoString } from '@/lib/alarm-date';
 import { getSmartDefaultAlarmTime } from '@/lib/alarm-time';
 import { notifyAuthError, notifyAuthMessage, notifyAuthWarning } from '@/lib/auth-notify';
@@ -41,6 +43,50 @@ import type { AndroidAlarmPermissionWarning } from '@/lib/android-alarm-permissi
 import { prepareAlarmPermissionsForSetup } from '@/lib/ensure-alarm-permissions';
 
 const units = ['Hours', 'Days', 'Weeks', 'Months'] as const;
+
+/**
+ * Determines whether saving one more alarm would exceed the free-tier cap.
+ *
+ * Hardened so the free-tier network calls (RevenueCat/Supabase) or a slow Android lock-screen
+ * permission modal can never swallow a real block (see RIPPLE-ALARM paywall_viewed gaps):
+ *
+ * 1. Fast path — no network call at all. If the alarm list's own cache (already loaded before
+ *    the user ever reached this screen) shows the cap already hit, and the subscription hook's
+ *    cached `limitsApply` (hydrated in memory, not a fresh fetch) confirms limits are on, this
+ *    resolves immediately and fires `alarm_limit_reached` before any request goes out.
+ * 2. Authoritative path — a fresh alarm count + fresh subscriber check, for the case where the
+ *    cache is stale, missing, or under the cap.
+ * 3. Fallback — if the authoritative check itself throws (e.g. the network is down), fall back
+ *    to the same local signal used in the fast path rather than aborting the whole save with a
+ *    generic error. Only re-throws (preserving prior behaviour) when there's no local signal at
+ *    all to fall back on.
+ */
+async function resolveAlarmLimitBlocked(userId: number, limitsApplyHint: boolean): Promise<boolean> {
+  const cachedRows = getAlarmListCache(userId);
+
+  if (limitsApplyHint && cachedRows != null && cachedRows.length >= FREE_TIER_MAX_ALARMS) {
+    captureAlarmLimitReached('alarm_create');
+    return true;
+  }
+
+  try {
+    const existing = await fetchAlarms(userId);
+    const blocked = !(await canAddAlarmFresh(existing.length));
+    if (blocked) {
+      captureAlarmLimitReached('alarm_create');
+    }
+    return blocked;
+  } catch (err) {
+    if (cachedRows != null) {
+      const blocked = limitsApplyHint && cachedRows.length >= FREE_TIER_MAX_ALARMS;
+      if (blocked) {
+        captureAlarmLimitReached('alarm_create');
+      }
+      return blocked;
+    }
+    throw err;
+  }
+}
 
 export default function AlarmCreateScreen() {
   useRequireAuth();
@@ -136,8 +182,6 @@ export default function AlarmCreateScreen() {
 
     setIsSaving(true);
     try {
-      await promptAndroidLockScreenPermissionsIfNeeded();
-
       const { id: userId, error: userIdError } = await fetchCurrentUserRowId();
       if (userIdError || userId == null) {
         if (!(await shouldSkipAuthFailureAlerts())) {
@@ -146,10 +190,10 @@ export default function AlarmCreateScreen() {
         return;
       }
 
-      const selectedCategory = categories.find((item) => item.id === categoryId) ?? findDefaultCategory(categories);
-
-      const existing = await fetchAlarms(userId);
-      if (!(await canAddAlarmFresh(existing.length))) {
+      // Limit check runs before the Android permissions modal and before creating anything —
+      // if the user backgrounds/kills the app while that modal is awaited, or the app is later
+      // killed, a real block was already resolved and the paywall navigation below already ran.
+      if (await resolveAlarmLimitBlocked(userId, limitsApply)) {
         notifyAuthMessage(
           'Ripple Pro',
           `Free accounts can save up to ${FREE_TIER_MAX_ALARMS} alarms. Upgrade for unlimited alarms and templates.`,
@@ -158,6 +202,9 @@ export default function AlarmCreateScreen() {
         return;
       }
 
+      await promptAndroidLockScreenPermissionsIfNeeded();
+
+      const selectedCategory = categories.find((item) => item.id === categoryId) ?? findDefaultCategory(categories);
       const resolvedSoundId = resolveAlarmSoundForUser(selectedSoundId, isSubscriber);
 
       await createAlarm({

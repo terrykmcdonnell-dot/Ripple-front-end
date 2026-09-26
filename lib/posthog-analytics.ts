@@ -26,16 +26,68 @@ export function captureRippleEvent(event: string, properties?: PostHogEventPrope
   client?.capture(event, rippleEventProperties(properties));
 }
 
+/**
+ * Backoff schedule (ms) for {@link captureRippleEventReliable}. Covers the window right after
+ * cold start where `PostHogProviderShell` may not have mounted the shared client yet, without
+ * blocking the caller for long if PostHog is genuinely unavailable.
+ */
+const CAPTURE_RETRY_DELAYS_MS = [0, 300, 900, 2000, 4000];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Fires a PostHog event, retrying while the shared client hasn't mounted yet instead of the
+ * one-shot `client?.capture(...)` silently no-oping (see RIPPLE-ALARM paywall_viewed gaps).
+ * Callers stay fire-and-forget (`void captureRippleEventReliable(...)`); this resolves once it
+ * either captures or exhausts the retry window (~7s total).
+ */
+export async function captureRippleEventReliable(
+  event: string,
+  properties?: PostHogEventProperties,
+): Promise<boolean> {
+  if (!isPostHogConfigured()) {
+    return false;
+  }
+  for (let attempt = 0; attempt < CAPTURE_RETRY_DELAYS_MS.length; attempt++) {
+    const delay = CAPTURE_RETRY_DELAYS_MS[attempt];
+    if (delay > 0) {
+      await sleep(delay);
+    }
+    const client = getSharedPostHogClient();
+    if (client) {
+      client.capture(event, rippleEventProperties(properties));
+      return true;
+    }
+  }
+  return false;
+}
+
 export function captureAlarmCreated(): void {
-  captureRippleEvent(POSTHOG_EVENTS.alarmCreated);
+  void captureRippleEventReliable(POSTHOG_EVENTS.alarmCreated);
 }
 
-export function capturePaywallViewed(): void {
-  captureRippleEvent(POSTHOG_EVENTS.paywallViewed, { trigger: 'alarm_limit' });
+export type PaywallLimitTrigger = 'alarm_limit' | 'ring_limit';
+
+export function capturePaywallViewed(trigger: PaywallLimitTrigger = 'alarm_limit'): void {
+  void captureRippleEventReliable(POSTHOG_EVENTS.paywallViewed, { trigger });
 }
 
-export function capturePaywallDismissed(): void {
-  captureRippleEvent(POSTHOG_EVENTS.paywallDismissed, { trigger: 'alarm_limit' });
+export function capturePaywallDismissed(trigger: PaywallLimitTrigger = 'alarm_limit'): void {
+  void captureRippleEventReliable(POSTHOG_EVENTS.paywallDismissed, { trigger });
+}
+
+/**
+ * Fired the instant the free-tier alarm cap blocks a save/create attempt — before the paywall
+ * navigation and, on the local-cache fast path, before any network call. Pairs with
+ * `paywall_viewed` for a clean "limit reached → paywall opened → purchase" funnel.
+ */
+export function captureAlarmLimitReached(source: 'alarm_list' | 'alarm_create'): void {
+  void captureRippleEventReliable(POSTHOG_EVENTS.alarmLimitReached, {
+    trigger: 'alarm_limit',
+    source,
+  });
 }
 
 /** Sets PostHog person property for Android exact-alarm permission; fires event when status changes. */
